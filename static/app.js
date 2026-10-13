@@ -5,333 +5,582 @@
     videos: [],
     photos: [],
     poems: [],
-    view: 'all',
-    token: sessionStorage.getItem('admin_token') || '',
-    lightboxItems: [],
-    lightboxIndex: -1,
+    filter: 'all',
+    adminToken: sessionStorage.getItem('admin_token') || '',
+    viewerList: [],
+    viewerIndex: -1,
   };
 
-  const dom = {
-    navLinks: document.querySelectorAll('[data-view]'),
+  // DOM Elements
+  const el = {
+    countAll: document.getElementById('count-all'),
+    countVideos: document.getElementById('count-videos'),
+    countPhotos: document.getElementById('count-photos'),
+    countPoems: document.getElementById('count-poems'),
+    metaVideos: document.getElementById('meta-videos'),
+    metaPhotos: document.getElementById('meta-photos'),
+    metaPoems: document.getElementById('meta-poems'),
+    sectionVideos: document.getElementById('section-videos'),
+    sectionPhotos: document.getElementById('section-photos'),
+    sectionPoems: document.getElementById('section-poems'),
+    gridVideos: document.getElementById('grid-videos'),
+    gridPhotos: document.getElementById('grid-photos'),
+    gridPoems: document.getElementById('grid-poems'),
+    statusBanner: document.getElementById('status-banner'),
+    filterBtns: document.querySelectorAll('.filter-btn'),
+    resetFilter: document.getElementById('reset-filter'),
     themeToggle: document.getElementById('theme-toggle'),
     adminToggle: document.getElementById('admin-toggle'),
-    adminPanel: document.getElementById('admin-panel'),
-    adminToken: document.getElementById('admin-token'),
-    saveToken: document.getElementById('save-token'),
-    closeAdmin: document.getElementById('close-admin'),
 
-    viewVideos: document.getElementById('view-videos'),
-    viewPhotos: document.getElementById('view-photos'),
-    viewPoems: document.getElementById('view-poems'),
-    listVideos: document.getElementById('list-videos'),
-    listPhotos: document.getElementById('list-photos'),
-    listPoems: document.getElementById('list-poems'),
+    // Viewer Modal
+    viewerModal: document.getElementById('viewer-modal'),
+    viewerType: document.getElementById('viewer-type'),
+    viewerStage: document.getElementById('viewer-stage'),
+    viewerTitle: document.getElementById('viewer-title'),
+    viewerDescription: document.getElementById('viewer-description'),
+    viewerDate: document.getElementById('viewer-date'),
+    viewerPrev: document.getElementById('viewer-prev'),
+    viewerNext: document.getElementById('viewer-next'),
+    viewerClose: document.getElementById('viewer-close'),
+    viewerDelete: document.getElementById('viewer-delete'),
 
+    // Admin Modal
+    adminModal: document.getElementById('admin-modal'),
+    adminClose: document.getElementById('admin-close'),
+    adminTokenInput: document.getElementById('admin-token'),
+    saveTokenBtn: document.getElementById('save-token-btn'),
+    tokenStatus: document.getElementById('token-status'),
+    tabBtns: document.querySelectorAll('.tab-btn'),
     uploadForm: document.getElementById('upload-form'),
     uploadFile: document.getElementById('upload-file'),
     uploadTitle: document.getElementById('upload-title'),
-    uploadDesc: document.getElementById('upload-description'),
-    uploadStatus: document.getElementById('upload-status'),
+    uploadDescription: document.getElementById('upload-description'),
+    uploadProgressWrap: document.getElementById('upload-progress-wrap'),
+    uploadStatusText: document.getElementById('upload-status-text'),
+    uploadPercent: document.getElementById('upload-percent'),
+    uploadProgressBar: document.getElementById('upload-progress-bar'),
+    uploadMessage: document.getElementById('upload-message'),
     uploadSubmit: document.getElementById('upload-submit'),
-
     poemForm: document.getElementById('poem-form'),
     poemTitle: document.getElementById('poem-title'),
     poemContent: document.getElementById('poem-content'),
-    poemStatus: document.getElementById('poem-status'),
+    poemMessage: document.getElementById('poem-message'),
     poemSubmit: document.getElementById('poem-submit'),
-
-    lightbox: document.getElementById('lightbox'),
-    lightboxStage: document.getElementById('lightbox-stage'),
-    lightboxCaption: document.getElementById('lightbox-caption'),
-    lightboxPrev: document.getElementById('lightbox-prev'),
-    lightboxNext: document.getElementById('lightbox-next'),
-    lightboxClose: document.getElementById('lightbox-close'),
   };
 
-  function extractArray(data, keys) {
-    if (Array.isArray(data)) return data;
-    if (data && typeof data === 'object') {
-      for (const k of keys) {
-        if (Array.isArray(data[k])) return data[k];
+  // Helpers
+  function normalizeList(payload, keys) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && typeof payload === 'object') {
+      for (const key of keys) {
+        if (Array.isArray(payload[key])) return payload[key];
       }
     }
     return [];
   }
 
-  function resolveUrl(u) {
-    if (!u) return '';
-    return u.startsWith('/') || u.startsWith('http') ? u : '/' + u;
+  function normalizeUrl(rawUrl) {
+    if (!rawUrl) return '';
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('/')) {
+      return rawUrl;
+    }
+    return '/' + rawUrl;
   }
 
-  function isVideo(item) {
-    const t = String(item.media_type || item.type || item.file_type || item.mime_type || '').toLowerCase();
-    if (t.includes('video')) return true;
-    if (t.includes('image') || t.includes('photo')) return false;
-    const u = String(item.relative_url || item.url || item.filename || '').toLowerCase();
-    return u.includes('/videos/') || /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u);
+  function isVideoItem(item) {
+    const typeField = String(item.media_type || item.type || item.file_type || item.mime_type || '').toLowerCase();
+    if (typeField.includes('video')) return true;
+    if (typeField.includes('image') || typeField.includes('photo')) return false;
+    const url = String(item.relative_url || item.url || item.filename || '').toLowerCase();
+    if (url.includes('/videos/')) return true;
+    return /\.(mp4|webm|ogg|mov|m4v|mkv)(\?|$)/i.test(url);
   }
 
-  async function fetchAll() {
+  function formatDate(raw) {
+    if (!raw) return '';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return String(raw).slice(0, 10);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function setStatusBanner(msg) {
+    if (!msg) {
+      el.statusBanner.hidden = true;
+      el.statusBanner.textContent = '';
+      return;
+    }
+    el.statusBanner.textContent = msg;
+    el.statusBanner.hidden = false;
+  }
+
+  function showFormMessage(target, text, isError = false) {
+    target.textContent = text;
+    target.className = 'form-message ' + (isError ? 'is-error' : 'is-success');
+    target.hidden = false;
+  }
+
+  // Theme management
+  function initTheme() {
+    const saved = localStorage.getItem('portfolio_theme') || 'dark';
+    applyTheme(saved);
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('portfolio_theme', theme);
+    el.themeToggle.textContent = theme === 'dark' ? 'Light' : 'Dark';
+  }
+
+  // Token management
+  function updateTokenUI() {
+    el.adminTokenInput.value = state.adminToken;
+    if (state.adminToken) {
+      el.tokenStatus.textContent = 'Token saved in session. Delete controls are active.';
+    } else {
+      el.tokenStatus.textContent = 'No token saved. Enter token to upload or delete items.';
+    }
+    renderAll();
+  }
+
+  // Data Fetching
+  async function loadPortfolioData() {
+    setStatusBanner('');
     try {
-      const [mRes, pRes] = await Promise.all([
-        fetch('/api/media'),
-        fetch('/api/poems'),
+      const [mediaRes, poemsRes] = await Promise.all([
+        fetch('/api/media', { headers: { Accept: 'application/json' } }),
+        fetch('/api/poems', { headers: { Accept: 'application/json' } }),
       ]);
 
-      const mJson = mRes.ok ? await mRes.json() : [];
-      const pJson = pRes.ok ? await pRes.json() : [];
+      if (!mediaRes.ok) throw new Error(`GET /api/media returned ${mediaRes.status}`);
+      if (!poemsRes.ok) throw new Error(`GET /api/poems returned ${poemsRes.status}`);
 
-      const media = extractArray(mJson, ['media', 'items', 'data']);
-      const poems = extractArray(pJson, ['poems', 'items', 'data']);
+      const mediaData = await mediaRes.json();
+      const poemsData = await poemsRes.json();
+
+      const allMedia = normalizeList(mediaData, ['media', 'items', 'data']);
+      const allPoems = normalizeList(poemsData, ['poems', 'items', 'data']);
 
       state.videos = [];
       state.photos = [];
 
-      media.forEach((m) => {
-        const entry = {
-          id: m.id,
-          title: m.title || '',
-          description: m.description || '',
-          url: resolveUrl(m.relative_url || m.url || m.file_path),
-          kind: isVideo(m) ? 'video' : 'photo',
+      allMedia.forEach((item) => {
+        const normalized = {
+          id: item.id,
+          title: item.title || 'Untitled',
+          description: item.description || '',
+          url: normalizeUrl(item.relative_url || item.url || item.file_path),
+          date: formatDate(item.created_at || item.uploaded_at || item.date),
+          kind: isVideoItem(item) ? 'video' : 'photo',
         };
-        if (entry.kind === 'video') state.videos.push(entry);
-        else state.photos.push(entry);
+        if (normalized.kind === 'video') {
+          state.videos.push(normalized);
+        } else {
+          state.photos.push(normalized);
+        }
       });
 
-      state.poems = poems.map((p) => ({
+      state.poems = allPoems.map((p) => ({
         id: p.id,
-        title: p.title || '',
+        title: p.title || 'Untitled',
         content: p.content || p.body || p.text || p.poem || '',
+        date: formatDate(p.created_at || p.date),
+        kind: 'poem',
       }));
 
-      render();
+      renderAll();
     } catch (err) {
-      console.error(err);
+      setStatusBanner(`Failed to load portfolio items: ${err.message}`);
     }
   }
 
-  function buildCaption(item, endpoint) {
-    const cap = document.createElement('figcaption');
-    cap.className = 'caption';
+  // Rendering
+  function renderCounts() {
+    const vCount = state.videos.length;
+    const phCount = state.photos.length;
+    const poCount = state.poems.length;
+    const total = vCount + phCount + poCount;
 
-    const left = document.createElement('div');
-    const title = document.createElement('span');
-    title.className = 'caption-text';
-    title.textContent = item.title;
-    left.appendChild(title);
+    el.countAll.textContent = total;
+    el.countVideos.textContent = vCount;
+    el.countPhotos.textContent = phCount;
+    el.countPoems.textContent = poCount;
 
-    if (item.description) {
-      const desc = document.createElement('span');
-      desc.className = 'caption-desc';
-      desc.textContent = item.description;
-      left.appendChild(desc);
-    }
-    cap.appendChild(left);
-
-    if (state.token && item.id !== undefined) {
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'delete-btn';
-      del.textContent = 'delete';
-      del.addEventListener('click', () => removeItem(endpoint, item.id));
-      cap.appendChild(del);
-    }
-
-    return cap;
+    el.metaVideos.textContent = `${vCount} ${vCount === 1 ? 'item' : 'items'}`;
+    el.metaPhotos.textContent = `${phCount} ${phCount === 1 ? 'item' : 'items'}`;
+    el.metaPoems.textContent = `${poCount} ${poCount === 1 ? 'item' : 'items'}`;
   }
 
-  function render() {
-    const v = state.view;
-    dom.viewVideos.hidden = (v !== 'all' && v !== 'videos') || state.videos.length === 0;
-    dom.viewPhotos.hidden = (v !== 'all' && v !== 'photos') || state.photos.length === 0;
-    dom.viewPoems.hidden = (v !== 'all' && v !== 'poems') || state.poems.length === 0;
+  function applyFilterVisibility() {
+    const f = state.filter;
+    el.sectionVideos.hidden = f !== 'all' && f !== 'videos';
+    el.sectionPhotos.hidden = f !== 'all' && f !== 'photos';
+    el.sectionPoems.hidden = f !== 'all' && f !== 'poems';
 
-    // Videos
-    dom.listVideos.replaceChildren();
-    state.videos.forEach((item, idx) => {
-      const fig = document.createElement('figure');
-      fig.className = 'figure';
-
-      const vid = document.createElement('video');
-      vid.className = 'figure-media';
-      vid.src = item.url;
-      vid.controls = true;
-      vid.preload = 'metadata';
-      vid.playsInline = true;
-
-      fig.appendChild(vid);
-      fig.appendChild(buildCaption(item, 'media'));
-      dom.listVideos.appendChild(fig);
-    });
-
-    // Photos
-    dom.listPhotos.replaceChildren();
-    state.photos.forEach((item, idx) => {
-      const fig = document.createElement('figure');
-      fig.className = 'figure';
-
-      const img = document.createElement('img');
-      img.className = 'figure-media';
-      img.src = item.url;
-      img.alt = item.title;
-      img.loading = 'lazy';
-      img.addEventListener('click', () => openLightbox(state.photos, idx));
-
-      fig.appendChild(img);
-      fig.appendChild(buildCaption(item, 'media'));
-      dom.listPhotos.appendChild(fig);
-    });
-
-    // Poems
-    dom.listPoems.replaceChildren();
-    state.poems.forEach((poem) => {
-      const article = document.createElement('article');
-      article.className = 'poem-entry';
-
-      const head = document.createElement('div');
-      head.className = 'poem-head';
-
-      const title = document.createElement('h2');
-      title.className = 'poem-title';
-      title.textContent = poem.title;
-      head.appendChild(title);
-
-      if (state.token && poem.id !== undefined) {
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'delete-btn';
-        del.textContent = 'delete';
-        del.addEventListener('click', () => removeItem('poems', poem.id));
-        head.appendChild(del);
-      }
-
-      const body = document.createElement('div');
-      body.className = 'poem-text';
-      body.textContent = poem.content;
-
-      article.appendChild(head);
-      article.appendChild(body);
-      dom.listPoems.appendChild(article);
+    el.filterBtns.forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.filter === f);
     });
   }
 
-  // Lightbox
-  function openLightbox(items, index) {
-    state.lightboxItems = items;
-    state.lightboxIndex = index;
-    renderLightbox();
-    dom.lightbox.hidden = false;
-    document.body.style.overflow = 'hidden';
+  function createEmptyNode(label) {
+    const div = document.createElement('div');
+    div.className = 'empty-state';
+    div.textContent = `No ${label} published.`;
+    return div;
   }
 
-  function closeLightbox() {
-    dom.lightboxStage.replaceChildren();
-    dom.lightbox.hidden = true;
-    document.body.style.overflow = '';
-  }
-
-  function stepLightbox(dir) {
-    const len = state.lightboxItems.length;
-    if (!len) return;
-    state.lightboxIndex = (state.lightboxIndex + dir + len) % len;
-    renderLightbox();
-  }
-
-  function renderLightbox() {
-    const item = state.lightboxItems[state.lightboxIndex];
-    if (!item) return;
-
-    dom.lightboxStage.replaceChildren();
-    dom.lightboxCaption.textContent = [item.title, item.description].filter(Boolean).join(' — ');
-
-    const img = document.createElement('img');
-    img.src = item.url;
-    img.alt = item.title;
-    dom.lightboxStage.appendChild(img);
-  }
-
-  // Delete
-  async function removeItem(endpoint, id) {
-    if (!state.token) return;
-    if (!window.confirm('Delete this item?')) return;
-
-    const res = await fetch(`/api/${endpoint}/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: { 'X-Admin-Token': state.token },
-    });
-
-    if (res.ok) {
-      fetchAll();
-    } else {
-      alert(`Delete failed (${res.status})`);
-    }
-  }
-
-  // Upload Media
-  function handleUpload(e) {
-    e.preventDefault();
-    const token = dom.adminToken.value.trim() || state.token;
-    const file = dom.uploadFile.files[0];
-    if (!token || !file) {
-      dom.uploadStatus.textContent = 'token and file required';
+  function renderMediaGrid(container, items, kindLabel) {
+    container.replaceChildren();
+    if (items.length === 0) {
+      container.appendChild(createEmptyNode(kindLabel));
       return;
     }
 
-    state.token = token;
-    sessionStorage.setItem('admin_token', token);
+    items.forEach((item, idx) => {
+      const card = document.createElement('article');
+      card.className = 'media-card';
 
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('title', dom.uploadTitle.value.trim());
-    fd.append('description', dom.uploadDesc.value.trim());
+      const thumbBtn = document.createElement('button');
+      thumbBtn.type = 'button';
+      thumbBtn.className = 'media-thumb-btn';
+      thumbBtn.addEventListener('click', () => openViewer(items, idx));
+
+      if (item.kind === 'video') {
+        const video = document.createElement('video');
+        video.src = item.url;
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        thumbBtn.appendChild(video);
+
+        const badge = document.createElement('span');
+        badge.className = 'video-badge';
+        badge.textContent = 'VIDEO';
+        thumbBtn.appendChild(badge);
+      } else {
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.alt = item.title;
+        img.loading = 'lazy';
+        thumbBtn.appendChild(img);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'media-body';
+
+      const titleRow = document.createElement('div');
+      titleRow.className = 'media-title-row';
+
+      const title = document.createElement('h3');
+      title.className = 'media-title';
+      title.textContent = item.title;
+      titleRow.appendChild(title);
+      body.appendChild(titleRow);
+
+      if (item.description) {
+        const desc = document.createElement('p');
+        desc.className = 'media-desc';
+        desc.textContent = item.description;
+        body.appendChild(desc);
+      }
+
+      const footer = document.createElement('div');
+      footer.className = 'media-footer';
+
+      const dateSpan = document.createElement('span');
+      dateSpan.textContent = item.date || `#${item.id}`;
+      footer.appendChild(dateSpan);
+
+      if (state.adminToken && item.id !== undefined) {
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'inline-delete';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteItem('media', item.id);
+        });
+        footer.appendChild(delBtn);
+      }
+
+      body.appendChild(footer);
+      card.appendChild(thumbBtn);
+      card.appendChild(body);
+      container.appendChild(card);
+    });
+  }
+
+  function renderPoemsGrid(container, poems) {
+    container.replaceChildren();
+    if (poems.length === 0) {
+      container.appendChild(createEmptyNode('poems'));
+      return;
+    }
+
+    poems.forEach((poem, idx) => {
+      const card = document.createElement('article');
+      card.className = 'poem-card';
+
+      const top = document.createElement('div');
+
+      const header = document.createElement('div');
+      header.className = 'poem-header';
+
+      const title = document.createElement('h3');
+      title.className = 'poem-title';
+      title.textContent = poem.title;
+
+      const date = document.createElement('span');
+      date.className = 'poem-date';
+      date.textContent = poem.date || `#${poem.id}`;
+
+      header.appendChild(title);
+      header.appendChild(date);
+
+      const body = document.createElement('div');
+      body.className = 'poem-body';
+      body.textContent = poem.content;
+
+      top.appendChild(header);
+      top.appendChild(body);
+
+      const footer = document.createElement('div');
+      footer.className = 'poem-footer';
+
+      const readBtn = document.createElement('button');
+      readBtn.type = 'button';
+      readBtn.className = 'read-btn';
+      readBtn.textContent = 'Open';
+      readBtn.addEventListener('click', () => openViewer(poems, idx));
+      footer.appendChild(readBtn);
+
+      if (state.adminToken && poem.id !== undefined) {
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'inline-delete';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', () => deleteItem('poems', poem.id));
+        footer.appendChild(delBtn);
+      }
+
+      card.appendChild(top);
+      card.appendChild(footer);
+      container.appendChild(card);
+    });
+  }
+
+  function renderAll() {
+    renderCounts();
+    applyFilterVisibility();
+    renderMediaGrid(el.gridVideos, state.videos, 'videos');
+    renderMediaGrid(el.gridPhotos, state.photos, 'photos');
+    renderPoemsGrid(el.gridPoems, state.poems);
+  }
+
+  // Viewer Modal
+  function openViewer(list, index) {
+    state.viewerList = list;
+    state.viewerIndex = index;
+    updateViewerContent();
+    el.viewerModal.hidden = false;
+    el.viewerModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeViewer() {
+    el.viewerStage.replaceChildren();
+    el.viewerModal.hidden = true;
+    el.viewerModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    state.viewerList = [];
+    state.viewerIndex = -1;
+  }
+
+  function stepViewer(delta) {
+    if (!state.viewerList.length) return;
+    const len = state.viewerList.length;
+    state.viewerIndex = (state.viewerIndex + delta + len) % len;
+    updateViewerContent();
+  }
+
+  function updateViewerContent() {
+    const item = state.viewerList[state.viewerIndex];
+    if (!item) return;
+
+    el.viewerStage.replaceChildren();
+    el.viewerType.textContent = `${item.kind.toUpperCase()} (${state.viewerIndex + 1}/${state.viewerList.length})`;
+    el.viewerTitle.textContent = item.title;
+    el.viewerDescription.textContent = item.description || '';
+    el.viewerDate.textContent = item.date || '';
+
+    el.viewerPrev.disabled = state.viewerList.length <= 1;
+    el.viewerNext.disabled = state.viewerList.length <= 1;
+
+    if (state.adminToken && item.id !== undefined) {
+      el.viewerDelete.hidden = false;
+      el.viewerDelete.onclick = () => {
+        const endpointType = item.kind === 'poem' ? 'poems' : 'media';
+        deleteItem(endpointType, item.id, true);
+      };
+    } else {
+      el.viewerDelete.hidden = true;
+      el.viewerDelete.onclick = null;
+    }
+
+    if (item.kind === 'video') {
+      const video = document.createElement('video');
+      video.src = item.url;
+      video.controls = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      el.viewerStage.appendChild(video);
+    } else if (item.kind === 'photo') {
+      const img = document.createElement('img');
+      img.src = item.url;
+      img.alt = item.title;
+      el.viewerStage.appendChild(img);
+    } else if (item.kind === 'poem') {
+      const poemDiv = document.createElement('div');
+      poemDiv.className = 'viewer-poem';
+      poemDiv.textContent = item.content;
+      el.viewerStage.appendChild(poemDiv);
+    }
+  }
+
+  // Delete Handler
+  async function deleteItem(endpointType, id, fromViewer = false) {
+    if (!state.adminToken) {
+      openAdminModal();
+      return;
+    }
+    if (!window.confirm(`Delete item #${id}?`)) return;
+
+    try {
+      const res = await fetch(`/api/${endpointType}/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Admin-Token': state.adminToken,
+        },
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+
+      if (fromViewer) closeViewer();
+      await loadPortfolioData();
+    } catch (err) {
+      window.alert(`Delete failed: ${err.message}`);
+    }
+  }
+
+  // Admin Modal
+  function openAdminModal() {
+    el.uploadMessage.hidden = true;
+    el.poemMessage.hidden = true;
+    el.adminModal.hidden = false;
+    el.adminModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeAdminModal() {
+    el.adminModal.hidden = true;
+    el.adminModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  // Multipart Upload with XHR progress
+  function handleMediaUpload(e) {
+    e.preventDefault();
+    el.uploadMessage.hidden = true;
+
+    const token = el.adminTokenInput.value.trim() || state.adminToken;
+    if (!token) {
+      showFormMessage(el.uploadMessage, 'Admin token is required.', true);
+      return;
+    }
+
+    const file = el.uploadFile.files[0];
+    if (!file) {
+      showFormMessage(el.uploadMessage, 'Select a file to upload.', true);
+      return;
+    }
+
+    state.adminToken = token;
+    sessionStorage.setItem('admin_token', token);
+    updateTokenUI();
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', el.uploadTitle.value.trim());
+    formData.append('description', el.uploadDescription.value.trim());
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/upload', true);
     xhr.setRequestHeader('X-Admin-Token', token);
 
-    dom.uploadSubmit.disabled = true;
-    dom.uploadStatus.textContent = '0%';
+    el.uploadSubmit.disabled = true;
+    el.uploadProgressWrap.hidden = false;
+    el.uploadProgressBar.style.width = '0%';
+    el.uploadPercent.textContent = '0%';
+    el.uploadStatusText.textContent = 'Uploading...';
 
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) {
-        dom.uploadStatus.textContent = `${Math.round((ev.loaded / ev.total) * 100)}%`;
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const pct = Math.round((event.loaded / event.total) * 100);
+        el.uploadProgressBar.style.width = `${pct}%`;
+        el.uploadPercent.textContent = `${pct}%`;
       }
     };
 
-    xhr.onload = () => {
-      dom.uploadSubmit.disabled = false;
+    xhr.onload = async () => {
+      el.uploadSubmit.disabled = false;
       if (xhr.status >= 200 && xhr.status < 300) {
-        dom.uploadForm.reset();
-        dom.uploadStatus.textContent = 'uploaded';
-        fetchAll();
+        el.uploadForm.reset();
+        el.uploadStatusText.textContent = 'Complete';
+        showFormMessage(el.uploadMessage, 'File uploaded.', false);
+        await loadPortfolioData();
       } else {
-        dom.uploadStatus.textContent = `error ${xhr.status}`;
+        let errMsg = `Upload failed (${xhr.status})`;
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed.error || parsed.detail || parsed.message) {
+            errMsg = parsed.error || parsed.detail || parsed.message;
+          }
+        } catch (_) {
+          if (xhr.responseText) errMsg = xhr.responseText;
+        }
+        showFormMessage(el.uploadMessage, errMsg, true);
       }
     };
 
     xhr.onerror = () => {
-      dom.uploadSubmit.disabled = false;
-      dom.uploadStatus.textContent = 'network error';
+      el.uploadSubmit.disabled = false;
+      showFormMessage(el.uploadMessage, 'Network error during upload.', true);
     };
 
-    xhr.send(fd);
+    xhr.send(formData);
   }
 
-  // Publish Poem
-  async function handlePoem(e) {
+  // Poem Submission
+  async function handlePoemSubmit(e) {
     e.preventDefault();
-    const token = dom.adminToken.value.trim() || state.token;
+    el.poemMessage.hidden = true;
+
+    const token = el.adminTokenInput.value.trim() || state.adminToken;
     if (!token) {
-      dom.poemStatus.textContent = 'token required';
+      showFormMessage(el.poemMessage, 'Admin token is required.', true);
       return;
     }
 
-    state.token = token;
+    state.adminToken = token;
     sessionStorage.setItem('admin_token', token);
-    dom.poemSubmit.disabled = true;
-    dom.poemStatus.textContent = 'saving...';
+    updateTokenUI();
 
+    const title = el.poemTitle.value.trim();
+    const content = el.poemContent.value.trim();
+
+    el.poemSubmit.disabled = true;
     try {
       const res = await fetch('/api/poems', {
         method: 'POST',
@@ -339,79 +588,98 @@
           'Content-Type': 'application/json',
           'X-Admin-Token': token,
         },
-        body: JSON.stringify({
-          title: dom.poemTitle.value.trim(),
-          content: dom.poemContent.value.trim(),
-        }),
+        body: JSON.stringify({ title, content }),
       });
 
-      if (!res.ok) throw new Error(res.status);
-      dom.poemForm.reset();
-      dom.poemStatus.textContent = 'published';
-      fetchAll();
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+
+      el.poemForm.reset();
+      showFormMessage(el.poemMessage, 'Poem published.', false);
+      await loadPortfolioData();
     } catch (err) {
-      dom.poemStatus.textContent = `error ${err.message}`;
+      showFormMessage(el.poemMessage, `Failed: ${err.message}`, true);
     } finally {
-      dom.poemSubmit.disabled = false;
+      el.poemSubmit.disabled = false;
     }
   }
 
-  // Init
-  function init() {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    dom.themeToggle.textContent = savedTheme === 'dark' ? 'light' : 'dark';
-    dom.adminToken.value = state.token;
-
-    dom.navLinks.forEach((btn) => {
+  // Event Listeners
+  function bindEvents() {
+    el.filterBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        state.view = btn.dataset.view;
-        dom.navLinks.forEach((b) => b.classList.toggle('is-active', b === btn));
-        render();
+        state.filter = btn.dataset.filter;
+        applyFilterVisibility();
       });
     });
 
-    dom.themeToggle.addEventListener('click', () => {
-      const cur = document.documentElement.getAttribute('data-theme');
-      const next = cur === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-      dom.themeToggle.textContent = next === 'dark' ? 'light' : 'dark';
+    el.resetFilter.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.filter = 'all';
+      applyFilterVisibility();
     });
 
-    dom.adminToggle.addEventListener('click', () => {
-      dom.adminPanel.hidden = !dom.adminPanel.hidden;
+    el.themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      applyTheme(current === 'dark' ? 'light' : 'dark');
     });
 
-    dom.closeAdmin.addEventListener('click', () => {
-      dom.adminPanel.hidden = true;
+    el.adminToggle.addEventListener('click', openAdminModal);
+    el.adminClose.addEventListener('click', closeAdminModal);
+
+    el.saveTokenBtn.addEventListener('click', () => {
+      state.adminToken = el.adminTokenInput.value.trim();
+      if (state.adminToken) {
+        sessionStorage.setItem('admin_token', state.adminToken);
+      } else {
+        sessionStorage.removeItem('admin_token');
+      }
+      updateTokenUI();
     });
 
-    dom.saveToken.addEventListener('click', () => {
-      state.token = dom.adminToken.value.trim();
-      sessionStorage.setItem('admin_token', state.token);
-      render();
+    el.tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        el.tabBtns.forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        const isMedia = btn.dataset.tab === 'upload-media';
+        el.uploadForm.hidden = !isMedia;
+        el.poemForm.hidden = isMedia;
+      });
     });
 
-    dom.uploadForm.addEventListener('submit', handleUpload);
-    dom.poemForm.addEventListener('submit', handlePoem);
+    el.uploadForm.addEventListener('submit', handleMediaUpload);
+    el.poemForm.addEventListener('submit', handlePoemSubmit);
 
-    dom.lightboxClose.addEventListener('click', closeLightbox);
-    dom.lightboxPrev.addEventListener('click', () => stepLightbox(-1));
-    dom.lightboxNext.addEventListener('click', () => stepLightbox(1));
-    dom.lightboxStage.addEventListener('click', (e) => {
-      if (e.target === dom.lightboxStage) closeLightbox();
+    // Viewer Controls
+    el.viewerClose.addEventListener('click', closeViewer);
+    el.viewerPrev.addEventListener('click', () => stepViewer(-1));
+    el.viewerNext.addEventListener('click', () => stepViewer(1));
+
+    // Backdrop click to close
+    el.viewerModal.addEventListener('click', (e) => {
+      if (e.target === el.viewerModal) closeViewer();
+    });
+    el.adminModal.addEventListener('click', (e) => {
+      if (e.target === el.adminModal) closeAdminModal();
     });
 
+    // Keyboard navigation
     document.addEventListener('keydown', (e) => {
-      if (dom.lightbox.hidden) return;
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowLeft') stepLightbox(-1);
-      if (e.key === 'ArrowRight') stepLightbox(1);
+      if (!el.viewerModal.hidden) {
+        if (e.key === 'Escape') closeViewer();
+        if (e.key === 'ArrowLeft') stepViewer(-1);
+        if (e.key === 'ArrowRight') stepViewer(1);
+      } else if (!el.adminModal.hidden && e.key === 'Escape') {
+        closeAdminModal();
+      }
     });
-
-    fetchAll();
   }
 
-  init();
+  // Initialize
+  initTheme();
+  updateTokenUI();
+  bindEvents();
+  loadPortfolioData();
 })();
