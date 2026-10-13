@@ -250,7 +250,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Range, X-Admin-Token")
         self.send_header("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; media-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'")
+        self.send_header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; media-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:")
         if self.close_connection:
             self.send_header("Connection", "close")
 
@@ -295,11 +295,19 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         raw = self.rfile.read(content_length)
         return json.loads(raw.decode("utf-8"))
 
-    def serve_file_with_range(self, filepath: Path):
+    def serve_file_with_range(self, filepath: Path, head_only: bool = False):
         total_size = filepath.stat().st_size
         mime_type, _ = mimetypes.guess_type(str(filepath))
         if not mime_type:
             mime_type = "application/octet-stream"
+
+        ext = filepath.suffix.lower()
+        if ext in {".html", ".htm"}:
+            cache_header = "no-cache, no-store, must-revalidate"
+        elif ext in {".css", ".js"}:
+            cache_header = "no-cache, must-revalidate"
+        else:
+            cache_header = "public, max-age=86400"
 
         range_header = self.headers.get("Range")
 
@@ -324,18 +332,19 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Range", f"bytes {start}-{end}/{total_size}")
                 self.send_header("Content-Length", str(content_length))
                 self.send_header("Content-Disposition", "inline")
-                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Cache-Control", cache_header)
                 self.end_headers()
 
-                with open(filepath, "rb") as f:
-                    f.seek(start)
-                    bytes_remaining = content_length
-                    while bytes_remaining > 0:
-                        chunk = f.read(min(CHUNK_SIZE, bytes_remaining))
-                        if not chunk:
-                            break
-                        self.wfile.write(chunk)
-                        bytes_remaining -= len(chunk)
+                if not head_only:
+                    with open(filepath, "rb") as f:
+                        f.seek(start)
+                        bytes_remaining = content_length
+                        while bytes_remaining > 0:
+                            chunk = f.read(min(CHUNK_SIZE, bytes_remaining))
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                            bytes_remaining -= len(chunk)
 
             else:
                 self.send_response(200)
@@ -344,20 +353,24 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 self.send_header("Accept-Ranges", "bytes")
                 self.send_header("Content-Length", str(total_size))
                 self.send_header("Content-Disposition", "inline")
-                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Cache-Control", cache_header)
                 self.end_headers()
 
-                with open(filepath, "rb") as f:
-                    while True:
-                        chunk = f.read(CHUNK_SIZE)
-                        if not chunk:
-                            break
-                        self.wfile.write(chunk)
+                if not head_only:
+                    with open(filepath, "rb") as f:
+                        while True:
+                            chunk = f.read(CHUNK_SIZE)
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
 
         except (BrokenPipeError, ConnectionResetError):
             pass
 
-    def do_GET(self):
+    def do_HEAD(self):
+        self.do_GET(head_only=True)
+
+    def do_GET(self, head_only: bool = False):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
@@ -419,20 +432,20 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 self.send_error_json(404, "Uploaded asset not found or no longer active")
                 return
 
-            self.serve_file_with_range(safe_target)
+            self.serve_file_with_range(safe_target, head_only=head_only)
             return
 
         if path == "/" or path == "/dashboard":
             safe_index = resolve_safe_path(STATIC_DIR, "index.html")
             if safe_index:
-                self.serve_file_with_range(safe_index)
+                self.serve_file_with_range(safe_index, head_only=head_only)
                 return
 
         if path.startswith("/static/"):
             rel_path = path[len("/static/"):].lstrip("/")
             safe_target = resolve_safe_path(STATIC_DIR, rel_path)
             if safe_target:
-                self.serve_file_with_range(safe_target)
+                self.serve_file_with_range(safe_target, head_only=head_only)
                 return
             else:
                 self.send_error_json(404, "Static asset not found")
