@@ -1,0 +1,24 @@
+# Security & Secret Tokens
+.admin_token
+*.env
+
+# SQLite Database & Write-Ahead Logs
+*.db
+*.db-wal
+*.db-shm
+
+# Media Uploads & Temporary Parsing Cache
+uploads/videos/*
+!uploads/videos/.gitkeep
+uploads/images/*
+!uploads/images/.gitkeep
+.tmp_uploads/*
+!.tmp_uploads/.gitkeep
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/

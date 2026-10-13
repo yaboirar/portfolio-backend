@@ -1,0 +1,5 @@
+# Dependencies for Creative Portfolio Backend
+# Install via: pip install -r requirements.txt
+python-multipart>=0.0.20
+Pillow>=10.0.0
+mutagen>=1.47.0

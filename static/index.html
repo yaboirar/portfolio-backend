@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio Portfolio Backend</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">
+            <span class="badge" id="authBadge">🔒 ADMIN LOCKED</span>
+            <h2>Studio Core <span>// Portfolio API</span></h2>
+        </div>
+        <div class="stats-pills" id="statsPills">
+            <span class="pill" id="statVideos">🎬 0 Videos</span>
+            <span class="pill" id="statImages">🎨 0 Images</span>
+            <span class="pill" id="statPoems">✍️ 0 Poems</span>
+            <span class="pill" id="statStorage">💾 0 MB</span>
+            <div class="auth-bar" style="display:flex; align-items:center; gap:0.4rem;">
+                <input type="password" id="adminKeyInput" placeholder="Admin Key" style="width:130px; padding:0.25rem 0.5rem; font-size:0.75rem; border-radius:6px; background:#0b0d11; border:1px solid #30363d; color:#fff;" title="Enter admin key to unlock uploading & deleting">
+                <button type="button" class="btn secondary" id="adminKeyBtn" style="padding:0.25rem 0.6rem; font-size:0.75rem; width:auto;">Unlock</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Architecture Concept Banner -->
+        <section class="concept-card">
+            <div class="concept-header">
+                <h3>💡 Proper Database Architecture for Creative Portfolios</h3>
+                <span class="concept-tag">Best Practice</span>
+            </div>
+            <div class="concept-grid">
+                <div class="concept-box">
+                    <h4>❌ What NOT to do</h4>
+                    <p>Storing 50MB MP4 videos or 5MB images directly inside database columns (as BLOBs). This bloats database RAM, causes query locks, prevents browser range-seeking, and creates serious playback hiccups.</p>
+                </div>
+                <div class="concept-box active">
+                    <h4>✅ What this server does</h4>
+                    <p><strong>Filesystem</strong> stores media files in <code>uploads/</code> with HTTP 206 Byte-Range streaming (instant video seeking). <strong>SQLite</strong> stores lightweight metadata (URLs, titles, sizes, tags) and full poem text.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabs -->
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="mediaTab">🎬 Media Hub (Videos & Images)</button>
+            <button class="tab-btn" data-tab="poemsTab">✍️ Poems & Writings</button>
+            <button class="tab-btn" data-tab="dbTab">🗄️ Live Database Inspector</button>
+            <button class="tab-btn" data-tab="apiTab">🔌 API Reference for Frontend</button>
+        </nav>
+
+        <!-- Media Hub Section -->
+        <section id="mediaTab" class="tab-content active">
+            <div class="split-layout">
+                <!-- Upload Panel -->
+                <div class="panel upload-panel">
+                    <h3>Upload Creative Asset</h3>
+                    <p class="subtitle">Upload &lt;50MB MP4 editing reels or 3-5MB hobby photos</p>
+                    <form id="uploadForm">
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" id="mediaTitle" placeholder="e.g., Cinematic Reel 2026 or Film Photography" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Description / Story</label>
+                            <textarea id="mediaDesc" rows="2" placeholder="Brief note or client details"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Type Override</label>
+                            <select id="mediaType">
+                                <option value="auto">Auto-detect from file extension</option>
+                                <option value="video">Video (MP4 / WebM)</option>
+                                <option value="image">Image (JPG / PNG / WebP)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>File (MP4 or Image)</label>
+                            <div class="drop-zone" id="dropZone">
+                                <input type="file" id="mediaFile" accept="video/mp4,video/webm,image/*" required>
+                                <div class="drop-text" id="dropText">
+                                    <span>📁 Drag & drop or click to browse</span>
+                                    <small>Supports MP4 up to 100MB+, JPG/PNG up to 20MB</small>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn primary" id="uploadBtn">Upload & Register in DB</button>
+                        <div class="progress-bar-container" id="progressContainer" style="display:none;">
+                            <div class="progress-bar" id="progressBar"></div>
+                            <span class="progress-text" id="progressText">0%</span>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Media Gallery & Player -->
+                <div class="panel list-panel">
+                    <div class="panel-header">
+                        <h3>Portfolio Assets</h3>
+                        <div class="filter-group">
+                            <button class="filter-btn active" data-filter="all">All</button>
+                            <button class="filter-btn" data-filter="video">Videos</button>
+                            <button class="filter-btn" data-filter="image">Images</button>
+                        </div>
+                    </div>
+                    <div id="mediaGrid" class="media-grid">
+                        <div class="empty-state">No media assets uploaded yet. Try uploading an MP4 or photo!</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Poems & Writings Section -->
+        <section id="poemsTab" class="tab-content">
+            <div class="split-layout">
+                <!-- Write Poem -->
+                <div class="panel">
+                    <h3>Compose Poem / Piece</h3>
+                    <p class="subtitle">Stored cleanly in SQLite TEXT columns with full searchability</p>
+                    <form id="poemForm">
+                        <div class="form-group">
+                            <label>Poem Title</label>
+                            <input type="text" id="poemTitle" placeholder="e.g., Echoes of the Horizon" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Mood / Tone</label>
+                            <input type="text" id="poemMood" placeholder="e.g., Melancholic, Nostalgic, Radiant">
+                        </div>
+                        <div class="form-group">
+                            <label>Tags (comma separated)</label>
+                            <input type="text" id="poemTags" placeholder="e.g., night, memories, rain">
+                        </div>
+                        <div class="form-group">
+                            <label>Stanzas / Verses</label>
+                            <textarea id="poemContent" rows="10" placeholder="Write your poem here..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary">Publish to Portfolio DB</button>
+                    </form>
+                </div>
+
+                <!-- Poem Showcase -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Written Works</h3>
+                        <span id="poemCount" class="badge">0 Poems</span>
+                    </div>
+                    <div id="poemsList" class="poems-list">
+                        <div class="empty-state">No poems yet. Write your first stanza on the left!</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Database Inspector -->
+        <section id="dbTab" class="tab-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3>SQLite Live Inspector</h3>
+                        <p class="subtitle">See how metadata is separated from actual files on disk</p>
+                    </div>
+                    <button class="btn secondary" onclick="loadDatabaseInspector()">🔄 Refresh Tables</button>
+                </div>
+
+                <h4 class="table-title">Table: <code>media</code> (Paths, Sizes & Metadata)</h4>
+                <div class="table-wrap">
+                    <table id="dbMediaTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>File Name</th>
+                                <th>Relative URL</th>
+                                <th>File Size</th>
+                                <th>MIME</th>
+                                <th>Created At</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <h4 class="table-title" style="margin-top: 2rem;">Table: <code>poems</code> (Text & Content)</h4>
+                <div class="table-wrap">
+                    <table id="dbPoemsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Mood</th>
+                                <th>Tags</th>
+                                <th>Content Excerpt</th>
+                                <th>Created At</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- API Reference -->
+        <section id="apiTab" class="tab-content">
+            <div class="panel">
+                <h3>Frontend Integration Reference</h3>
+                <p class="subtitle">When you're ready to build your portfolio frontend (React, Vue, Vanilla JS), use these standard endpoints:</p>
+
+                <div class="endpoint-card">
+                    <span class="method get">GET</span>
+                    <code>/api/media?type=video</code>
+                    <p>Fetches all video metadata for your video reel showcase.</p>
+                </div>
+
+                <div class="endpoint-card">
+                    <span class="method get">GET</span>
+                    <code>/api/media?type=image</code>
+                    <p>Fetches all hobby photos for your gallery grid.</p>
+                </div>
+
+                <div class="endpoint-card">
+                    <span class="method get">GET</span>
+                    <code>/uploads/videos/{filename}</code>
+                    <p>Streams the MP4 video using HTTP 206 Byte-Range requests for instant scrubbing/seeking.</p>
+                </div>
+
+                <div class="endpoint-card">
+                    <span class="method get">GET</span>
+                    <code>/api/poems</code>
+                    <p>Returns list of poems with mood, tags, and formatted stanzas.</p>
+                </div>
+
+                <div class="endpoint-card">
+                    <span class="method post">POST</span>
+                    <code>/api/upload</code>
+                    <p>Upload new video or image via <code>FormData</code>. Saves file to disk & creates record in SQLite.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
