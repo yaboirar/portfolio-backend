@@ -145,40 +145,161 @@
   }
 
   /* ========================================================================
-     TOP-LEFT NAVIGATION: ACTIVE CATEGORY PILL + HOVER SLIDE DRAWER
+     TOP-LEFT NAVIGATION: SHRINK TO ACTIVE CATEGORY & SLIDE OUT OTHERS ON HOVER
      ======================================================================== */
-  function renderNavPill(activeKey, shrinkImmediately = false) {
-    const currentCat = CATEGORIES.find((c) => c.key === activeKey) || CATEGORIES[0];
-    const otherCats = CATEGORIES.filter((c) => c.key !== currentCat.key);
+  function uiScale() {
+    return Math.min(1, Math.max(0.5, window.innerWidth / 1440));
+  }
 
-    // Set the main visible button on the left to the active category (with TextRoll)
-    dom.navCurrent.dataset.filter = currentCat.key;
-    dom.navCurrent.replaceChildren(
-      createTextRollNode(currentCat.label, true, 'nav-roll')
-    );
+  let navReady = false;
+  let navHovered = false;
+  let navLocked = false;
+  let navKeyboardOpen = false;
+  let navPainted = false;
+  const navAnimations = new WeakMap();
 
-    // Put the other 3 categories inside the hover drawer (with TextRoll)
-    dom.navDrawerList.replaceChildren();
-    otherCats.forEach((cat) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'nav-item';
-      btn.dataset.filter = cat.key;
-      btn.appendChild(createTextRollNode(cat.label, true, 'nav-roll'));
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        applyFilter(cat.key, true);
-      });
-      dom.navDrawerList.appendChild(btn);
+  function animateNavElement(element, target, delay = 0) {
+    const current = getComputedStyle(element);
+    const from = {};
+    Object.keys(target).forEach((key) => { from[key] = current[key]; });
+    const previous = navAnimations.get(element);
+    if (previous) previous.cancel();
+    Object.assign(element.style, target);
+    if (!navPainted || typeof element.animate !== 'function') return;
+    if (Object.keys(target).every((key) => from[key] === target[key])) return;
+    const animation = element.animate([from, target], {
+      duration: 460, delay, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both'
     });
-
-    // Force drawer to shrink back closed immediately on click
-    if (shrinkImmediately) {
-      dom.navPill.classList.add('is-collapsing');
-      if (document.activeElement && dom.navPill.contains(document.activeElement)) {
-        document.activeElement.blur();
+    navAnimations.set(element, animation);
+    animation.onfinish = () => {
+      if (navAnimations.get(element) === animation) {
+        navAnimations.delete(element);
+        animation.cancel();
       }
+    };
+  }
+
+  function setNavLabelText(label, text) {
+    if (label.dataset.text === text) return;
+    label.dataset.text = text;
+    label.replaceChildren(...Array.from(text, (letter) => {
+      const char = document.createElement('span');
+      char.className = 'nav-label-char';
+      char.textContent = letter;
+      // A newly selected label starts offscreen before rolling into place.
+      char.style.transform = 'translateY(-110%)';
+      char.style.opacity = '0';
+      return char;
+    }));
+  }
+
+  function animateNavLabel(label, visible, exitDirection) {
+    const chars = Array.from(label.children);
+    chars.forEach((char, i) => animateNavElement(char, {
+      transform: `translateY(${visible ? 0 : exitDirection * 110}%)`,
+      opacity: visible ? '1' : '0'
+    }, Math.abs(i - (chars.length - 1) / 2) * 24));
+  }
+
+
+  function syncNavPresentation() {
+    const expanded = !navLocked && (navHovered || navKeyboardOpen);
+    const cat = CATEGORIES.find((c) => c.key === state.filter) || CATEGORIES[0];
+    const selected = dom.navCurrent.querySelector('.nav-selected-label');
+    setNavLabelText(selected, cat.label);
+    dom.navPill.classList.toggle('is-expanded', expanded);
+    dom.navPill.classList.remove('is-collapsing');
+    dom.navCurrent.dataset.filter = expanded ? 'all' : cat.key;
+    dom.navCurrent.setAttribute('aria-label', expanded ? 'Show all categories' : `${cat.label}: show all categories`);
+    dom.navCurrent.setAttribute('aria-expanded', String(expanded));
+    dom.navCurrent.classList.toggle('is-active', !expanded || state.filter === 'all');
+    const drawer = document.getElementById('nav-drawer');
+    drawer.inert = !expanded;
+    drawer.setAttribute('aria-hidden', String(!expanded));
+    dom.navDrawerList.querySelectorAll('.nav-item').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.filter === state.filter);
+      btn.setAttribute('aria-pressed', String(btn.dataset.filter === state.filter));
+    });
+    const label = dom.navCurrent.querySelector(expanded ? '.nav-all-label' : '.nav-selected-label');
+    animateNavElement(dom.navCurrent, { width: `${Math.ceil(label.getBoundingClientRect().width) + 8 * uiScale()}px` });
+    animateNavElement(drawer, {
+      width: expanded ? `${Math.ceil(dom.navDrawerList.scrollWidth) + 38 * uiScale() + 1}px` : '0px',
+      paddingLeft: expanded ? `${18 * uiScale()}px` : '0px',
+      opacity: expanded ? '1' : '0',
+      transform: expanded ? 'translateX(0px)' : `translateX(${-8 * uiScale()}px)`
+    });
+    animateNavLabel(selected, !expanded, -1);
+    animateNavLabel(dom.navCurrent.querySelector('.nav-all-label'), expanded, 1);
+    navPainted = true;
+  }
+
+  function renderNavPill(activeKey, shrinkImmediately = false) {
+    if (!navReady) {
+      navReady = true;
+      const labels = document.createElement('span');
+      labels.className = 'nav-current-labels';
+      labels.setAttribute('aria-hidden', 'true');
+      ['selected', 'all'].forEach((kind) => {
+        const span = document.createElement('span');
+        span.className = `nav-roll nav-${kind}-label`;
+        setNavLabelText(span, 'ALL');
+        labels.appendChild(span);
+      });
+      dom.navCurrent.replaceChildren(labels);
+      dom.navCurrent.setAttribute('aria-controls', 'nav-drawer');
+      dom.navDrawerList.replaceChildren();
+      CATEGORIES.filter((cat) => cat.key !== 'all').forEach((cat) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'nav-item';
+        btn.dataset.filter = cat.key;
+        btn.appendChild(createTextRollNode(cat.label, true, 'nav-roll'));
+        btn.addEventListener('click', () => applyFilter(cat.key, true));
+        dom.navDrawerList.appendChild(btn);
+      });
+      dom.navPill.addEventListener('pointerenter', (e) => {
+        if (e.pointerType === 'touch') return;
+        navHovered = true;
+        syncNavPresentation();
+      });
+      dom.navPill.addEventListener('pointerleave', () => {
+        navHovered = false;
+        navLocked = false;
+        syncNavPresentation();
+      });
+      dom.navPill.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          navKeyboardOpen = false;
+          navLocked = navHovered;
+          dom.navCurrent.focus();
+          syncNavPresentation();
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          navLocked = false;
+          navKeyboardOpen = true;
+          syncNavPresentation();
+          dom.navDrawerList.querySelector('button').focus();
+        } else if (e.key === 'Tab' && !e.shiftKey && e.target === dom.navCurrent) {
+          navLocked = false;
+          navKeyboardOpen = true;
+          syncNavPresentation();
+        }
+      });
+      dom.navPill.addEventListener('focusout', (e) => {
+        if (!dom.navPill.contains(e.relatedTarget)) {
+          navKeyboardOpen = false;
+          syncNavPresentation();
+        }
+      });
+      window.addEventListener('resize', syncNavPresentation);
+      if (document.fonts) document.fonts.ready.then(syncNavPresentation);
     }
+    if (shrinkImmediately) {
+      navLocked = navHovered;
+      navKeyboardOpen = false;
+      if (dom.navPill.contains(document.activeElement)) dom.navCurrent.focus({ preventScroll: true });
+    }
+    syncNavPresentation();
   }
 
   /* ========================================================================
@@ -186,10 +307,10 @@
      ======================================================================== */
   function syncSlotFlexSizing() {
     if (state.filter === 'all') {
-      dom.slotPrimary.style.flex = `0 0 ${state.split.primaryPct}%`;
-      dom.slotStack.style.flex = `0 0 ${state.split.stackPct}%`;
-      dom.slotTop.style.flex = `0 0 ${state.split.topPct}%`;
-      dom.slotBottom.style.flex = `0 0 ${state.split.bottomPct}%`;
+      dom.slotPrimary.style.flex = `${state.split.primaryPct} 1 0px`;
+      dom.slotStack.style.flex = `${state.split.stackPct} 1 0px`;
+      dom.slotTop.style.flex = `${state.split.topPct} 1 0px`;
+      dom.slotBottom.style.flex = `${state.split.bottomPct} 1 0px`;
     } else {
       // Fullscreen: 100% width and height for whichever slot & stack is visible
       dom.slotPrimary.style.flex = '1 1 100%';
@@ -401,7 +522,7 @@
       if (vDrag) {
         const total = startLeftW + startRightW;
         const delta = e.clientX - vStartX;
-        const minW = 240;
+        const minW = Math.min(240 * uiScale(), total / 2);
         const nextLeft = Math.min(Math.max(startLeftW + delta, minW), total - minW);
         const nextRight = total - nextLeft;
         state.split.primaryPct = (nextLeft / total) * 100;
@@ -412,7 +533,7 @@
       if (hDrag) {
         const total = startTopH + startBotH;
         const delta = e.clientY - hStartY;
-        const minH = 140;
+        const minH = Math.min(140 * uiScale(), total / 2);
         const nextTop = Math.min(Math.max(startTopH + delta, minH), total - minH);
         const nextBot = total - nextTop;
         state.split.topPct = (nextTop / total) * 100;
@@ -421,29 +542,28 @@
       }
 
       if (upDrag) {
-        const nextW = Math.min(Math.max(window.innerWidth - e.clientX - 14, 300), window.innerWidth * 0.62);
-        document.documentElement.style.setProperty('--upload-w', `${nextW}px`);
+        const box = document.getElementById('bento-workspace').getBoundingClientRect();
+        const maxW = box.width * 0.55;
+        const minW = Math.min(300 * uiScale(), maxW);
+        const nextW = Math.min(Math.max(box.right - e.clientX, minW), maxW);
+        document.documentElement.style.setProperty('--upload-ratio', `${nextW / box.width * 100}%`);
       }
 
       if (dropDrag) {
-        const nextH = Math.min(Math.max(dropStartH + (e.clientY - dropStartY), 110), window.innerHeight * 0.6);
-        document.documentElement.style.setProperty('--drop-h', `${nextH}px`);
+        const nextH = Math.min(Math.max(dropStartH + (e.clientY - dropStartY), 110 * uiScale()), window.innerHeight * 0.6);
+        document.documentElement.style.setProperty('--drop-h', `calc(${nextH / uiScale()} * var(--ui-unit))`);
       }
     });
 
-    window.addEventListener('mouseup', () => {
-      if (vDrag || hDrag || upDrag || dropDrag) {
-        vDrag = false;
-        hDrag = false;
-        upDrag = false;
-        dropDrag = false;
-        dom.gutterMainV.classList.remove('is-active');
-        dom.gutterStackH.classList.remove('is-active');
-        dom.gutterUpload.classList.remove('is-active');
-        dom.gutterDrop.classList.remove('is-active');
-        document.body.classList.remove('is-resizing');
-      }
-    });
+    function stopWorkspaceResize() {
+      vDrag = hDrag = upDrag = dropDrag = false;
+      [dom.gutterMainV, dom.gutterStackH, dom.gutterUpload, dom.gutterDrop]
+        .forEach((gutter) => gutter.classList.remove('is-active'));
+      document.body.classList.remove('is-resizing');
+    }
+    window.addEventListener('mouseup', stopWorkspaceResize);
+    window.addEventListener('blur', stopWorkspaceResize);
+    window.addEventListener('resize', stopWorkspaceResize);
 
     // 5. Drag-and-Drop Panel Swapping
     let draggedPanel = null;
@@ -945,15 +1065,14 @@
     syncTokenUI();
     initWorkspaceInteractions();
 
-    dom.navPill.addEventListener('mouseleave', () => {
-      dom.navPill.classList.remove('is-collapsing');
-    });
-
-    dom.navCurrent.addEventListener('click', () => {
-      const curKey = dom.navCurrent.dataset.filter;
-      if (curKey !== 'all') {
-        applyFilter('all', true);
+    dom.navCurrent.addEventListener('click', (e) => {
+      if (e.detail !== 0 && !navHovered && e.pointerType === 'touch') {
+        navLocked = false;
+        navKeyboardOpen = !navKeyboardOpen;
+        syncNavPresentation();
+        return;
       }
+      applyFilter('all', true);
     });
 
     // Search Pill Pop & Resize on Click/Focus
