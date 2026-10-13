@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=manrope-1">
+  <link rel="stylesheet" href="/static/style.css?v=manrope-titlecase-1">
 </head>
 <body>
   <!-- Ambient Background Glow -->
@@ -20,20 +20,20 @@
       <!-- Top-Left: Active Category Pill (Shrinks to current category, slides out others on hover) -->
       <nav class="nav-pill" id="nav-pill" aria-label="Categories">
         <button type="button" class="nav-item is-active" id="nav-current" data-filter="all">
-          <span class="js-text-roll nav-roll" data-text="ALL" data-center="true">ALL</span>
+          <span class="js-text-roll nav-roll" data-text="All" data-center="true">All</span>
         </button>
 
         <div class="nav-drawer" id="nav-drawer">
           <span class="nav-divider"></span>
           <div class="nav-drawer-list" id="nav-drawer-list">
             <button type="button" class="nav-item" data-filter="videos">
-              <span class="js-text-roll nav-roll" data-text="VIDEOS" data-center="true">VIDEOS</span>
+              <span class="js-text-roll nav-roll" data-text="Videos" data-center="true">Videos</span>
             </button>
             <button type="button" class="nav-item" data-filter="photos">
-              <span class="js-text-roll nav-roll" data-text="PHOTOS" data-center="true">PHOTOS</span>
+              <span class="js-text-roll nav-roll" data-text="Photos" data-center="true">Photos</span>
             </button>
             <button type="button" class="nav-item" data-filter="poems">
-              <span class="js-text-roll nav-roll" data-text="POEMS" data-center="true">POEMS</span>
+              <span class="js-text-roll nav-roll" data-text="Poems" data-center="true">Poems</span>
             </button>
           </div>
         </div>
@@ -118,7 +118,7 @@
           aria-expanded="false"
         >
           <span class="auth-indicator" id="auth-indicator" hidden></span>
-          <span class="js-text-roll upload-roll" data-text="UPLOAD" data-center="true">UPLOAD</span>
+          <span class="js-text-roll upload-roll" data-text="Upload" data-center="true">Upload</span>
         </button>
       </div>
     </header>
@@ -132,7 +132,7 @@
             <header class="panel-header" title="Drag header to swap panel position">
               <div class="panel-title-wrap">
                 <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                <span class="js-text-roll panel-heading" data-text="VIDEOS">VIDEOS</span>
+                <span class="js-text-roll panel-heading" data-text="Videos">Videos</span>
               </div>
               <button type="button" class="panel-expand-btn" data-expand="videos" aria-label="Expand Videos">
                 <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
@@ -156,7 +156,7 @@
               <header class="panel-header" title="Drag header to swap panel position">
                 <div class="panel-title-wrap">
                   <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                  <span class="js-text-roll panel-heading" data-text="PHOTOS">PHOTOS</span>
+                  <span class="js-text-roll panel-heading" data-text="Photos">Photos</span>
                 </div>
                 <button type="button" class="panel-expand-btn" data-expand="photos" aria-label="Expand Photos">
                   <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
@@ -178,7 +178,7 @@
               <header class="panel-header" title="Drag header to swap panel position">
                 <div class="panel-title-wrap">
                   <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                  <span class="js-text-roll panel-heading" data-text="POEMS">POEMS</span>
+                  <span class="js-text-roll panel-heading" data-text="Poems">Poems</span>
                 </div>
                 <button type="button" class="panel-expand-btn" data-expand="poems" aria-label="Expand Poems">
                   <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
@@ -202,10 +202,10 @@
           <header class="panel-header upload-header">
             <div class="upload-tabs" role="tablist">
               <button type="button" class="upload-tab is-active" data-mode="media">
-                <span class="js-text-roll" data-text="MEDIA">MEDIA</span>
+                <span class="js-text-roll" data-text="Media">Media</span>
               </button>
               <button type="button" class="upload-tab" data-mode="poem">
-                <span class="js-text-roll" data-text="POEMS">POEMS</span>
+                <span class="js-text-roll" data-text="Poems">Poems</span>
               </button>
             </div>
             <button type="button" class="panel-expand-btn" id="upload-close" aria-label="Close upload panel">
@@ -217,7 +217,7 @@
             <div class="token-pill">
               <input type="password" id="admin-token" placeholder="Admin token" autocomplete="off">
               <button type="button" class="pill-btn" id="save-token">
-                <span class="js-text-roll" data-text="SAVE">SAVE</span>
+                <span class="js-text-roll" data-text="Save">Save</span>
               </button>
             </div>
 
@@ -252,7 +252,7 @@
                 <div class="submit-row">
                   <span class="feedback-label" id="upload-status"></span>
                   <button type="submit" class="primary-action-btn" id="upload-submit">
-                    <span class="js-text-roll" data-text="UPLOAD" data-center="true">UPLOAD</span>
+                    <span class="js-text-roll" data-text="Upload" data-center="true">Upload</span>
                   </button>
                 </div>
               </div>
@@ -266,7 +266,7 @@
                 <div class="submit-row">
                   <span class="feedback-label" id="poem-status"></span>
                   <button type="submit" class="primary-action-btn" id="poem-submit">
-                    <span class="js-text-roll" data-text="UPLOAD" data-center="true">UPLOAD</span>
+                    <span class="js-text-roll" data-text="Upload" data-center="true">Upload</span>
                   </button>
                 </div>
               </div>
@@ -286,20 +286,20 @@
       </div>
       <div class="lightbox-actions">
         <button type="button" class="pill-btn" id="lb-prev">
-          <span class="js-text-roll" data-text="PREV">PREV</span>
+          <span class="js-text-roll" data-text="Prev">Prev</span>
         </button>
         <button type="button" class="pill-btn" id="lb-next">
-          <span class="js-text-roll" data-text="NEXT">NEXT</span>
+          <span class="js-text-roll" data-text="Next">Next</span>
         </button>
         <button type="button" class="pill-btn" id="lb-close">
-          <span class="js-text-roll" data-text="CLOSE">CLOSE</span>
+          <span class="js-text-roll" data-text="Close">Close</span>
         </button>
       </div>
     </header>
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=manrope-1"></script>
+  <script src="/static/app.js?v=manrope-titlecase-1"></script>
 </body>
 </html>
 

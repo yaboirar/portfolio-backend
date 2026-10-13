@@ -4,10 +4,10 @@
   const STAGGER = 0.035;
   const RING_CIRCUMFERENCE = 2 * Math.PI * 12.5; // ~78.54
   const CATEGORIES = [
-    { key: 'all', label: 'ALL' },
-    { key: 'videos', label: 'VIDEOS' },
-    { key: 'photos', label: 'PHOTOS' },
-    { key: 'poems', label: 'POEMS' },
+    { key: 'all', label: 'All' },
+    { key: 'videos', label: 'Videos' },
+    { key: 'photos', label: 'Photos' },
+    { key: 'poems', label: 'Poems' },
   ];
 
   const state = {
@@ -242,7 +242,7 @@
       ['selected', 'all'].forEach((kind) => {
         const span = document.createElement('span');
         span.className = `nav-roll nav-${kind}-label`;
-        setNavLabelText(span, 'ALL');
+        setNavLabelText(span, 'All');
         labels.appendChild(span);
       });
       dom.navCurrent.replaceChildren(labels);
@@ -762,7 +762,7 @@
     if (videos.length === 0) {
       dom.bodyVideos.appendChild(
         createEmptyState(
-          q ? 'NO MATCHES' : 'NO MEDIA',
+          q ? 'No matches' : 'No media',
           q ? `No videos matching "${state.searchQuery}"` : 'No videos yet'
         )
       );
@@ -792,7 +792,7 @@
     if (photos.length === 0) {
       dom.bodyPhotos.appendChild(
         createEmptyState(
-          q ? 'NO MATCHES' : 'NO MEDIA',
+          q ? 'No matches' : 'No media',
           q ? `No photos matching "${state.searchQuery}"` : 'No photos yet'
         )
       );
@@ -823,7 +823,7 @@
     if (poems.length === 0) {
       dom.bodyPoems.appendChild(
         createEmptyState(
-          q ? 'NO MATCHES' : 'NO POEMS',
+          q ? 'No matches' : 'No poems',
           q ? `No poems matching "${state.searchQuery}"` : 'No poems yet'
         )
       );

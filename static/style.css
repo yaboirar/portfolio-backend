@@ -199,7 +199,7 @@ body.is-resizing * {
   position: relative;
   display: inline-block;
   overflow: hidden;
-  line-height: 0.85;
+  line-height: 1.15;
   vertical-align: middle;
   user-select: none;
 }
@@ -227,13 +227,13 @@ body.is-resizing * {
 }
 
 .text-roll-layer--bottom .text-roll-char {
-  transform: translate3d(0, 108%, 0);
+  transform: translate3d(0, 115%, 0);
 }
 
 button:hover .text-roll-layer--top .text-roll-char,
 .panel-header:hover .text-roll-layer--top .text-roll-char,
 .text-roll:hover .text-roll-layer--top .text-roll-char {
-  transform: translate3d(0, -108%, 0);
+  transform: translate3d(0, -115%, 0);
 }
 
 button:hover .text-roll-layer--bottom .text-roll-char,
@@ -292,11 +292,10 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 }
 
 .nav-roll {
-  font-size: clamp(1.35rem, 2.2vw, 1.95rem);
-  font-weight: 800;
-  letter-spacing: -0.015em;
-  text-transform: uppercase;
-  line-height: 0.82;
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
 /* Navbar motion is driven by the Web Animations API. */
@@ -490,9 +489,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   align-items: center;
   justify-content: center;
   font-size: calc(9 * var(--ui-unit));
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
-  text-transform: uppercase;
 }
 
 .search-badge-inner img {
@@ -652,9 +650,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 
 .upload-roll {
   font-size: calc(15 * var(--ui-unit));
-  font-weight: 800;
-  letter-spacing: -0.015em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .auth-indicator {
@@ -763,9 +760,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 
 .panel-heading {
   font-size: calc(16 * var(--ui-unit));
-  font-weight: 800;
-  letter-spacing: -0.015em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .panel-expand-btn {
@@ -876,9 +872,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 
 .empty-state-label {
   font-size: calc(14 * var(--ui-unit));
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--fg-dim);
 }
 
@@ -995,8 +990,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 
 .poem-title {
   font-size: calc(16 * var(--ui-unit));
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .poem-body {
@@ -1037,9 +1032,9 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 }
 
 .upload-tab {
-  font-size: calc(15 * var(--ui-unit));
-  font-weight: 800;
-  letter-spacing: -0.015em;
+  font-size: calc(14 * var(--ui-unit));
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--fg-mute);
 }
 
@@ -1083,8 +1078,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   background: var(--card-hover);
   border: 1px solid var(--border);
   font-size: calc(12 * var(--ui-unit));
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   display: inline-flex;
   align-items: center;
 }
@@ -1234,8 +1229,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   background: var(--fg);
   color: var(--canvas);
   font-size: calc(14 * var(--ui-unit));
-  font-weight: 800;
-  letter-spacing: -0.015em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1278,7 +1273,7 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 
 .lightbox-title {
   font-size: calc(15 * var(--ui-unit));
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .lightbox-desc {
