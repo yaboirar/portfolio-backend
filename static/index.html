@@ -1,239 +1,137 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="carbon">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ARCHIVE — Motion, Stills &amp; Verse</title>
-  <link rel="stylesheet" href="/static/style.css?v=2.5">
+  <title>Portfolio</title>
+  <link rel="stylesheet" href="/static/style.css?v=3.0">
 </head>
 <body>
-  <!-- Top Architectural Masthead -->
-  <header class="masthead">
-    <div class="masthead-cell brand-cell">
-      <a href="#top" class="brand-mark">
-        <span class="index-code">CAT. 2026</span>
-        <span class="brand-title">STUDIO ARCHIVE</span>
-      </a>
-    </div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#" class="site-title" id="reset-filter">Portfolio</a>
 
-    <nav class="masthead-cell nav-cell" aria-label="Primary Sections">
-      <a href="#section-videos" class="nav-link" data-filter="all">
-        <span class="nav-num">01</span> Motion <span class="count-badge" id="count-videos">00</span>
-      </a>
-      <a href="#section-photos" class="nav-link">
-        <span class="nav-num">02</span> Stills <span class="count-badge" id="count-photos">00</span>
-      </a>
-      <a href="#section-poems" class="nav-link">
-        <span class="nav-num">03</span> Verse <span class="count-badge" id="count-poems">00</span>
-      </a>
-    </nav>
+      <nav class="filter-nav" aria-label="Section filter">
+        <button type="button" class="filter-btn is-active" data-filter="all">
+          All <span class="count" id="count-all">0</span>
+        </button>
+        <button type="button" class="filter-btn" data-filter="videos">
+          Videos <span class="count" id="count-videos">0</span>
+        </button>
+        <button type="button" class="filter-btn" data-filter="photos">
+          Photos <span class="count" id="count-photos">0</span>
+        </button>
+        <button type="button" class="filter-btn" data-filter="poems">
+          Poems <span class="count" id="count-poems">0</span>
+        </button>
+      </nav>
 
-    <div class="masthead-cell utility-cell">
-      <button type="button" id="theme-toggle" class="util-btn" title="Switch Paper / Carbon Surface">
-        <span id="theme-label">SURFACE: CARBON</span>
-      </button>
-      <button type="button" id="admin-trigger" class="util-btn" title="Curator / Admin Access">
-        <span class="status-dot" id="admin-dot"></span>
-        <span id="admin-btn-label">CURATOR</span>
-      </button>
+      <div class="header-actions">
+        <button type="button" class="action-btn" id="theme-toggle">Light</button>
+        <button type="button" class="action-btn" id="admin-toggle">Admin</button>
+      </div>
     </div>
   </header>
 
-  <!-- Editorial Colophon / Intro -->
-  <section class="colophon" id="top">
-    <div class="colophon-meta">
-      <p class="mono-label">INDEX // SELECTED WORKS</p>
-      <p class="mono-sub" id="archive-status">SYNCHRONIZING ARCHIVE...</p>
-    </div>
-    <div class="colophon-statement">
-      <h1>Moving image, silver halide &amp; written cadence.</h1>
-      <p class="colophon-lead">
-        An ongoing monograph of observational footage, still photographs, and written fragments.
-        Cataloged chronologically without algorithmic feed or ornament.
-      </p>
-    </div>
-  </section>
+  <main class="site-main" id="main-content">
+    <div id="status-banner" class="status-banner" hidden></div>
 
-  <!-- Global Filter & Search Bar -->
-  <section class="control-strip" aria-label="Archive Controls">
-    <div class="filter-tabs" role="tablist">
-      <button type="button" class="filter-tab active" data-view="all">ALL WORKS</button>
-      <button type="button" class="filter-tab" data-view="videos">01 / MOTION</button>
-      <button type="button" class="filter-tab" data-view="photos">02 / STILLS</button>
-      <button type="button" class="filter-tab" data-view="poems">03 / VERSE</button>
-    </div>
-    <div class="search-box">
-      <label for="archive-search" class="sr-only">Filter catalog</label>
-      <input
-        type="search"
-        id="archive-search"
-        placeholder="FILTER BY TITLE OR NOTES..."
-        autocomplete="off"
-      >
-    </div>
-  </section>
-
-  <main class="archive-main">
-    <!-- 01 / VIDEOS -->
-    <section class="archive-section" id="section-videos" data-section="videos">
+    <!-- Videos Section -->
+    <section class="portfolio-section" id="section-videos" data-section="videos">
       <div class="section-header">
-        <div class="section-title-group">
-          <span class="section-index">01</span>
-          <h2>Motion Picture</h2>
-        </div>
-        <div class="section-meta">
-          <span>16:9 / DIRECT STREAM</span>
-        </div>
+        <h2>Videos</h2>
+        <span class="section-meta" id="meta-videos">0 items</span>
       </div>
-      <div class="video-grid" id="video-grid">
-        <div class="empty-cell">Loading motion catalog...</div>
-      </div>
+      <div class="media-grid video-grid" id="grid-videos"></div>
     </section>
 
-    <!-- 02 / PHOTOS -->
-    <section class="archive-section" id="section-photos" data-section="photos">
+    <!-- Photos Section -->
+    <section class="portfolio-section" id="section-photos" data-section="photos">
       <div class="section-header">
-        <div class="section-title-group">
-          <span class="section-index">02</span>
-          <h2>Still Plates</h2>
-        </div>
-        <div class="section-meta">
-          <button type="button" id="density-toggle" class="text-action">GRID: STANDARD</button>
-        </div>
+        <h2>Photos</h2>
+        <span class="section-meta" id="meta-photos">0 items</span>
       </div>
-      <div class="photo-grid" id="photo-grid">
-        <div class="empty-cell">Loading still plates...</div>
-      </div>
+      <div class="media-grid photo-grid" id="grid-photos"></div>
     </section>
 
-    <!-- 03 / POEMS -->
-    <section class="archive-section" id="section-poems" data-section="poems">
+    <!-- Poems Section -->
+    <section class="portfolio-section" id="section-poems" data-section="poems">
       <div class="section-header">
-        <div class="section-title-group">
-          <span class="section-index">03</span>
-          <h2>Verse &amp; Notes</h2>
-        </div>
-        <div class="section-meta">
-          <span>FOLIO EDITION</span>
-        </div>
+        <h2>Poems</h2>
+        <span class="section-meta" id="meta-poems">0 items</span>
       </div>
-      <div class="poem-grid" id="poem-grid">
-        <div class="empty-cell">Loading literary folio...</div>
-      </div>
+      <div class="poem-list" id="grid-poems"></div>
     </section>
   </main>
 
-  <footer class="archive-footer">
-    <div class="footer-cell">
-      <span>ALL RIGHTS RESERVED — ORIGINAL WORKS</span>
-    </div>
-    <div class="footer-cell footer-right">
-      <a href="#top" class="text-action">RETURN TO TOP ↑</a>
-    </div>
-  </footer>
-
-  <!-- LIGHTBOX & SCREENING ROOM MODAL -->
-  <div class="modal-backdrop" id="viewer-modal" hidden aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="viewer-shell">
-      <header class="viewer-bar">
-        <div class="viewer-meta">
-          <span class="mono-label" id="viewer-index">PLATE 01</span>
-          <span class="viewer-title-bar" id="viewer-title">Untitled</span>
+  <!-- Media Lightbox / Player Modal -->
+  <div class="modal-backdrop" id="viewer-modal" hidden aria-hidden="true">
+    <div class="modal-dialog modal-viewer" role="dialog" aria-modal="true" aria-labelledby="viewer-title">
+      <div class="modal-bar">
+        <span class="modal-index" id="viewer-type">Media</span>
+        <div class="modal-bar-actions">
+          <button type="button" class="text-btn danger-btn" id="viewer-delete" hidden>Delete</button>
+          <button type="button" class="text-btn" id="viewer-prev" title="Previous (Left Arrow)">Prev</button>
+          <button type="button" class="text-btn" id="viewer-next" title="Next (Right Arrow)">Next</button>
+          <button type="button" class="text-btn" id="viewer-close" title="Close (Esc)">Close</button>
         </div>
-        <div class="viewer-actions">
-          <button type="button" class="util-btn" id="viewer-close" aria-label="Close Viewer">
-            CLOSE [ESC]
-          </button>
-        </div>
-      </header>
-
-      <div class="viewer-stage" id="viewer-stage">
-        <!-- Populated dynamically with <video>, <img>, or <article class="poem-reader"> -->
       </div>
-
-      <footer class="viewer-caption" id="viewer-caption">
-        <p id="viewer-description"></p>
-      </footer>
+      <div class="viewer-stage" id="viewer-stage"></div>
+      <div class="viewer-footer">
+        <div class="viewer-info">
+          <h3 id="viewer-title"></h3>
+          <p id="viewer-description"></p>
+        </div>
+        <div class="viewer-meta" id="viewer-date"></div>
+      </div>
     </div>
   </div>
 
-  <!-- CURATOR / ADMIN DRAWER MODAL -->
-  <div class="modal-backdrop" id="admin-modal" hidden aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="admin-panel">
-      <header class="admin-header">
-        <div>
-          <span class="mono-label">ARCHIVE ADMINISTRATION</span>
-          <h3>Curator Desk</h3>
-        </div>
-        <button type="button" class="util-btn" id="admin-close">CLOSE [ESC]</button>
-      </header>
+  <!-- Admin Modal -->
+  <div class="modal-backdrop" id="admin-modal" hidden aria-hidden="true">
+    <div class="modal-dialog modal-admin" role="dialog" aria-modal="true" aria-labelledby="admin-heading">
+      <div class="modal-bar">
+        <span id="admin-heading" class="modal-index">Admin</span>
+        <button type="button" class="text-btn" id="admin-close">Close</button>
+      </div>
 
       <div class="admin-body">
-        <!-- Token Authentication Block -->
         <div class="field-group">
-          <label for="admin-token">ADMINISTRATION TOKEN (`X-Admin-Token`)</label>
+          <label for="admin-token">Admin Token (X-Admin-Token)</label>
           <div class="token-row">
-            <input
-              type="password"
-              id="admin-token"
-              placeholder="Enter secret token to unlock upload &amp; delete..."
-              autocomplete="off"
-            >
-            <button type="button" id="save-token-btn" class="btn-secondary">SAVE KEY</button>
-            <button type="button" id="clear-token-btn" class="btn-ghost">LOCK</button>
+            <input type="password" id="admin-token" placeholder="Enter token" autocomplete="off">
+            <button type="button" class="btn" id="save-token-btn">Save</button>
           </div>
-          <p class="field-hint" id="token-status">Status: Locked (Read-only mode)</p>
+          <small class="field-hint" id="token-status">Not set. Saving a token also enables Delete buttons on items.</small>
         </div>
 
-        <hr class="hairline-divider">
+        <hr class="divider">
 
-        <!-- Mode Switcher: Media Upload vs Poem Composition -->
-        <div class="admin-tabs">
-          <button type="button" class="admin-tab active" data-admin-mode="media">
-            UPLOAD MEDIA (`/api/upload`)
-          </button>
-          <button type="button" class="admin-tab" data-admin-mode="poem">
-            PUBLISH POEM
-          </button>
+        <div class="tab-bar" role="tablist">
+          <button type="button" class="tab-btn is-active" data-tab="upload-media">Upload Media</button>
+          <button type="button" class="tab-btn" data-tab="add-poem">Add Poem</button>
         </div>
 
         <!-- Media Upload Form -->
         <form id="upload-form" class="admin-form">
           <div class="field-group">
-            <label for="upload-file">SOURCE FILE (VIDEO / IMAGE / TEXT)</label>
-            <div class="file-dropzone" id="dropzone">
-              <input type="file" id="upload-file" name="file" required>
-              <div class="dropzone-label" id="dropzone-text">
-                Select or drag a file from disk
-              </div>
-            </div>
+            <label for="upload-file">File (Video or Image)</label>
+            <input type="file" id="upload-file" name="file" accept="image/*,video/*" required>
           </div>
 
           <div class="field-group">
-            <label for="upload-title">CATALOG TITLE</label>
-            <input
-              type="text"
-              id="upload-title"
-              name="title"
-              placeholder="e.g. Dusk over Bandung, Reel IV"
-              required
-            >
+            <label for="upload-title">Title</label>
+            <input type="text" id="upload-title" name="title" required maxlength="200">
           </div>
 
           <div class="field-group">
-            <label for="upload-description">NOTES / DESCRIPTION / VERSE</label>
-            <textarea
-              id="upload-description"
-              name="description"
-              rows="4"
-              placeholder="Technical notes, location, or accompanying text..."
-            ></textarea>
+            <label for="upload-description">Description</label>
+            <textarea id="upload-description" name="description" rows="3" maxlength="2000"></textarea>
           </div>
 
-          <!-- Progress Track -->
           <div class="progress-wrap" id="upload-progress-wrap" hidden>
             <div class="progress-meta">
-              <span id="upload-status-text">TRANSMITTING...</span>
+              <span id="upload-status-text">Uploading...</span>
               <span id="upload-percent">0%</span>
             </div>
             <div class="progress-track">
@@ -241,51 +139,35 @@
             </div>
           </div>
 
-          <div class="form-Feedback" id="upload-feedback" role="status"></div>
+          <div class="form-message" id="upload-message" hidden></div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary" id="upload-submit-btn">
-              COMMIT TO ARCHIVE
-            </button>
+            <button type="submit" class="btn btn-primary" id="upload-submit">Upload</button>
           </div>
         </form>
 
-        <!-- Poem Direct Form -->
+        <!-- Poem Form -->
         <form id="poem-form" class="admin-form" hidden>
           <div class="field-group">
-            <label for="poem-title">POEM TITLE</label>
-            <input
-              type="text"
-              id="poem-title"
-              name="title"
-              placeholder="e.g. Nocturne in Three Parts"
-              required
-            >
+            <label for="poem-title">Title</label>
+            <input type="text" id="poem-title" name="title" required maxlength="200">
           </div>
 
           <div class="field-group">
-            <label for="poem-content">STANZAS (LINE BREAKS PRESERVED)</label>
-            <textarea
-              id="poem-content"
-              name="content"
-              rows="8"
-              placeholder="Enter verse here..."
-              required
-            ></textarea>
+            <label for="poem-content">Text</label>
+            <textarea id="poem-content" name="content" rows="8" required></textarea>
           </div>
 
-          <div class="form-Feedback" id="poem-feedback" role="status"></div>
+          <div class="form-message" id="poem-message" hidden></div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary" id="poem-submit-btn">
-              PUBLISH VERSE
-            </button>
+            <button type="submit" class="btn btn-primary" id="poem-submit">Publish Poem</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <script src="/static/app.js?v=2.5"></script>
+  <script src="/static/app.js?v=3.0"></script>
 </body>
 </html>
