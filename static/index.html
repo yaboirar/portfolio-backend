@@ -4,178 +4,295 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
-  <link rel="stylesheet" href="/static/style.css?v=11.0">
+  <link rel="stylesheet" href="/static/style.css?v=12.0">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="top-bar">
-      <nav class="hover-nav" id="hover-nav" aria-label="View">
-        <button type="button" class="nav-trigger is-active" data-filter="all" aria-pressed="true">
-          <span class="js-text-roll nav-word" data-text="All" data-center="true">All</span>
+  <div class="console-shell" id="console-shell">
+    <!-- Top Control Deck -->
+    <header class="control-deck">
+      <!-- Hover-Expandable TextRoll Navigation Track -->
+      <nav class="nav-well" id="nav-well" aria-label="Category navigation">
+        <button type="button" class="nav-key is-active" data-filter="all">
+          <span class="led-pip"></span>
+          <span class="js-text-roll nav-key-label" data-text="ALL" data-center="true">ALL</span>
         </button>
-        <div class="nav-slide-tray">
-          <button type="button" class="nav-option" data-filter="videos" aria-pressed="false">
-            <span class="js-text-roll nav-word" data-text="Videos" data-center="true">Videos</span>
+
+        <div class="nav-expand-tray" id="nav-expand-tray">
+          <button type="button" class="nav-key" data-filter="videos">
+            <span class="led-pip"></span>
+            <span class="js-text-roll nav-key-label" data-text="VIDEOS" data-center="true">VIDEOS</span>
           </button>
-          <button type="button" class="nav-option" data-filter="photos" aria-pressed="false">
-            <span class="js-text-roll nav-word" data-text="Photos" data-center="true">Photos</span>
+          <button type="button" class="nav-key" data-filter="photos">
+            <span class="led-pip"></span>
+            <span class="js-text-roll nav-key-label" data-text="PHOTOS" data-center="true">PHOTOS</span>
           </button>
-          <button type="button" class="nav-option" data-filter="poems" aria-pressed="false">
-            <span class="js-text-roll nav-word" data-text="Poems" data-center="true">Poems</span>
+          <button type="button" class="nav-key" data-filter="poems">
+            <span class="led-pip"></span>
+            <span class="js-text-roll nav-key-label" data-text="POEMS" data-center="true">POEMS</span>
           </button>
         </div>
       </nav>
 
-      <div class="bar-controls">
-        <button type="button" class="theme-switch" id="theme-switch" aria-label="Switch theme">
-          <span class="theme-switch-thumb">
-            <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-              <mask id="moon-mask">
-                <rect x="0" y="0" width="24" height="24" fill="white" />
-                <circle class="moon-cutout" cx="17" cy="7" r="6" fill="black" />
-              </mask>
-              <circle class="sun-core" cx="12" cy="12" r="5" fill="currentColor" stroke="none" mask="url(#moon-mask)" />
-              <g class="sun-rays">
-                <line x1="12" y1="1.5" x2="12" y2="3.5" />
-                <line x1="12" y1="20.5" x2="12" y2="22.5" />
-                <line x1="4.57" y1="4.57" x2="5.98" y2="5.98" />
-                <line x1="18.02" y1="18.02" x2="19.43" y2="19.43" />
-                <line x1="1.5" y1="12" x2="3.5" y2="12" />
-                <line x1="20.5" y1="12" x2="22.5" y2="12" />
-                <line x1="4.57" y1="19.43" x2="5.98" y2="18.02" />
-                <line x1="18.02" y1="5.98" x2="19.43" y2="4.57" />
-              </g>
-            </svg>
+      <!-- Right Hardware Controls -->
+      <div class="deck-right">
+        <!-- Layout Orientation Switch (2D Split vs Columns) -->
+        <button
+          type="button"
+          class="tactile-key"
+          id="layout-flip-btn"
+          title="Switch workspace arrangement"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+            <line x1="3" y1="14" x2="21" y2="14"></line>
+            <line x1="12" y1="3" x2="12" y2="14"></line>
+          </svg>
+          <span class="js-text-roll" data-text="LAYOUT">LAYOUT</span>
+        </button>
+
+        <!-- Mechanical Sun / Moon Rocker Switch -->
+        <button
+          type="button"
+          class="rocker-switch"
+          id="theme-switch"
+          aria-label="Toggle color theme"
+        >
+          <span class="rocker-well">
+            <span class="rocker-actuator">
+              <svg class="theme-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <mask id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle class="moon-bite" cx="17" cy="7" r="6" fill="black" />
+                </mask>
+                <circle class="sun-disc" cx="12" cy="12" r="5" fill="currentColor" mask="url(#moon-mask)" />
+                <g class="sun-spokes">
+                  <line x1="12" y1="1.5" x2="12" y2="3.5" />
+                  <line x1="12" y1="20.5" x2="12" y2="22.5" />
+                  <line x1="4.57" y1="4.57" x2="5.98" y2="5.98" />
+                  <line x1="18.02" y1="18.02" x2="19.43" y2="19.43" />
+                  <line x1="1.5" y1="12" x2="3.5" y2="12" />
+                  <line x1="20.5" y1="12" x2="22.5" y2="12" />
+                  <line x1="4.57" y1="19.43" x2="5.98" y2="18.02" />
+                  <line x1="18.02" y1="5.98" x2="19.43" y2="4.57" />
+                </g>
+              </svg>
+            </span>
           </span>
         </button>
 
-        <button type="button" class="btn" id="dock-toggle" aria-expanded="false" aria-controls="side-dock">
-          <span class="signed-in-dot" id="auth-dot" hidden title="Token saved"></span>
-          Upload
+        <!-- Push-Workspace Upload Trigger -->
+        <button
+          type="button"
+          class="tactile-key tactile-key--accent"
+          id="upload-toggle"
+          aria-expanded="false"
+        >
+          <span class="status-led" id="auth-led"></span>
+          <span class="js-text-roll" data-text="UPLOAD" data-center="true">UPLOAD</span>
         </button>
       </div>
     </header>
 
-    <div class="workspace" id="workspace">
-      <main class="stage-dock" id="stage-dock">
-        <section class="dock-panel" id="panel-videos" style="flex-basis: 38%;">
-          <header class="panel-bar">
-            <h2 class="panel-label">Videos <span class="panel-count" id="count-videos"></span></h2>
-            <button type="button" class="link-btn" data-focus="videos">Expand</button>
+    <!-- Main Dockable Workspace (Shrinks when Upload Bay slides in from right) -->
+    <div class="workspace-frame" id="workspace-frame">
+      <main class="dock-matrix" id="dock-matrix">
+        <!-- Upper Split Bay: Videos (Left) + Photos (Right) -->
+        <div class="upper-bay" id="upper-bay" style="flex-basis: 62%;">
+          <!-- Videos Panel -->
+          <section class="ae-panel" id="panel-videos" style="flex-basis: 52%;">
+            <header class="ae-panel-tab">
+              <div class="tab-badge">
+                <span class="tab-dot tab-dot--orange"></span>
+                <span class="tab-name">Videos</span>
+              </div>
+              <button type="button" class="tab-action" data-maximize="videos">
+                <span class="js-text-roll" data-text="MAXIMIZE">MAXIMIZE</span>
+              </button>
+            </header>
+            <div class="ae-viewport" id="viewport-videos"></div>
+          </section>
+
+          <!-- Knurled Vertical Splitter (Videos <-> Photos) -->
+          <div class="splitter-v" id="split-vp" title="Drag to resize Videos / Photos">
+            <span class="knurl-grip"></span>
+          </div>
+
+          <!-- Photos Panel -->
+          <section class="ae-panel" id="panel-photos" style="flex-basis: 48%;">
+            <header class="ae-panel-tab">
+              <div class="tab-badge">
+                <span class="tab-dot tab-dot--cyan"></span>
+                <span class="tab-name">Photos</span>
+              </div>
+              <button type="button" class="tab-action" data-maximize="photos">
+                <span class="js-text-roll" data-text="MAXIMIZE">MAXIMIZE</span>
+              </button>
+            </header>
+            <div class="ae-viewport" id="viewport-photos"></div>
+          </section>
+        </div>
+
+        <!-- Knurled Horizontal Splitter (Upper Media Bay <-> Lower Poems Bay) -->
+        <div class="splitter-h" id="split-main-h" title="Drag to resize Media / Poems">
+          <span class="knurl-grip"></span>
+        </div>
+
+        <!-- Lower Bay: Poems -->
+        <section class="ae-panel" id="panel-poems" style="flex-basis: 38%;">
+          <header class="ae-panel-tab">
+            <div class="tab-badge">
+              <span class="tab-dot tab-dot--emerald"></span>
+              <span class="tab-name">Poems</span>
+            </div>
+            <button type="button" class="tab-action" data-maximize="poems">
+              <span class="js-text-roll" data-text="MAXIMIZE">MAXIMIZE</span>
+            </button>
           </header>
-          <div class="panel-scroll" id="list-videos"></div>
-        </section>
-
-        <div class="v-splitter" id="splitter-vp" data-left="panel-videos" data-right="panel-photos"
-             role="separator" aria-orientation="vertical" tabindex="0"
-             title="Drag to resize. Double-click to reset."></div>
-
-        <section class="dock-panel" id="panel-photos" style="flex-basis: 34%;">
-          <header class="panel-bar">
-            <h2 class="panel-label">Photos <span class="panel-count" id="count-photos"></span></h2>
-            <button type="button" class="link-btn" data-focus="photos">Expand</button>
-          </header>
-          <div class="panel-scroll" id="list-photos"></div>
-        </section>
-
-        <div class="v-splitter" id="splitter-pp" data-left="panel-photos" data-right="panel-poems"
-             role="separator" aria-orientation="vertical" tabindex="0"
-             title="Drag to resize. Double-click to reset."></div>
-
-        <section class="dock-panel" id="panel-poems" style="flex-basis: 28%;">
-          <header class="panel-bar">
-            <h2 class="panel-label">Poems <span class="panel-count" id="count-poems"></span></h2>
-            <button type="button" class="link-btn" data-focus="poems">Expand</button>
-          </header>
-          <div class="panel-scroll poems-scroll" id="list-poems"></div>
+          <div class="ae-viewport poems-viewport" id="viewport-poems"></div>
         </section>
       </main>
 
-      <div class="v-splitter" id="dock-splitter" hidden
-           role="separator" aria-orientation="vertical" tabindex="0"
-           title="Drag to resize"></div>
+      <!-- Knurled Vertical Splitter between Main Workspace and Upload Bay -->
+      <div class="splitter-v" id="split-upload" hidden title="Drag to resize Upload panel">
+        <span class="knurl-grip"></span>
+      </div>
 
-      <aside class="side-dock" id="side-dock" aria-hidden="true">
-        <div class="side-dock-inner">
-          <header class="panel-bar">
-            <div class="dock-mode-switch" role="tablist">
-              <button type="button" role="tab" class="dock-mode-btn is-active" data-mode="media" aria-selected="true">Media</button>
-              <button type="button" role="tab" class="dock-mode-btn" data-mode="poem" aria-selected="false">Poem</button>
+      <!-- Slide-Left Docked Upload Panel (Pushes Workspace, Never Darkens/Overlays) -->
+      <aside class="upload-bay" id="upload-bay" aria-hidden="true">
+        <div class="upload-bay-inner">
+          <header class="ae-panel-tab upload-bay-header">
+            <div class="mode-switch-well" role="tablist">
+              <button type="button" class="mode-pill is-active" data-mode="media">
+                <span class="js-text-roll" data-text="VIDEOS / PHOTOS">VIDEOS / PHOTOS</span>
+              </button>
+              <button type="button" class="mode-pill" data-mode="poem">
+                <span class="js-text-roll" data-text="POEMS">POEMS</span>
+              </button>
             </div>
-            <button type="button" class="link-btn" id="dock-close">Close</button>
+
+            <button type="button" class="tab-action" id="upload-close">
+              <span class="js-text-roll" data-text="CLOSE">CLOSE</span>
+            </button>
           </header>
 
-          <div class="dock-auth-row">
-            <input type="password" id="admin-token" placeholder="Admin token" autocomplete="off" aria-label="Admin token">
-            <button type="button" class="dock-action-btn" id="save-token">Save token</button>
+          <div class="upload-bay-scroll">
+            <!-- Token Module -->
+            <div class="hardware-module">
+              <div class="module-bar">
+                <span class="module-label">Admin Token</span>
+                <span class="module-state" id="token-state">Unlocked</span>
+              </div>
+              <div class="token-row">
+                <input type="password" id="admin-token" placeholder="Enter X-Admin-Token" autocomplete="off">
+                <button type="button" class="tactile-key" id="save-token">
+                  <span class="js-text-roll" data-text="SAVE">SAVE</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Media Upload Form -->
+            <form id="upload-form" class="bay-form">
+              <!-- Adjustable Media Monitor / File Loader -->
+              <div class="monitor-well" id="monitor-well">
+                <span class="corner-mark tl"></span>
+                <span class="corner-mark tr"></span>
+                <span class="corner-mark bl"></span>
+                <span class="corner-mark br"></span>
+
+                <input type="file" id="upload-file" name="file" accept="image/*,video/*" required>
+
+                <div class="monitor-preview" id="monitor-preview" hidden></div>
+
+                <div class="monitor-empty" id="monitor-empty">
+                  <div class="monitor-reticle">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 19V5" />
+                      <polyline points="5 12 12 5 19 12" />
+                    </svg>
+                  </div>
+                  <span class="monitor-title" id="file-label">Click or drag video / photo into monitor</span>
+                  <span class="monitor-sub" id="file-sub">Drag the knurled bar below to resize monitor</span>
+                </div>
+              </div>
+
+              <!-- Knurled Horizontal Splitter to Resize File Monitor Height -->
+              <div class="splitter-h monitor-resizer" id="split-monitor" title="Drag up/down to resize file monitor">
+                <span class="knurl-grip"></span>
+              </div>
+
+              <div class="hardware-module">
+                <div class="field-block">
+                  <label for="upload-title">Title</label>
+                  <input type="text" id="upload-title" name="title" placeholder="Title" required>
+                </div>
+
+                <div class="field-block">
+                  <label for="upload-desc">Description</label>
+                  <textarea id="upload-desc" name="description" rows="3" placeholder="Description"></textarea>
+                </div>
+
+                <div class="telemetry-meter" id="upload-meter" hidden>
+                  <div class="telemetry-fill" id="upload-meter-fill"></div>
+                </div>
+
+                <div class="form-action-bar">
+                  <span class="telemetry-readout" id="upload-status"></span>
+                  <button type="submit" class="tactile-key tactile-key--primary" id="upload-submit">
+                    <span class="js-text-roll" data-text="UPLOAD" data-center="true">UPLOAD</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <!-- Poem Form -->
+            <form id="poem-form" class="bay-form" hidden>
+              <div class="hardware-module">
+                <div class="field-block">
+                  <label for="poem-title">Title</label>
+                  <input type="text" id="poem-title" name="title" placeholder="Title" required>
+                </div>
+
+                <div class="field-block">
+                  <label for="poem-content">Poem</label>
+                  <textarea id="poem-content" name="content" rows="10" placeholder="Write poem..." required></textarea>
+                </div>
+
+                <div class="form-action-bar">
+                  <span class="telemetry-readout" id="poem-status"></span>
+                  <button type="submit" class="tactile-key tactile-key--primary" id="poem-submit">
+                    <span class="js-text-roll" data-text="UPLOAD" data-center="true">UPLOAD</span>
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
-
-          <form id="upload-form" class="dock-form">
-            <div class="media-slot" id="media-slot">
-              <input type="file" id="upload-file" name="file" accept="image/*,video/*" required aria-label="Video or photo">
-              <div class="media-slot-preview" id="media-slot-preview" hidden></div>
-              <div class="media-slot-empty" id="media-slot-empty">
-                <span class="slot-primary">Drop a video or photo here, or click to choose</span>
-                <span class="slot-secondary">Drag the handle below to change this area's height</span>
-              </div>
-            </div>
-            <div class="h-splitter" id="slot-splitter" role="separator" aria-orientation="horizontal" tabindex="0" title="Drag to resize"></div>
-
-            <div class="dock-fields">
-              <div class="field-row">
-                <label for="upload-title">Title</label>
-                <input type="text" id="upload-title" name="title" required>
-              </div>
-              <div class="field-row">
-                <label for="upload-desc">Description</label>
-                <textarea id="upload-desc" name="description" rows="3"></textarea>
-              </div>
-              <div class="upload-bar" id="upload-meter" hidden>
-                <div class="upload-bar-fill" id="upload-meter-fill"></div>
-              </div>
-              <div class="dock-submit-row">
-                <span class="dock-feedback" id="upload-feedback" role="status"></span>
-                <button type="submit" class="btn btn-solid" id="upload-submit">Upload</button>
-              </div>
-            </div>
-          </form>
-
-          <form id="poem-form" class="dock-form" hidden>
-            <div class="dock-fields">
-              <div class="field-row">
-                <label for="poem-title">Title</label>
-                <input type="text" id="poem-title" name="title" required>
-              </div>
-              <div class="field-row field-row--grow">
-                <label for="poem-content">Poem</label>
-                <textarea id="poem-content" name="content" required></textarea>
-              </div>
-              <div class="dock-submit-row">
-                <span class="dock-feedback" id="poem-feedback" role="status"></span>
-                <button type="submit" class="btn btn-solid" id="poem-submit">Publish</button>
-              </div>
-            </div>
-          </form>
         </div>
       </aside>
     </div>
   </div>
 
-  <div class="lightbox" id="lightbox" hidden aria-hidden="true" role="dialog" aria-label="Photo viewer">
-    <header class="lightbox-bar">
-      <div class="lightbox-meta">
+  <!-- High-Contrast Inspection Lightbox -->
+  <div class="lightbox-deck" id="lightbox" hidden aria-hidden="true">
+    <header class="lightbox-header">
+      <div class="lightbox-info">
         <span class="lightbox-title" id="lb-title"></span>
         <span class="lightbox-desc" id="lb-desc"></span>
       </div>
-      <div class="lightbox-controls">
-        <button type="button" class="dock-action-btn" id="lb-prev">Previous</button>
-        <button type="button" class="dock-action-btn" id="lb-next">Next</button>
-        <button type="button" class="dock-action-btn" id="lb-close">Close</button>
+      <div class="lightbox-btns">
+        <button type="button" class="tactile-key" id="lb-prev">
+          <span class="js-text-roll" data-text="PREV">PREV</span>
+        </button>
+        <button type="button" class="tactile-key" id="lb-next">
+          <span class="js-text-roll" data-text="NEXT">NEXT</span>
+        </button>
+        <button type="button" class="tactile-key tactile-key--accent" id="lb-close">
+          <span class="js-text-roll" data-text="CLOSE">CLOSE</span>
+        </button>
       </div>
     </header>
-    <div class="lightbox-stage" id="lb-canvas"></div>
+    <div class="lightbox-viewport" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=11.0"></script>
+  <script src="/static/app.js?v=12.0"></script>
 </body>
 </html>
