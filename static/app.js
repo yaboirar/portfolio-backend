@@ -1,586 +1,563 @@
 (() => {
   'use strict';
 
+  const STAGGER = 0.035;
+
   const state = {
     videos: [],
     photos: [],
     poems: [],
     filter: 'all',
-    adminToken: sessionStorage.getItem('admin_token') || '',
-    viewerList: [],
-    viewerIndex: -1,
+    activePoemIndex: 0,
+    lightboxIndex: -1,
+    token: sessionStorage.getItem('admin_token') || '',
   };
 
-  // DOM Elements
-  const el = {
+  const dom = {
+    themeSwitch: document.getElementById('theme-switch'),
+    adminTrigger: document.getElementById('admin-trigger'),
+    tokenDot: document.getElementById('token-dot'),
+
+    navBtns: document.querySelectorAll('.kinetic-nav-btn'),
     countAll: document.getElementById('count-all'),
     countVideos: document.getElementById('count-videos'),
     countPhotos: document.getElementById('count-photos'),
     countPoems: document.getElementById('count-poems'),
-    metaVideos: document.getElementById('meta-videos'),
-    metaPhotos: document.getElementById('meta-photos'),
-    metaPoems: document.getElementById('meta-poems'),
-    sectionVideos: document.getElementById('section-videos'),
-    sectionPhotos: document.getElementById('section-photos'),
-    sectionPoems: document.getElementById('section-poems'),
-    gridVideos: document.getElementById('grid-videos'),
-    gridPhotos: document.getElementById('grid-photos'),
-    gridPoems: document.getElementById('grid-poems'),
-    statusBanner: document.getElementById('status-banner'),
-    filterBtns: document.querySelectorAll('.filter-btn'),
-    resetFilter: document.getElementById('reset-filter'),
-    themeToggle: document.getElementById('theme-toggle'),
-    adminToggle: document.getElementById('admin-toggle'),
 
-    // Viewer Modal
-    viewerModal: document.getElementById('viewer-modal'),
-    viewerType: document.getElementById('viewer-type'),
-    viewerStage: document.getElementById('viewer-stage'),
-    viewerTitle: document.getElementById('viewer-title'),
-    viewerDescription: document.getElementById('viewer-description'),
-    viewerDate: document.getElementById('viewer-date'),
-    viewerPrev: document.getElementById('viewer-prev'),
-    viewerNext: document.getElementById('viewer-next'),
-    viewerClose: document.getElementById('viewer-close'),
-    viewerDelete: document.getElementById('viewer-delete'),
+    chapterVideos: document.getElementById('chapter-videos'),
+    chapterPhotos: document.getElementById('chapter-photos'),
+    chapterPoems: document.getElementById('chapter-poems'),
+    reelVideos: document.getElementById('reel-videos'),
+    galleryPhotos: document.getElementById('gallery-photos'),
+    verseIndex: document.getElementById('verse-index'),
+    verseReader: document.getElementById('verse-reader'),
 
-    // Admin Modal
-    adminModal: document.getElementById('admin-modal'),
-    adminClose: document.getElementById('admin-close'),
-    adminTokenInput: document.getElementById('admin-token'),
-    saveTokenBtn: document.getElementById('save-token-btn'),
-    tokenStatus: document.getElementById('token-status'),
-    tabBtns: document.querySelectorAll('.tab-btn'),
+    lightbox: document.getElementById('lightbox'),
+    lbCounter: document.getElementById('lb-counter'),
+    lbTitle: document.getElementById('lb-title'),
+    lbDesc: document.getElementById('lb-desc'),
+    lbCanvas: document.getElementById('lb-canvas'),
+    lbPrev: document.getElementById('lb-prev'),
+    lbNext: document.getElementById('lb-next'),
+    lbClose: document.getElementById('lb-close'),
+
+    studioModal: document.getElementById('studio-modal'),
+    studioClose: document.getElementById('studio-close'),
+    adminToken: document.getElementById('admin-token'),
+    saveToken: document.getElementById('save-token'),
+    authIndicator: document.getElementById('auth-indicator'),
+    modeTabs: document.querySelectorAll('.mode-tab'),
+
     uploadForm: document.getElementById('upload-form'),
+    dropzone: document.getElementById('dropzone'),
     uploadFile: document.getElementById('upload-file'),
+    dropzonePreview: document.getElementById('dropzone-preview'),
+    dropzonePrompt: document.getElementById('dropzone-prompt'),
+    dropzoneFilename: document.getElementById('dropzone-filename'),
+    dropzoneFilesize: document.getElementById('dropzone-filesize'),
     uploadTitle: document.getElementById('upload-title'),
-    uploadDescription: document.getElementById('upload-description'),
-    uploadProgressWrap: document.getElementById('upload-progress-wrap'),
-    uploadStatusText: document.getElementById('upload-status-text'),
-    uploadPercent: document.getElementById('upload-percent'),
-    uploadProgressBar: document.getElementById('upload-progress-bar'),
-    uploadMessage: document.getElementById('upload-message'),
+    uploadDesc: document.getElementById('upload-desc'),
+    uploadMeter: document.getElementById('upload-meter'),
+    uploadMeterFill: document.getElementById('upload-meter-fill'),
+    uploadFeedback: document.getElementById('upload-feedback'),
     uploadSubmit: document.getElementById('upload-submit'),
+
     poemForm: document.getElementById('poem-form'),
     poemTitle: document.getElementById('poem-title'),
     poemContent: document.getElementById('poem-content'),
-    poemMessage: document.getElementById('poem-message'),
+    poemFeedback: document.getElementById('poem-feedback'),
     poemSubmit: document.getElementById('poem-submit'),
   };
 
-  // Helpers
-  function normalizeList(payload, keys) {
+  /* ========================================================================
+     TEXT-ROLL BUILDER (Direct Vanilla DOM port of TextRoll component)
+     ======================================================================== */
+  function createTextRollNode(text, center = false, extraClass = '') {
+    const root = document.createElement('span');
+    root.className = `text-roll ${extraClass}`.trim();
+
+    const chars = String(text || '').split('');
+    const len = chars.length;
+
+    const buildLayer = (layerClass, isBottom) => {
+      const layer = document.createElement('span');
+      layer.className = `text-roll-layer ${layerClass}`;
+      if (isBottom) layer.setAttribute('aria-hidden', 'true');
+
+      chars.forEach((ch, i) => {
+        const span = document.createElement('span');
+        span.className = 'text-roll-char';
+        const delay = center
+          ? STAGGER * Math.abs(i - (len - 1) / 2)
+          : STAGGER * i;
+        span.style.setProperty('--char-delay', `${delay.toFixed(4)}s`);
+        span.textContent = ch === ' ' ? '\u00A0' : ch;
+        layer.appendChild(span);
+      });
+      return layer;
+    };
+
+    root.appendChild(buildLayer('text-roll-layer--top', false));
+    root.appendChild(buildLayer('text-roll-layer--bottom', true));
+    return root;
+  }
+
+  function hydrateStaticTextRolls() {
+    document.querySelectorAll('.js-text-roll').forEach((el) => {
+      const text = el.dataset.text || el.textContent.trim();
+      const center = el.dataset.center === 'true';
+      const extraClass = Array.from(el.classList)
+        .filter((c) => c !== 'js-text-roll')
+        .join(' ');
+      const rollNode = createTextRollNode(text, center, extraClass);
+      el.replaceWith(rollNode);
+    });
+  }
+
+  /* ========================================================================
+     DATA & API HELPERS
+     ======================================================================== */
+  function pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  function unwrapArray(payload, keys) {
     if (Array.isArray(payload)) return payload;
     if (payload && typeof payload === 'object') {
-      for (const key of keys) {
-        if (Array.isArray(payload[key])) return payload[key];
+      for (const k of keys) {
+        if (Array.isArray(payload[k])) return payload[k];
       }
     }
     return [];
   }
 
-  function normalizeUrl(rawUrl) {
-    if (!rawUrl) return '';
-    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('/')) {
-      return rawUrl;
-    }
-    return '/' + rawUrl;
+  function resolvePath(u) {
+    if (!u) return '';
+    return u.startsWith('/') || u.startsWith('http') ? u : '/' + u;
   }
 
-  function isVideoItem(item) {
-    const typeField = String(item.media_type || item.type || item.file_type || item.mime_type || '').toLowerCase();
-    if (typeField.includes('video')) return true;
-    if (typeField.includes('image') || typeField.includes('photo')) return false;
-    const url = String(item.relative_url || item.url || item.filename || '').toLowerCase();
-    if (url.includes('/videos/')) return true;
-    return /\.(mp4|webm|ogg|mov|m4v|mkv)(\?|$)/i.test(url);
+  function detectVideo(item) {
+    const t = String(item.media_type || item.type || item.file_type || item.mime_type || '').toLowerCase();
+    if (t.includes('video')) return true;
+    if (t.includes('image') || t.includes('photo')) return false;
+    const u = String(item.relative_url || item.url || item.filename || '').toLowerCase();
+    return u.includes('/videos/') || /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u);
   }
 
-  function formatDate(raw) {
-    if (!raw) return '';
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return String(raw).slice(0, 10);
-    return date.toISOString().slice(0, 10);
-  }
-
-  function setStatusBanner(msg) {
-    if (!msg) {
-      el.statusBanner.hidden = true;
-      el.statusBanner.textContent = '';
-      return;
-    }
-    el.statusBanner.textContent = msg;
-    el.statusBanner.hidden = false;
-  }
-
-  function showFormMessage(target, text, isError = false) {
-    target.textContent = text;
-    target.className = 'form-message ' + (isError ? 'is-error' : 'is-success');
-    target.hidden = false;
-  }
-
-  // Theme management
-  function initTheme() {
-    const saved = localStorage.getItem('portfolio_theme') || 'dark';
-    applyTheme(saved);
-  }
-
-  function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('portfolio_theme', theme);
-    el.themeToggle.textContent = theme === 'dark' ? 'Light' : 'Dark';
-  }
-
-  // Token management
-  function updateTokenUI() {
-    el.adminTokenInput.value = state.adminToken;
-    if (state.adminToken) {
-      el.tokenStatus.textContent = 'Token saved in session. Delete controls are active.';
-    } else {
-      el.tokenStatus.textContent = 'No token saved. Enter token to upload or delete items.';
-    }
-    renderAll();
-  }
-
-  // Data Fetching
-  async function loadPortfolioData() {
-    setStatusBanner('');
+  async function fetchPortfolio() {
     try {
-      const [mediaRes, poemsRes] = await Promise.all([
-        fetch('/api/media', { headers: { Accept: 'application/json' } }),
-        fetch('/api/poems', { headers: { Accept: 'application/json' } }),
+      const [mRes, pRes] = await Promise.all([
+        fetch('/api/media'),
+        fetch('/api/poems'),
       ]);
 
-      if (!mediaRes.ok) throw new Error(`GET /api/media returned ${mediaRes.status}`);
-      if (!poemsRes.ok) throw new Error(`GET /api/poems returned ${poemsRes.status}`);
+      const mJson = mRes.ok ? await mRes.json() : [];
+      const pJson = pRes.ok ? await pRes.json() : [];
 
-      const mediaData = await mediaRes.json();
-      const poemsData = await poemsRes.json();
-
-      const allMedia = normalizeList(mediaData, ['media', 'items', 'data']);
-      const allPoems = normalizeList(poemsData, ['poems', 'items', 'data']);
+      const mediaItems = unwrapArray(mJson, ['media', 'items', 'data']);
+      const poemItems = unwrapArray(pJson, ['poems', 'items', 'data']);
 
       state.videos = [];
       state.photos = [];
 
-      allMedia.forEach((item) => {
+      mediaItems.forEach((m) => {
         const normalized = {
-          id: item.id,
-          title: item.title || 'Untitled',
-          description: item.description || '',
-          url: normalizeUrl(item.relative_url || item.url || item.file_path),
-          date: formatDate(item.created_at || item.uploaded_at || item.date),
-          kind: isVideoItem(item) ? 'video' : 'photo',
+          id: m.id,
+          title: m.title || 'Untitled',
+          description: m.description || '',
+          url: resolvePath(m.relative_url || m.url || m.file_path),
         };
-        if (normalized.kind === 'video') {
-          state.videos.push(normalized);
-        } else {
-          state.photos.push(normalized);
-        }
+        if (detectVideo(m)) state.videos.push(normalized);
+        else state.photos.push(normalized);
       });
 
-      state.poems = allPoems.map((p) => ({
+      state.poems = poemItems.map((p) => ({
         id: p.id,
         title: p.title || 'Untitled',
         content: p.content || p.body || p.text || p.poem || '',
-        date: formatDate(p.created_at || p.date),
-        kind: 'poem',
       }));
 
-      renderAll();
+      if (state.activePoemIndex >= state.poems.length) {
+        state.activePoemIndex = 0;
+      }
+
+      renderExhibition();
     } catch (err) {
-      setStatusBanner(`Failed to load portfolio items: ${err.message}`);
+      console.error('Portfolio fetch error:', err);
     }
   }
 
-  // Rendering
-  function renderCounts() {
-    const vCount = state.videos.length;
-    const phCount = state.photos.length;
-    const poCount = state.poems.length;
-    const total = vCount + phCount + poCount;
+  /* ========================================================================
+     RENDERING
+     ======================================================================== */
+  function buildPieceCaption(item, index, endpoint) {
+    const bar = document.createElement('figcaption');
+    bar.className = 'piece-bar';
 
-    el.countAll.textContent = total;
-    el.countVideos.textContent = vCount;
-    el.countPhotos.textContent = phCount;
-    el.countPoems.textContent = poCount;
+    const info = document.createElement('div');
+    info.className = 'piece-info';
 
-    el.metaVideos.textContent = `${vCount} ${vCount === 1 ? 'item' : 'items'}`;
-    el.metaPhotos.textContent = `${phCount} ${phCount === 1 ? 'item' : 'items'}`;
-    el.metaPoems.textContent = `${poCount} ${poCount === 1 ? 'item' : 'items'}`;
+    const idx = document.createElement('span');
+    idx.className = 'piece-index';
+    idx.textContent = pad2(index + 1);
+
+    const title = document.createElement('span');
+    title.className = 'piece-title';
+    title.textContent = item.title;
+
+    info.appendChild(idx);
+    info.appendChild(title);
+
+    if (item.description) {
+      const desc = document.createElement('span');
+      desc.className = 'piece-desc';
+      desc.textContent = item.description;
+      info.appendChild(desc);
+    }
+
+    bar.appendChild(info);
+
+    if (state.token && item.id !== undefined) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'piece-delete';
+      del.textContent = 'Delete';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteEntry(endpoint, item.id);
+      });
+      bar.appendChild(del);
+    }
+
+    return bar;
   }
 
-  function applyFilterVisibility() {
-    const f = state.filter;
-    el.sectionVideos.hidden = f !== 'all' && f !== 'videos';
-    el.sectionPhotos.hidden = f !== 'all' && f !== 'photos';
-    el.sectionPoems.hidden = f !== 'all' && f !== 'poems';
-
-    el.filterBtns.forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.filter === f);
-    });
-  }
-
-  function createEmptyNode(label) {
+  function renderEmptyState(container, label) {
     const div = document.createElement('div');
-    div.className = 'empty-state';
-    div.textContent = `No ${label} published.`;
-    return div;
+    div.className = 'empty-canvas';
+    div.textContent = `00 — NO ${label} IN ARCHIVE`;
+    container.appendChild(div);
   }
 
-  function renderMediaGrid(container, items, kindLabel) {
-    container.replaceChildren();
-    if (items.length === 0) {
-      container.appendChild(createEmptyNode(kindLabel));
-      return;
+  function renderVerseReader() {
+    dom.verseReader.replaceChildren();
+    const poem = state.poems[state.activePoemIndex];
+    if (!poem) return;
+
+    const head = document.createElement('div');
+    head.className = 'verse-reader-head';
+
+    const title = document.createElement('h3');
+    title.className = 'verse-reader-title';
+    title.textContent = poem.title;
+    head.appendChild(title);
+
+    if (state.token && poem.id !== undefined) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'piece-delete';
+      del.textContent = 'Delete';
+      del.addEventListener('click', () => deleteEntry('poems', poem.id));
+      head.appendChild(del);
     }
 
-    items.forEach((item, idx) => {
-      const card = document.createElement('article');
-      card.className = 'media-card';
+    const body = document.createElement('div');
+    body.className = 'verse-reader-body';
+    body.textContent = poem.content;
 
-      const thumbBtn = document.createElement('button');
-      thumbBtn.type = 'button';
-      thumbBtn.className = 'media-thumb-btn';
-      thumbBtn.addEventListener('click', () => openViewer(items, idx));
-
-      if (item.kind === 'video') {
-        const video = document.createElement('video');
-        video.src = item.url;
-        video.preload = 'metadata';
-        video.muted = true;
-        video.playsInline = true;
-        thumbBtn.appendChild(video);
-
-        const badge = document.createElement('span');
-        badge.className = 'video-badge';
-        badge.textContent = 'VIDEO';
-        thumbBtn.appendChild(badge);
-      } else {
-        const img = document.createElement('img');
-        img.src = item.url;
-        img.alt = item.title;
-        img.loading = 'lazy';
-        thumbBtn.appendChild(img);
-      }
-
-      const body = document.createElement('div');
-      body.className = 'media-body';
-
-      const titleRow = document.createElement('div');
-      titleRow.className = 'media-title-row';
-
-      const title = document.createElement('h3');
-      title.className = 'media-title';
-      title.textContent = item.title;
-      titleRow.appendChild(title);
-      body.appendChild(titleRow);
-
-      if (item.description) {
-        const desc = document.createElement('p');
-        desc.className = 'media-desc';
-        desc.textContent = item.description;
-        body.appendChild(desc);
-      }
-
-      const footer = document.createElement('div');
-      footer.className = 'media-footer';
-
-      const dateSpan = document.createElement('span');
-      dateSpan.textContent = item.date || `#${item.id}`;
-      footer.appendChild(dateSpan);
-
-      if (state.adminToken && item.id !== undefined) {
-        const delBtn = document.createElement('button');
-        delBtn.type = 'button';
-        delBtn.className = 'inline-delete';
-        delBtn.textContent = 'Delete';
-        delBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          deleteItem('media', item.id);
-        });
-        footer.appendChild(delBtn);
-      }
-
-      body.appendChild(footer);
-      card.appendChild(thumbBtn);
-      card.appendChild(body);
-      container.appendChild(card);
-    });
+    dom.verseReader.appendChild(head);
+    dom.verseReader.appendChild(body);
   }
 
-  function renderPoemsGrid(container, poems) {
-    container.replaceChildren();
-    if (poems.length === 0) {
-      container.appendChild(createEmptyNode('poems'));
-      return;
-    }
+  function renderExhibition() {
+    const vLen = state.videos.length;
+    const phLen = state.photos.length;
+    const poLen = state.poems.length;
 
-    poems.forEach((poem, idx) => {
-      const card = document.createElement('article');
-      card.className = 'poem-card';
+    dom.countAll.textContent = pad2(vLen + phLen + poLen);
+    dom.countVideos.textContent = pad2(vLen);
+    dom.countPhotos.textContent = pad2(phLen);
+    dom.countPoems.textContent = pad2(poLen);
 
-      const top = document.createElement('div');
+    const f = state.filter;
+    dom.chapterVideos.hidden = f !== 'all' && f !== 'videos';
+    dom.chapterPhotos.hidden = f !== 'all' && f !== 'photos';
+    dom.chapterPoems.hidden = f !== 'all' && f !== 'poems';
 
-      const header = document.createElement('div');
-      header.className = 'poem-header';
-
-      const title = document.createElement('h3');
-      title.className = 'poem-title';
-      title.textContent = poem.title;
-
-      const date = document.createElement('span');
-      date.className = 'poem-date';
-      date.textContent = poem.date || `#${poem.id}`;
-
-      header.appendChild(title);
-      header.appendChild(date);
-
-      const body = document.createElement('div');
-      body.className = 'poem-body';
-      body.textContent = poem.content;
-
-      top.appendChild(header);
-      top.appendChild(body);
-
-      const footer = document.createElement('div');
-      footer.className = 'poem-footer';
-
-      const readBtn = document.createElement('button');
-      readBtn.type = 'button';
-      readBtn.className = 'read-btn';
-      readBtn.textContent = 'Open';
-      readBtn.addEventListener('click', () => openViewer(poems, idx));
-      footer.appendChild(readBtn);
-
-      if (state.adminToken && poem.id !== undefined) {
-        const delBtn = document.createElement('button');
-        delBtn.type = 'button';
-        delBtn.className = 'inline-delete';
-        delBtn.textContent = 'Delete';
-        delBtn.addEventListener('click', () => deleteItem('poems', poem.id));
-        footer.appendChild(delBtn);
-      }
-
-      card.appendChild(top);
-      card.appendChild(footer);
-      container.appendChild(card);
-    });
-  }
-
-  function renderAll() {
-    renderCounts();
-    applyFilterVisibility();
-    renderMediaGrid(el.gridVideos, state.videos, 'videos');
-    renderMediaGrid(el.gridPhotos, state.photos, 'photos');
-    renderPoemsGrid(el.gridPoems, state.poems);
-  }
-
-  // Viewer Modal
-  function openViewer(list, index) {
-    state.viewerList = list;
-    state.viewerIndex = index;
-    updateViewerContent();
-    el.viewerModal.hidden = false;
-    el.viewerModal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeViewer() {
-    el.viewerStage.replaceChildren();
-    el.viewerModal.hidden = true;
-    el.viewerModal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    state.viewerList = [];
-    state.viewerIndex = -1;
-  }
-
-  function stepViewer(delta) {
-    if (!state.viewerList.length) return;
-    const len = state.viewerList.length;
-    state.viewerIndex = (state.viewerIndex + delta + len) % len;
-    updateViewerContent();
-  }
-
-  function updateViewerContent() {
-    const item = state.viewerList[state.viewerIndex];
-    if (!item) return;
-
-    el.viewerStage.replaceChildren();
-    el.viewerType.textContent = `${item.kind.toUpperCase()} (${state.viewerIndex + 1}/${state.viewerList.length})`;
-    el.viewerTitle.textContent = item.title;
-    el.viewerDescription.textContent = item.description || '';
-    el.viewerDate.textContent = item.date || '';
-
-    el.viewerPrev.disabled = state.viewerList.length <= 1;
-    el.viewerNext.disabled = state.viewerList.length <= 1;
-
-    if (state.adminToken && item.id !== undefined) {
-      el.viewerDelete.hidden = false;
-      el.viewerDelete.onclick = () => {
-        const endpointType = item.kind === 'poem' ? 'poems' : 'media';
-        deleteItem(endpointType, item.id, true);
-      };
+    // 01 / Videos
+    dom.reelVideos.replaceChildren();
+    if (vLen === 0) {
+      renderEmptyState(dom.reelVideos, 'MOTION');
     } else {
-      el.viewerDelete.hidden = true;
-      el.viewerDelete.onclick = null;
+      state.videos.forEach((v, idx) => {
+        const fig = document.createElement('figure');
+        fig.className = 'motion-card';
+
+        const stage = document.createElement('div');
+        stage.className = 'motion-stage';
+
+        const video = document.createElement('video');
+        video.src = v.url;
+        video.controls = true;
+        video.preload = 'metadata';
+        video.playsInline = true;
+
+        stage.appendChild(video);
+        fig.appendChild(stage);
+        fig.appendChild(buildPieceCaption(v, idx, 'media'));
+        dom.reelVideos.appendChild(fig);
+      });
     }
 
-    if (item.kind === 'video') {
-      const video = document.createElement('video');
-      video.src = item.url;
-      video.controls = true;
-      video.autoplay = true;
-      video.playsInline = true;
-      el.viewerStage.appendChild(video);
-    } else if (item.kind === 'photo') {
-      const img = document.createElement('img');
-      img.src = item.url;
-      img.alt = item.title;
-      el.viewerStage.appendChild(img);
-    } else if (item.kind === 'poem') {
-      const poemDiv = document.createElement('div');
-      poemDiv.className = 'viewer-poem';
-      poemDiv.textContent = item.content;
-      el.viewerStage.appendChild(poemDiv);
-    }
-  }
+    // 02 / Photos
+    dom.galleryPhotos.replaceChildren();
+    if (phLen === 0) {
+      renderEmptyState(dom.galleryPhotos, 'STILLS');
+    } else {
+      state.photos.forEach((p, idx) => {
+        const fig = document.createElement('figure');
+        fig.className = 'still-item';
 
-  // Delete Handler
-  async function deleteItem(endpointType, id, fromViewer = false) {
-    if (!state.adminToken) {
-      openAdminModal();
-      return;
-    }
-    if (!window.confirm(`Delete item #${id}?`)) return;
+        const frame = document.createElement('div');
+        frame.className = 'still-frame';
+        frame.addEventListener('click', () => openLightbox(idx));
 
-    try {
-      const res = await fetch(`/api/${endpointType}/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: {
-          'X-Admin-Token': state.adminToken,
-        },
+        const img = document.createElement('img');
+        img.src = p.url;
+        img.alt = p.title;
+        img.loading = 'lazy';
+
+        frame.appendChild(img);
+        fig.appendChild(frame);
+        fig.appendChild(buildPieceCaption(p, idx, 'media'));
+        dom.galleryPhotos.appendChild(fig);
+      });
+    }
+
+    // 03 / Poems (Interactive TextRoll Index + Reader Stage)
+    dom.verseIndex.replaceChildren();
+    dom.verseReader.replaceChildren();
+
+    if (poLen === 0) {
+      dom.verseReader.hidden = true;
+      renderEmptyState(dom.verseIndex, 'VERSE');
+    } else {
+      dom.verseReader.hidden = false;
+      state.poems.forEach((poem, idx) => {
+        const li = document.createElement('li');
+        li.className = 'verse-index-item';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'verse-index-btn' + (idx === state.activePoemIndex ? ' is-active' : '');
+
+        const left = document.createElement('div');
+        left.className = 'verse-index-left';
+
+        const num = document.createElement('span');
+        num.className = 'piece-index';
+        num.textContent = pad2(idx + 1);
+
+        const rollTitle = createTextRollNode(poem.title.toUpperCase(), false, 'verse-roll-title');
+
+        left.appendChild(num);
+        left.appendChild(rollTitle);
+        btn.appendChild(left);
+
+        btn.addEventListener('click', () => {
+          state.activePoemIndex = idx;
+          dom.verseIndex.querySelectorAll('.verse-index-btn').forEach((b, bIdx) => {
+            b.classList.toggle('is-active', bIdx === idx);
+          });
+          renderVerseReader();
+        });
+
+        li.appendChild(btn);
+        dom.verseIndex.appendChild(li);
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || `HTTP ${res.status}`);
-      }
-
-      if (fromViewer) closeViewer();
-      await loadPortfolioData();
-    } catch (err) {
-      window.alert(`Delete failed: ${err.message}`);
+      renderVerseReader();
     }
   }
 
-  // Admin Modal
-  function openAdminModal() {
-    el.uploadMessage.hidden = true;
-    el.poemMessage.hidden = true;
-    el.adminModal.hidden = false;
-    el.adminModal.setAttribute('aria-hidden', 'false');
+  /* ========================================================================
+     LIGHTBOX
+     ======================================================================== */
+  function openLightbox(index) {
+    state.lightboxIndex = index;
+    updateLightboxStage();
+    dom.lightbox.hidden = false;
+    dom.lightbox.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
   }
 
-  function closeAdminModal() {
-    el.adminModal.hidden = true;
-    el.adminModal.setAttribute('aria-hidden', 'true');
+  function closeLightbox() {
+    dom.lbCanvas.replaceChildren();
+    dom.lightbox.hidden = true;
+    dom.lightbox.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
   }
 
-  // Multipart Upload with XHR progress
+  function stepLightbox(delta) {
+    const len = state.photos.length;
+    if (!len) return;
+    state.lightboxIndex = (state.lightboxIndex + delta + len) % len;
+    updateLightboxStage();
+  }
+
+  function updateLightboxStage() {
+    const item = state.photos[state.lightboxIndex];
+    if (!item) return;
+
+    dom.lbCanvas.replaceChildren();
+    dom.lbCounter.textContent = `${pad2(state.lightboxIndex + 1)} / ${pad2(state.photos.length)}`;
+    dom.lbTitle.textContent = item.title;
+    dom.lbDesc.textContent = item.description || '';
+
+    const img = document.createElement('img');
+    img.src = item.url;
+    img.alt = item.title;
+    dom.lbCanvas.appendChild(img);
+  }
+
+  /* ========================================================================
+     STUDIO / ADMIN ACTIONS
+     ======================================================================== */
+  function syncTokenState() {
+    dom.adminToken.value = state.token;
+    const unlocked = Boolean(state.token);
+    dom.authIndicator.textContent = unlocked ? 'Active' : 'Locked';
+    dom.tokenDot.hidden = !unlocked;
+  }
+
+  async function deleteEntry(endpoint, id) {
+    if (!state.token) return;
+    if (!window.confirm('Remove this work permanently?')) return;
+
+    const res = await fetch(`/api/${endpoint}/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Token': state.token },
+    });
+
+    if (res.ok) {
+      fetchPortfolio();
+    } else {
+      window.alert(`Delete failed (${res.status})`);
+    }
+  }
+
+  function updateDropzonePreview() {
+    const file = dom.uploadFile.files[0];
+    dom.dropzonePreview.replaceChildren();
+
+    if (!file) {
+      dom.dropzonePreview.hidden = true;
+      dom.dropzonePrompt.hidden = false;
+      dom.dropzoneFilename.textContent = 'Drop video or image here';
+      dom.dropzoneFilesize.textContent = 'or click to browse local files';
+      return;
+    }
+
+    const mb = (file.size / (1024 * 1024)).toFixed(2);
+    dom.dropzoneFilename.textContent = file.name;
+    dom.dropzoneFilesize.textContent = `${mb} MB`;
+
+    const blobUrl = URL.createObjectURL(file);
+    if (file.type.startsWith('video/')) {
+      const vid = document.createElement('video');
+      vid.src = blobUrl;
+      vid.muted = true;
+      vid.autoplay = true;
+      vid.loop = true;
+      vid.playsInline = true;
+      dom.dropzonePreview.appendChild(vid);
+      dom.dropzonePreview.hidden = false;
+    } else if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = blobUrl;
+      dom.dropzonePreview.appendChild(img);
+      dom.dropzonePreview.hidden = false;
+    }
+  }
+
   function handleMediaUpload(e) {
     e.preventDefault();
-    el.uploadMessage.hidden = true;
+    const token = dom.adminToken.value.trim() || state.token;
+    const file = dom.uploadFile.files[0];
 
-    const token = el.adminTokenInput.value.trim() || state.adminToken;
     if (!token) {
-      showFormMessage(el.uploadMessage, 'Admin token is required.', true);
+      dom.uploadFeedback.textContent = 'Token required';
       return;
     }
-
-    const file = el.uploadFile.files[0];
     if (!file) {
-      showFormMessage(el.uploadMessage, 'Select a file to upload.', true);
+      dom.uploadFeedback.textContent = 'Select a file';
       return;
     }
 
-    state.adminToken = token;
+    state.token = token;
     sessionStorage.setItem('admin_token', token);
-    updateTokenUI();
+    syncTokenState();
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', el.uploadTitle.value.trim());
-    formData.append('description', el.uploadDescription.value.trim());
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('title', dom.uploadTitle.value.trim());
+    fd.append('description', dom.uploadDesc.value.trim());
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/upload', true);
     xhr.setRequestHeader('X-Admin-Token', token);
 
-    el.uploadSubmit.disabled = true;
-    el.uploadProgressWrap.hidden = false;
-    el.uploadProgressBar.style.width = '0%';
-    el.uploadPercent.textContent = '0%';
-    el.uploadStatusText.textContent = 'Uploading...';
+    dom.uploadSubmit.disabled = true;
+    dom.uploadMeter.hidden = false;
+    dom.uploadMeterFill.style.width = '0%';
+    dom.uploadFeedback.textContent = '0%';
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const pct = Math.round((event.loaded / event.total) * 100);
-        el.uploadProgressBar.style.width = `${pct}%`;
-        el.uploadPercent.textContent = `${pct}%`;
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) {
+        const pct = Math.round((ev.loaded / ev.total) * 100);
+        dom.uploadMeterFill.style.width = `${pct}%`;
+        dom.uploadFeedback.textContent = `${pct}%`;
       }
     };
 
-    xhr.onload = async () => {
-      el.uploadSubmit.disabled = false;
+    xhr.onload = () => {
+      dom.uploadSubmit.disabled = false;
       if (xhr.status >= 200 && xhr.status < 300) {
-        el.uploadForm.reset();
-        el.uploadStatusText.textContent = 'Complete';
-        showFormMessage(el.uploadMessage, 'File uploaded.', false);
-        await loadPortfolioData();
+        dom.uploadForm.reset();
+        updateDropzonePreview();
+        dom.uploadFeedback.textContent = 'Published';
+        setTimeout(() => {
+          dom.uploadMeter.hidden = true;
+        }, 700);
+        fetchPortfolio();
       } else {
-        let errMsg = `Upload failed (${xhr.status})`;
-        try {
-          const parsed = JSON.parse(xhr.responseText);
-          if (parsed.error || parsed.detail || parsed.message) {
-            errMsg = parsed.error || parsed.detail || parsed.message;
-          }
-        } catch (_) {
-          if (xhr.responseText) errMsg = xhr.responseText;
-        }
-        showFormMessage(el.uploadMessage, errMsg, true);
+        dom.uploadFeedback.textContent = `Error ${xhr.status}`;
       }
     };
 
     xhr.onerror = () => {
-      el.uploadSubmit.disabled = false;
-      showFormMessage(el.uploadMessage, 'Network error during upload.', true);
+      dom.uploadSubmit.disabled = false;
+      dom.uploadFeedback.textContent = 'Network error';
     };
 
-    xhr.send(formData);
+    xhr.send(fd);
   }
 
-  // Poem Submission
-  async function handlePoemSubmit(e) {
+  async function handlePoemPublish(e) {
     e.preventDefault();
-    el.poemMessage.hidden = true;
-
-    const token = el.adminTokenInput.value.trim() || state.adminToken;
+    const token = dom.adminToken.value.trim() || state.token;
     if (!token) {
-      showFormMessage(el.poemMessage, 'Admin token is required.', true);
+      dom.poemFeedback.textContent = 'Token required';
       return;
     }
 
-    state.adminToken = token;
+    state.token = token;
     sessionStorage.setItem('admin_token', token);
-    updateTokenUI();
+    syncTokenState();
 
-    const title = el.poemTitle.value.trim();
-    const content = el.poemContent.value.trim();
+    dom.poemSubmit.disabled = true;
+    dom.poemFeedback.textContent = 'Publishing...';
 
-    el.poemSubmit.disabled = true;
     try {
       const res = await fetch('/api/poems', {
         method: 'POST',
@@ -588,98 +565,119 @@
           'Content-Type': 'application/json',
           'X-Admin-Token': token,
         },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({
+          title: dom.poemTitle.value.trim(),
+          content: dom.poemContent.value.trim(),
+        }),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || `HTTP ${res.status}`);
-      }
-
-      el.poemForm.reset();
-      showFormMessage(el.poemMessage, 'Poem published.', false);
-      await loadPortfolioData();
+      if (!res.ok) throw new Error(res.status);
+      dom.poemForm.reset();
+      dom.poemFeedback.textContent = 'Published';
+      fetchPortfolio();
     } catch (err) {
-      showFormMessage(el.poemMessage, `Failed: ${err.message}`, true);
+      dom.poemFeedback.textContent = `Error ${err.message}`;
     } finally {
-      el.poemSubmit.disabled = false;
+      dom.poemSubmit.disabled = false;
     }
   }
 
-  // Event Listeners
-  function bindEvents() {
-    el.filterBtns.forEach((btn) => {
+  /* ========================================================================
+     INITIALIZATION
+     ======================================================================== */
+  function init() {
+    const savedTheme = localStorage.getItem('portfolio_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    hydrateStaticTextRolls();
+    syncTokenState();
+
+    dom.themeSwitch.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('portfolio_theme', next);
+    });
+
+    dom.navBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         state.filter = btn.dataset.filter;
-        applyFilterVisibility();
+        dom.navBtns.forEach((b) => {
+          const active = b === btn;
+          b.classList.toggle('is-active', active);
+          b.setAttribute('aria-selected', String(active));
+        });
+        renderExhibition();
       });
     });
 
-    el.resetFilter.addEventListener('click', (e) => {
-      e.preventDefault();
-      state.filter = 'all';
-      applyFilterVisibility();
+    dom.adminTrigger.addEventListener('click', () => {
+      dom.studioModal.hidden = false;
+      dom.studioModal.setAttribute('aria-hidden', 'false');
     });
 
-    el.themeToggle.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') || 'dark';
-      applyTheme(current === 'dark' ? 'light' : 'dark');
+    dom.studioClose.addEventListener('click', () => {
+      dom.studioModal.hidden = true;
+      dom.studioModal.setAttribute('aria-hidden', 'true');
     });
 
-    el.adminToggle.addEventListener('click', openAdminModal);
-    el.adminClose.addEventListener('click', closeAdminModal);
-
-    el.saveTokenBtn.addEventListener('click', () => {
-      state.adminToken = el.adminTokenInput.value.trim();
-      if (state.adminToken) {
-        sessionStorage.setItem('admin_token', state.adminToken);
-      } else {
-        sessionStorage.removeItem('admin_token');
+    dom.studioModal.addEventListener('click', (e) => {
+      if (e.target === dom.studioModal) {
+        dom.studioModal.hidden = true;
+        dom.studioModal.setAttribute('aria-hidden', 'true');
       }
-      updateTokenUI();
     });
 
-    el.tabBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        el.tabBtns.forEach((b) => b.classList.remove('is-active'));
-        btn.classList.add('is-active');
-        const isMedia = btn.dataset.tab === 'upload-media';
-        el.uploadForm.hidden = !isMedia;
-        el.poemForm.hidden = isMedia;
+    dom.saveToken.addEventListener('click', () => {
+      state.token = dom.adminToken.value.trim();
+      sessionStorage.setItem('admin_token', state.token);
+      syncTokenState();
+      renderExhibition();
+    });
+
+    dom.modeTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        dom.modeTabs.forEach((t) => t.classList.toggle('is-active', t === tab));
+        const isMedia = tab.dataset.tab === 'media';
+        dom.uploadForm.hidden = !isMedia;
+        dom.poemForm.hidden = isMedia;
       });
     });
 
-    el.uploadForm.addEventListener('submit', handleMediaUpload);
-    el.poemForm.addEventListener('submit', handlePoemSubmit);
+    dom.uploadFile.addEventListener('change', updateDropzonePreview);
+    dom.dropzone.addEventListener('dragover', () => dom.dropzone.classList.add('is-dragover'));
+    dom.dropzone.addEventListener('dragleave', () => dom.dropzone.classList.remove('is-dragover'));
+    dom.dropzone.addEventListener('drop', () => dom.dropzone.classList.remove('is-dragover'));
 
-    // Viewer Controls
-    el.viewerClose.addEventListener('click', closeViewer);
-    el.viewerPrev.addEventListener('click', () => stepViewer(-1));
-    el.viewerNext.addEventListener('click', () => stepViewer(1));
+    dom.uploadForm.addEventListener('submit', handleMediaUpload);
+    dom.poemForm.addEventListener('submit', handlePoemPublish);
 
-    // Backdrop click to close
-    el.viewerModal.addEventListener('click', (e) => {
-      if (e.target === el.viewerModal) closeViewer();
+    dom.lbClose.addEventListener('click', closeLightbox);
+    dom.lbPrev.addEventListener('click', () => stepLightbox(-1));
+    dom.lbNext.addEventListener('click', () => stepLightbox(1));
+    dom.lightbox.addEventListener('click', (e) => {
+      if (e.target === dom.lightbox || e.target === dom.lbCanvas) closeLightbox();
     });
-    el.adminModal.addEventListener('click', (e) => {
-      if (e.target === el.adminModal) closeAdminModal();
-    });
 
-    // Keyboard navigation
     document.addEventListener('keydown', (e) => {
-      if (!el.viewerModal.hidden) {
-        if (e.key === 'Escape') closeViewer();
-        if (e.key === 'ArrowLeft') stepViewer(-1);
-        if (e.key === 'ArrowRight') stepViewer(1);
-      } else if (!el.adminModal.hidden && e.key === 'Escape') {
-        closeAdminModal();
+      if (e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        const tag = document.activeElement ? document.activeElement.tagName : '';
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+          e.preventDefault();
+          dom.studioModal.hidden = !dom.studioModal.hidden;
+        }
+      }
+      if (!dom.lightbox.hidden) {
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') stepLightbox(-1);
+        if (e.key === 'ArrowRight') stepLightbox(1);
+      } else if (!dom.studioModal.hidden && e.key === 'Escape') {
+        dom.studioModal.hidden = true;
       }
     });
+
+    fetchPortfolio();
   }
 
-  // Initialize
-  initTheme();
-  updateTokenUI();
-  bindEvents();
-  loadPortfolioData();
+  init();
 })();
