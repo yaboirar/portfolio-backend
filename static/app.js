@@ -147,38 +147,101 @@
   /* ========================================================================
      TOP-LEFT NAVIGATION: SHRINK TO ACTIVE CATEGORY & SLIDE OUT OTHERS ON HOVER
      ======================================================================== */
-  function renderNavPill(activeKey, shrinkImmediately = false) {
-    const currentCat = CATEGORIES.find((c) => c.key === activeKey) || CATEGORIES[0];
-    const otherCats = CATEGORIES.filter((c) => c.key !== currentCat.key);
+  let navReady = false;
+  let navHovered = false;
+  let navLocked = false;
+  let navKeyboardOpen = false;
 
-    // Set the main visible button on the left to the active category (e.g. VIDEOS)
-    dom.navCurrent.dataset.filter = currentCat.key;
-    dom.navCurrent.replaceChildren(
-      createTextRollNode(currentCat.label, true, 'nav-roll')
-    );
-
-    // Put the other 3 categories inside the hover drawer
-    dom.navDrawerList.replaceChildren();
-    otherCats.forEach((cat) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'nav-item';
-      btn.dataset.filter = cat.key;
-      btn.appendChild(createTextRollNode(cat.label, true, 'nav-roll'));
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        applyFilter(cat.key, true);
-      });
-      dom.navDrawerList.appendChild(btn);
+  function syncNavPresentation() {
+    const expanded = !navLocked && (navHovered || navKeyboardOpen);
+    const cat = CATEGORIES.find((c) => c.key === state.filter) || CATEGORIES[0];
+    const selected = dom.navCurrent.querySelector('.nav-selected-label');
+    if (selected.textContent !== cat.label) selected.textContent = cat.label;
+    dom.navPill.classList.toggle('is-expanded', expanded);
+    dom.navPill.classList.remove('is-collapsing');
+    dom.navCurrent.dataset.filter = expanded ? 'all' : cat.key;
+    dom.navCurrent.setAttribute('aria-label', expanded ? 'Show all categories' : `${cat.label}: show all categories`);
+    dom.navCurrent.setAttribute('aria-expanded', String(expanded));
+    dom.navCurrent.classList.toggle('is-active', !expanded || state.filter === 'all');
+    const drawer = document.getElementById('nav-drawer');
+    drawer.inert = !expanded;
+    drawer.setAttribute('aria-hidden', String(!expanded));
+    dom.navDrawerList.querySelectorAll('.nav-item').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.filter === state.filter);
+      btn.setAttribute('aria-pressed', String(btn.dataset.filter === state.filter));
     });
+    const label = dom.navCurrent.querySelector(expanded ? '.nav-all-label' : '.nav-selected-label');
+    dom.navCurrent.style.width = `${Math.ceil(label.getBoundingClientRect().width) + 8}px`;
+    dom.navPill.style.setProperty('--nav-drawer-width', `${Math.ceil(dom.navDrawerList.scrollWidth) + 39}px`);
+  }
 
-    // Force drawer to shrink back to the left immediately after clicking an option
-    if (shrinkImmediately) {
-      dom.navPill.classList.add('is-collapsing');
-      if (document.activeElement && dom.navPill.contains(document.activeElement)) {
-        document.activeElement.blur();
-      }
+  function renderNavPill(activeKey, shrinkImmediately = false) {
+    if (!navReady) {
+      navReady = true;
+      const labels = document.createElement('span');
+      labels.className = 'nav-current-labels';
+      labels.setAttribute('aria-hidden', 'true');
+      ['selected', 'all'].forEach((kind) => {
+        const span = document.createElement('span');
+        span.className = `nav-roll nav-${kind}-label`;
+        span.textContent = 'ALL';
+        labels.appendChild(span);
+      });
+      dom.navCurrent.replaceChildren(labels);
+      dom.navCurrent.setAttribute('aria-controls', 'nav-drawer');
+      dom.navDrawerList.replaceChildren();
+      CATEGORIES.filter((cat) => cat.key !== 'all').forEach((cat) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'nav-item';
+        btn.dataset.filter = cat.key;
+        btn.appendChild(createTextRollNode(cat.label, true, 'nav-roll'));
+        btn.addEventListener('click', () => applyFilter(cat.key, true));
+        dom.navDrawerList.appendChild(btn);
+      });
+      dom.navPill.addEventListener('pointerenter', (e) => {
+        if (e.pointerType === 'touch') return;
+        navHovered = true;
+        syncNavPresentation();
+      });
+      dom.navPill.addEventListener('pointerleave', () => {
+        navHovered = false;
+        navLocked = false;
+        syncNavPresentation();
+      });
+      dom.navPill.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          navKeyboardOpen = false;
+          navLocked = navHovered;
+          dom.navCurrent.focus();
+          syncNavPresentation();
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          navLocked = false;
+          navKeyboardOpen = true;
+          syncNavPresentation();
+          dom.navDrawerList.querySelector('button').focus();
+        } else if (e.key === 'Tab' && !e.shiftKey && e.target === dom.navCurrent) {
+          navLocked = false;
+          navKeyboardOpen = true;
+          syncNavPresentation();
+        }
+      });
+      dom.navPill.addEventListener('focusout', (e) => {
+        if (!dom.navPill.contains(e.relatedTarget)) {
+          navKeyboardOpen = false;
+          syncNavPresentation();
+        }
+      });
+      window.addEventListener('resize', syncNavPresentation);
+      if (document.fonts) document.fonts.ready.then(syncNavPresentation);
     }
+    if (shrinkImmediately) {
+      navLocked = navHovered;
+      navKeyboardOpen = false;
+      if (dom.navPill.contains(document.activeElement)) dom.navCurrent.focus({ preventScroll: true });
+    }
+    syncNavPresentation();
   }
 
   /* ========================================================================
@@ -945,17 +1008,14 @@
     syncTokenUI();
     initWorkspaceInteractions();
 
-    // Release the temporary collapse lock as soon as cursor leaves the top-left pill
-    dom.navPill.addEventListener('mouseleave', () => {
-      dom.navPill.classList.remove('is-collapsing');
-    });
-
-    // Clicking the currently active category pill button returns to ALL
-    dom.navCurrent.addEventListener('click', () => {
-      const curKey = dom.navCurrent.dataset.filter;
-      if (curKey !== 'all') {
-        applyFilter('all', true);
+    dom.navCurrent.addEventListener('click', (e) => {
+      if (e.detail !== 0 && !navHovered && e.pointerType === 'touch') {
+        navLocked = false;
+        navKeyboardOpen = !navKeyboardOpen;
+        syncNavPresentation();
+        return;
       }
+      applyFilter('all', true);
     });
 
     // Search Pill Pop & Resize on Click/Focus

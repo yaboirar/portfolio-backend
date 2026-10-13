@@ -278,37 +278,49 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   line-height: 0.82;
 }
 
-/* Collapsed by default so only the current category shows on the top-left */
+/* Persistent nodes allow both opening and closing transitions to complete. */
+#nav-current {
+  flex: 0 0 auto;
+  overflow: hidden;
+  transition: width 0.45s var(--ease-in-out), color 0.25s ease;
+}
+.nav-current-labels { display: grid; overflow: hidden; }
+.nav-current-labels > span {
+  grid-area: 1 / 1;
+  justify-self: start;
+  white-space: nowrap;
+  transition: transform 0.4s var(--ease-in-out), opacity 0.3s ease;
+}
+.nav-selected-label { transform: translateY(0); opacity: 1; }
+.nav-all-label { transform: translateY(110%); opacity: 0; }
+.nav-pill.is-expanded .nav-selected-label { transform: translateY(-110%); opacity: 0; }
+.nav-pill.is-expanded .nav-all-label { transform: translateY(0); opacity: 1; }
 .nav-drawer {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 20px;
-  max-width: 0;
+  width: 0;
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
   padding-left: 0;
   transform: translateX(-8px);
-  transition:
-    max-width 0.45s var(--ease-spring),
-    opacity 0.25s var(--ease-spring),
-    transform 0.4s var(--ease-spring),
-    padding-left 0.4s var(--ease-spring);
+  transition: width 0.45s var(--ease-in-out),
+    opacity 0.3s ease, transform 0.4s var(--ease-in-out),
+    padding-left 0.45s var(--ease-in-out);
 }
-
-.nav-drawer-list {
-  display: inline-flex;
-  align-items: center;
-  gap: 20px;
-}
-
-/* Slides out when hovered, and immediately shrinks back when .is-collapsing is added on click */
-.nav-pill:not(.is-collapsing):hover .nav-drawer {
-  max-width: 580px;
+.nav-drawer-list { display: inline-flex; align-items: center; gap: 20px; flex: 0 0 auto; }
+.nav-pill.is-expanded .nav-drawer {
+  width: var(--nav-drawer-width, 360px);
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
   padding-left: 18px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #nav-current, .nav-drawer, .nav-current-labels > span,
+  .nav-pill .text-roll-char { transition: none; }
 }
 
 .nav-divider {
