@@ -14,43 +14,44 @@
   };
 
   const dom = {
-    navWell: document.getElementById('nav-well'),
-    navKeys: document.querySelectorAll('.nav-key'),
-    layoutFlipBtn: document.getElementById('layout-flip-btn'),
-    themeSwitch: document.getElementById('theme-switch'),
+    navPill: document.getElementById('nav-pill'),
+    navItems: document.querySelectorAll('.nav-item'),
+    themeToggle: document.getElementById('theme-toggle'),
     uploadToggle: document.getElementById('upload-toggle'),
-    authLed: document.getElementById('auth-led'),
+    authIndicator: document.getElementById('auth-indicator'),
 
-    dockMatrix: document.getElementById('dock-matrix'),
-    upperBay: document.getElementById('upper-bay'),
-    panelVideos: document.getElementById('panel-videos'),
-    panelPhotos: document.getElementById('panel-photos'),
-    panelPoems: document.getElementById('panel-poems'),
-    splitVP: document.getElementById('split-vp'),
-    splitMainH: document.getElementById('split-main-h'),
-    maximizeBtns: document.querySelectorAll('[data-maximize]'),
+    bentoStage: document.getElementById('bento-stage'),
+    slotPrimary: document.getElementById('slot-primary'),
+    slotStack: document.getElementById('slot-stack'),
+    slotTop: document.getElementById('slot-top'),
+    slotBottom: document.getElementById('slot-bottom'),
 
-    viewportVideos: document.getElementById('viewport-videos'),
-    viewportPhotos: document.getElementById('viewport-photos'),
-    viewportPoems: document.getElementById('viewport-poems'),
+    gutterMainV: document.getElementById('gutter-main-v'),
+    gutterStackH: document.getElementById('gutter-stack-h'),
+    gutterUpload: document.getElementById('gutter-upload'),
+    gutterDrop: document.getElementById('gutter-drop'),
 
-    splitUpload: document.getElementById('split-upload'),
-    uploadBay: document.getElementById('upload-bay'),
+    panels: document.querySelectorAll('.bento-stage .bento-panel'),
+    expandBtns: document.querySelectorAll('[data-expand]'),
+
+    bodyVideos: document.getElementById('body-videos'),
+    bodyPhotos: document.getElementById('body-photos'),
+    bodyPoems: document.getElementById('body-poems'),
+
+    uploadDock: document.getElementById('upload-dock'),
     uploadClose: document.getElementById('upload-close'),
-    modePills: document.querySelectorAll('.mode-pill'),
+    uploadTabs: document.querySelectorAll('.upload-tab'),
 
     adminToken: document.getElementById('admin-token'),
     saveToken: document.getElementById('save-token'),
-    tokenState: document.getElementById('token-state'),
 
     uploadForm: document.getElementById('upload-form'),
-    monitorWell: document.getElementById('monitor-well'),
+    dropSurface: document.getElementById('drop-surface'),
     uploadFile: document.getElementById('upload-file'),
-    monitorPreview: document.getElementById('monitor-preview'),
-    monitorEmpty: document.getElementById('monitor-empty'),
-    fileLabel: document.getElementById('file-label'),
-    fileSub: document.getElementById('file-sub'),
-    splitMonitor: document.getElementById('split-monitor'),
+    dropPreview: document.getElementById('drop-preview'),
+    dropEmpty: document.getElementById('drop-empty'),
+    dropTitle: document.getElementById('drop-title'),
+    dropHint: document.getElementById('drop-hint'),
 
     uploadTitle: document.getElementById('upload-title'),
     uploadDesc: document.getElementById('upload-desc'),
@@ -119,157 +120,216 @@
   }
 
   /* ========================================================================
-     2D AFTER EFFECTS SPLITTER ENGINE (Vertical + Horizontal + Monitor)
+     RESIZABLE GUTTERS & DRAG-TO-SWAP PANELS
      ======================================================================== */
-  function initSplitters() {
-    // 1. Videos <-> Photos Vertical Splitter
-    let vpDrag = false;
-    let vpStartX = 0;
-    let startVidW = 0;
-    let startPhoW = 0;
+  function initWorkspaceInteractions() {
+    // 1. Main Vertical Gutter (Primary Slot <-> Right Stack)
+    let vDrag = false;
+    let vStartX = 0;
+    let startLeftW = 0;
+    let startRightW = 0;
 
-    dom.splitVP.addEventListener('mousedown', (e) => {
+    dom.gutterMainV.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      vpDrag = true;
-      vpStartX = e.clientX;
-      startVidW = dom.panelVideos.getBoundingClientRect().width;
-      startPhoW = dom.panelPhotos.getBoundingClientRect().width;
-      dom.splitVP.classList.add('is-active');
-      document.body.classList.add('is-dragging');
+      vDrag = true;
+      vStartX = e.clientX;
+      startLeftW = dom.slotPrimary.getBoundingClientRect().width;
+      startRightW = dom.slotStack.getBoundingClientRect().width;
+      dom.gutterMainV.classList.add('is-active');
+      document.body.classList.add('is-resizing');
     });
 
-    // 2. Upper Media Bay <-> Lower Poems Bay Splitter
-    let mainHDrag = false;
-    let mainStartPos = 0;
-    let startUpperSize = 0;
-    let startPoemsSize = 0;
-
-    dom.splitMainH.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      mainHDrag = true;
-      const isCols = dom.dockMatrix.classList.contains('is-columns');
-      mainStartPos = isCols ? e.clientX : e.clientY;
-      const upperRect = dom.upperBay.getBoundingClientRect();
-      const poemsRect = dom.panelPoems.getBoundingClientRect();
-      startUpperSize = isCols ? upperRect.width : upperRect.height;
-      startPoemsSize = isCols ? poemsRect.width : poemsRect.height;
-      dom.splitMainH.classList.add('is-active');
-      document.body.classList.add('is-dragging');
+    dom.gutterMainV.addEventListener('dblclick', () => {
+      dom.slotPrimary.style.flexBasis = '54%';
+      dom.slotStack.style.flexBasis = '46%';
     });
 
-    // 3. Main Workspace <-> Right Upload Bay Splitter
-    let uploadDrag = false;
-    dom.splitUpload.addEventListener('mousedown', (e) => {
+    // 2. Stack Horizontal Gutter (Top Slot <-> Bottom Slot)
+    let hDrag = false;
+    let hStartY = 0;
+    let startTopH = 0;
+    let startBotH = 0;
+
+    dom.gutterStackH.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      uploadDrag = true;
-      dom.splitUpload.classList.add('is-active');
-      document.body.classList.add('is-dragging');
+      hDrag = true;
+      hStartY = e.clientY;
+      startTopH = dom.slotTop.getBoundingClientRect().height;
+      startBotH = dom.slotBottom.getBoundingClientRect().height;
+      dom.gutterStackH.classList.add('is-active');
+      document.body.classList.add('is-resizing');
     });
 
-    // 4. File Monitor Height Splitter inside Upload Bay
-    let monDrag = false;
-    let monStartY = 0;
-    let monStartH = 0;
+    dom.gutterStackH.addEventListener('dblclick', () => {
+      dom.slotTop.style.flexBasis = '52%';
+      dom.slotBottom.style.flexBasis = '48%';
+    });
 
-    dom.splitMonitor.addEventListener('mousedown', (e) => {
+    // 3. Upload Dock Width Gutter
+    let upDrag = false;
+    dom.gutterUpload.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      monDrag = true;
-      monStartY = e.clientY;
-      monStartH = dom.monitorWell.getBoundingClientRect().height;
-      dom.splitMonitor.classList.add('is-active');
-      document.body.classList.add('is-dragging');
+      upDrag = true;
+      dom.gutterUpload.classList.add('is-active');
+      document.body.classList.add('is-resizing');
+    });
+
+    // 4. File Dropzone Height Gutter
+    let dropDrag = false;
+    let dropStartY = 0;
+    let dropStartH = 0;
+
+    dom.gutterDrop.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dropDrag = true;
+      dropStartY = e.clientY;
+      dropStartH = dom.dropSurface.getBoundingClientRect().height;
+      dom.gutterDrop.classList.add('is-active');
+      document.body.classList.add('is-resizing');
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (vpDrag) {
-        const total = startVidW + startPhoW;
-        const delta = e.clientX - vpStartX;
-        const minW = 180;
-        const nextVid = Math.min(Math.max(startVidW + delta, minW), total - minW);
-        const nextPho = total - nextVid;
-        dom.panelVideos.style.flexBasis = `${(nextVid / total) * 100}%`;
-        dom.panelPhotos.style.flexBasis = `${(nextPho / total) * 100}%`;
+      if (vDrag) {
+        const total = startLeftW + startRightW;
+        const delta = e.clientX - vStartX;
+        const minW = 240;
+        const nextLeft = Math.min(Math.max(startLeftW + delta, minW), total - minW);
+        const nextRight = total - nextLeft;
+        dom.slotPrimary.style.flexBasis = `${(nextLeft / total) * 100}%`;
+        dom.slotStack.style.flexBasis = `${(nextRight / total) * 100}%`;
       }
 
-      if (mainHDrag) {
-        const isCols = dom.dockMatrix.classList.contains('is-columns');
-        const currentPos = isCols ? e.clientX : e.clientY;
-        const delta = currentPos - mainStartPos;
-        const total = startUpperSize + startPoemsSize;
-        const minS = 140;
-        const nextUpper = Math.min(Math.max(startUpperSize + delta, minS), total - minS);
-        const nextPoems = total - nextUpper;
-        dom.upperBay.style.flexBasis = `${(nextUpper / total) * 100}%`;
-        dom.panelPoems.style.flexBasis = `${(nextPoems / total) * 100}%`;
+      if (hDrag) {
+        const total = startTopH + startBotH;
+        const delta = e.clientY - hStartY;
+        const minH = 140;
+        const nextTop = Math.min(Math.max(startTopH + delta, minH), total - minH);
+        const nextBot = total - nextTop;
+        dom.slotTop.style.flexBasis = `${(nextTop / total) * 100}%`;
+        dom.slotBottom.style.flexBasis = `${(nextBot / total) * 100}%`;
       }
 
-      if (uploadDrag) {
-        const nextW = Math.min(Math.max(window.innerWidth - e.clientX, 300), window.innerWidth * 0.65);
+      if (upDrag) {
+        const nextW = Math.min(Math.max(window.innerWidth - e.clientX - 14, 300), window.innerWidth * 0.62);
         document.documentElement.style.setProperty('--upload-w', `${nextW}px`);
       }
 
-      if (monDrag) {
-        const nextH = Math.min(Math.max(monStartH + (e.clientY - monStartY), 110), window.innerHeight * 0.6);
-        document.documentElement.style.setProperty('--monitor-h', `${nextH}px`);
+      if (dropDrag) {
+        const nextH = Math.min(Math.max(dropStartH + (e.clientY - dropStartY), 110), window.innerHeight * 0.6);
+        document.documentElement.style.setProperty('--drop-h', `${nextH}px`);
       }
     });
 
     window.addEventListener('mouseup', () => {
-      if (vpDrag || mainHDrag || uploadDrag || monDrag) {
-        vpDrag = false;
-        mainHDrag = false;
-        uploadDrag = false;
-        monDrag = false;
-        dom.splitVP.classList.remove('is-active');
-        dom.splitMainH.classList.remove('is-active');
-        dom.splitUpload.classList.remove('is-active');
-        dom.splitMonitor.classList.remove('is-active');
-        document.body.classList.remove('is-dragging');
+      if (vDrag || hDrag || upDrag || dropDrag) {
+        vDrag = false;
+        hDrag = false;
+        upDrag = false;
+        dropDrag = false;
+        dom.gutterMainV.classList.remove('is-active');
+        dom.gutterStackH.classList.remove('is-active');
+        dom.gutterUpload.classList.remove('is-active');
+        dom.gutterDrop.classList.remove('is-active');
+        document.body.classList.remove('is-resizing');
       }
+    });
+
+    // 5. Drag-and-Drop Panel Swapping (Swap any two Bento slots)
+    let draggedPanel = null;
+
+    dom.panels.forEach((panel) => {
+      panel.addEventListener('dragstart', (e) => {
+        draggedPanel = panel;
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      panel.addEventListener('dragover', (e) => {
+        if (!draggedPanel || draggedPanel === panel) return;
+        e.preventDefault();
+        panel.classList.add('is-drag-target');
+      });
+
+      panel.addEventListener('dragleave', () => {
+        panel.classList.remove('is-drag-target');
+      });
+
+      panel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        panel.classList.remove('is-drag-target');
+        if (!draggedPanel || draggedPanel === panel) return;
+
+        const slotA = draggedPanel.parentElement;
+        const slotB = panel.parentElement;
+        if (slotA && slotB) {
+          slotA.appendChild(panel);
+          slotB.appendChild(draggedPanel);
+          applyFilter(state.filter);
+        }
+        draggedPanel = null;
+      });
     });
   }
 
   /* ========================================================================
-     WORKSPACE FILTER & DOCK CONTROLS
+     FILTERING & UPLOAD DOCK TOGGLE
      ======================================================================== */
   function applyFilter(nextFilter) {
     state.filter = nextFilter;
 
-    dom.navKeys.forEach((btn) => {
+    dom.navItems.forEach((btn) => {
       btn.classList.toggle('is-active', btn.dataset.filter === nextFilter);
     });
 
-    dom.navWell.classList.toggle('is-pinned', nextFilter !== 'all');
+    dom.navPill.classList.toggle('is-pinned', nextFilter !== 'all');
 
     const isAll = nextFilter === 'all';
-    const showVideos = isAll || nextFilter === 'videos';
-    const showPhotos = isAll || nextFilter === 'photos';
-    const showPoems = isAll || nextFilter === 'poems';
+    const pPrimary = dom.slotPrimary.querySelector('.bento-panel');
+    const pTop = dom.slotTop.querySelector('.bento-panel');
+    const pBottom = dom.slotBottom.querySelector('.bento-panel');
 
-    dom.upperBay.hidden = !showVideos && !showPhotos;
-    dom.panelVideos.hidden = !showVideos;
-    dom.panelPhotos.hidden = !showPhotos;
-    dom.splitVP.hidden = !(showVideos && showPhotos);
+    const showPrimary = isAll || (pPrimary && pPrimary.dataset.panel === nextFilter);
+    const showTop = isAll || (pTop && pTop.dataset.panel === nextFilter);
+    const showBottom = isAll || (pBottom && pBottom.dataset.panel === nextFilter);
 
-    dom.panelPoems.hidden = !showPoems;
-    dom.splitMainH.hidden = !(dom.upperBay.hidden === false && showPoems);
+    dom.slotPrimary.hidden = !showPrimary;
+    dom.slotTop.hidden = !showTop;
+    dom.slotBottom.hidden = !showBottom;
+    dom.slotStack.hidden = !showTop && !showBottom;
 
-    dom.maximizeBtns.forEach((btn) => {
-      const label = isAll ? 'MAXIMIZE' : 'RESTORE';
-      btn.replaceChildren(createTextRollNode(label, false));
-    });
+    dom.gutterMainV.hidden = !(showPrimary && (showTop || showBottom));
+    dom.gutterStackH.hidden = !(showTop && showBottom);
   }
 
-  function toggleUploadBay(force) {
-    state.uploadOpen = typeof force === 'boolean' ? force : !state.uploadOpen;
-    dom.uploadBay.classList.toggle('is-open', state.uploadOpen);
-    dom.uploadBay.setAttribute('aria-hidden', String(!state.uploadOpen));
-    dom.splitUpload.hidden = !state.uploadOpen;
-    dom.uploadToggle.setAttribute('aria-expanded', String(state.uploadOpen));
+  function openUploadWithMode(mode) {
+    state.uploadOpen = true;
+    dom.uploadDock.classList.add('is-open');
+    dom.uploadDock.setAttribute('aria-hidden', 'false');
+    dom.gutterUpload.hidden = false;
+    dom.uploadToggle.setAttribute('aria-expanded', 'true');
+
+    if (mode) {
+      dom.uploadTabs.forEach((t) => t.classList.toggle('is-active', t.dataset.mode === mode));
+      const isMedia = mode === 'media';
+      dom.uploadForm.hidden = !isMedia;
+      dom.poemForm.hidden = isMedia;
+    }
+  }
+
+  function toggleUploadDock(force) {
+    const next = typeof force === 'boolean' ? force : !state.uploadOpen;
+    if (next) {
+      openUploadWithMode();
+    } else {
+      state.uploadOpen = false;
+      dom.uploadDock.classList.remove('is-open');
+      dom.uploadDock.setAttribute('aria-hidden', 'true');
+      dom.gutterUpload.hidden = true;
+      dom.uploadToggle.setAttribute('aria-expanded', 'false');
+    }
   }
 
   /* ========================================================================
-     API FETCH & VIEWPORT RENDERING
+     DATA FETCHING & RENDERING
      ======================================================================== */
   function unwrapArray(payload, keys) {
     if (Array.isArray(payload)) return payload;
@@ -327,67 +387,77 @@
         content: p.content || p.body || p.text || p.poem || '',
       }));
 
-      renderViewports();
+      renderPanels();
     } catch (err) {
-      console.error('Error loading portfolio:', err);
+      console.error('Failed to load portfolio:', err);
     }
   }
 
-  function buildCassettePlate(item, endpoint) {
-    const plate = document.createElement('figcaption');
-    plate.className = 'cassette-plate';
+  function createInteractiveEmpty(rollLabel, subText, targetMode) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'empty-card';
+    btn.appendChild(createTextRollNode(rollLabel, true, 'empty-card-label'));
 
-    const meta = document.createElement('div');
-    meta.className = 'cassette-meta';
+    const sub = document.createElement('span');
+    sub.className = 'empty-card-sub';
+    sub.textContent = subText;
+    btn.appendChild(sub);
+
+    btn.addEventListener('click', () => openUploadWithMode(targetMode));
+    return btn;
+  }
+
+  function buildMediaInfo(item, endpoint) {
+    const info = document.createElement('figcaption');
+    info.className = 'media-info';
+
+    const text = document.createElement('div');
+    text.className = 'media-text';
 
     const title = document.createElement('span');
-    title.className = 'cassette-title';
+    title.className = 'media-title';
     title.textContent = item.title;
-    meta.appendChild(title);
+    text.appendChild(title);
 
     if (item.description) {
       const desc = document.createElement('span');
-      desc.className = 'cassette-desc';
+      desc.className = 'media-desc';
       desc.textContent = item.description;
-      meta.appendChild(desc);
+      text.appendChild(desc);
     }
 
-    plate.appendChild(meta);
+    info.appendChild(text);
 
     if (state.token && item.id !== undefined) {
       const del = document.createElement('button');
       del.type = 'button';
-      del.className = 'delete-key';
+      del.className = 'delete-btn';
       del.textContent = 'Delete';
       del.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteEntry(endpoint, item.id);
       });
-      plate.appendChild(del);
+      info.appendChild(del);
     }
 
-    return plate;
+    return info;
   }
 
-  function makeStandbyNode(label) {
-    const div = document.createElement('div');
-    div.className = 'viewport-standby';
-    div.textContent = `No ${label} loaded`;
-    return div;
-  }
-
-  function renderViewports() {
-    // Videos Viewport
-    dom.viewportVideos.replaceChildren();
+  function renderPanels() {
+    // Videos
+    dom.bodyVideos.replaceChildren();
     if (state.videos.length === 0) {
-      dom.viewportVideos.appendChild(makeStandbyNode('videos'));
+      dom.bodyVideos.appendChild(
+        createInteractiveEmpty('UPLOAD VIDEO', 'Click to open upload panel', 'media')
+      );
     } else {
       state.videos.forEach((v) => {
         const fig = document.createElement('figure');
-        fig.className = 'media-cassette';
+        fig.className = 'media-card';
 
-        const screen = document.createElement('div');
-        screen.className = 'cassette-screen';
+        const visual = document.createElement('div');
+        visual.className = 'media-visual';
 
         const video = document.createElement('video');
         video.src = v.url;
@@ -395,83 +465,85 @@
         video.preload = 'metadata';
         video.playsInline = true;
 
-        screen.appendChild(video);
-        fig.appendChild(screen);
-        fig.appendChild(buildCassettePlate(v, 'media'));
-        dom.viewportVideos.appendChild(fig);
+        visual.appendChild(video);
+        fig.appendChild(visual);
+        fig.appendChild(buildMediaInfo(v, 'media'));
+        dom.bodyVideos.appendChild(fig);
       });
     }
 
-    // Photos Viewport
-    dom.viewportPhotos.replaceChildren();
+    // Photos
+    dom.bodyPhotos.replaceChildren();
     if (state.photos.length === 0) {
-      dom.viewportPhotos.appendChild(makeStandbyNode('photos'));
+      dom.bodyPhotos.appendChild(
+        createInteractiveEmpty('UPLOAD PHOTO', 'Click to open upload panel', 'media')
+      );
     } else {
       state.photos.forEach((p, idx) => {
         const fig = document.createElement('figure');
-        fig.className = 'media-cassette';
+        fig.className = 'media-card';
 
-        const screen = document.createElement('div');
-        screen.className = 'cassette-screen';
-        screen.addEventListener('click', () => openLightbox(idx));
+        const visual = document.createElement('div');
+        visual.className = 'media-visual';
+        visual.addEventListener('click', () => openLightbox(idx));
 
         const img = document.createElement('img');
         img.src = p.url;
         img.alt = p.title;
         img.loading = 'lazy';
 
-        screen.appendChild(img);
-        fig.appendChild(screen);
-        fig.appendChild(buildCassettePlate(p, 'media'));
-        dom.viewportPhotos.appendChild(fig);
+        visual.appendChild(img);
+        fig.appendChild(visual);
+        fig.appendChild(buildMediaInfo(p, 'media'));
+        dom.bodyPhotos.appendChild(fig);
       });
     }
 
-    // Poems Viewport
-    dom.viewportPoems.replaceChildren();
+    // Poems
+    dom.bodyPoems.replaceChildren();
     if (state.poems.length === 0) {
-      dom.viewportPoems.appendChild(makeStandbyNode('poems'));
+      dom.bodyPoems.appendChild(
+        createInteractiveEmpty('NEW POEM', 'Click to write a poem', 'poem')
+      );
     } else {
       state.poems.forEach((poem) => {
         const article = document.createElement('article');
-        article.className = 'poem-plate';
+        article.className = 'poem-card';
 
         const head = document.createElement('div');
-        head.className = 'poem-plate-head';
+        head.className = 'poem-head';
 
         const title = document.createElement('h3');
-        title.className = 'poem-plate-title';
+        title.className = 'poem-title';
         title.textContent = poem.title;
         head.appendChild(title);
 
         if (state.token && poem.id !== undefined) {
           const del = document.createElement('button');
           del.type = 'button';
-          del.className = 'delete-key';
+          del.className = 'delete-btn';
           del.textContent = 'Delete';
           del.addEventListener('click', () => deleteEntry('poems', poem.id));
           head.appendChild(del);
         }
 
         const body = document.createElement('div');
-        body.className = 'poem-plate-body';
+        body.className = 'poem-body';
         body.textContent = poem.content;
 
         article.appendChild(head);
         article.appendChild(body);
-        dom.viewportPoems.appendChild(article);
+        dom.bodyPoems.appendChild(article);
       });
     }
   }
 
   /* ========================================================================
-     UPLOAD, POEM PUBLISH & DELETE
+     UPLOAD, POEM & DELETE HANDLERS
      ======================================================================== */
   function syncTokenUI() {
     dom.adminToken.value = state.token;
-    const unlocked = Boolean(state.token);
-    dom.authLed.classList.toggle('is-unlocked', unlocked);
-    dom.tokenState.textContent = unlocked ? 'Ready' : 'No token';
+    dom.authIndicator.hidden = !state.token;
   }
 
   async function deleteEntry(endpoint, id) {
@@ -490,21 +562,21 @@
     }
   }
 
-  function updateMonitorPreview() {
+  function updateDropPreview() {
     const file = dom.uploadFile.files[0];
-    dom.monitorPreview.replaceChildren();
+    dom.dropPreview.replaceChildren();
 
     if (!file) {
-      dom.monitorPreview.hidden = true;
-      dom.monitorEmpty.hidden = false;
-      dom.fileLabel.textContent = 'Click or drag video / photo into monitor';
-      dom.fileSub.textContent = 'Drag the knurled bar below to resize monitor';
+      dom.dropPreview.hidden = true;
+      dom.dropEmpty.hidden = false;
+      dom.dropTitle.textContent = 'Drop or select a video or photo';
+      dom.dropHint.textContent = 'Drag bottom handle below to resize';
       return;
     }
 
     const blobUrl = URL.createObjectURL(file);
-    dom.monitorEmpty.hidden = true;
-    dom.monitorPreview.hidden = false;
+    dom.dropEmpty.hidden = true;
+    dom.dropPreview.hidden = false;
 
     if (file.type.startsWith('video/')) {
       const vid = document.createElement('video');
@@ -512,11 +584,11 @@
       vid.controls = true;
       vid.muted = true;
       vid.playsInline = true;
-      dom.monitorPreview.appendChild(vid);
+      dom.dropPreview.appendChild(vid);
     } else if (file.type.startsWith('image/')) {
       const img = document.createElement('img');
       img.src = blobUrl;
-      dom.monitorPreview.appendChild(img);
+      dom.dropPreview.appendChild(img);
     }
   }
 
@@ -564,7 +636,7 @@
       dom.uploadSubmit.disabled = false;
       if (xhr.status >= 200 && xhr.status < 300) {
         dom.uploadForm.reset();
-        updateMonitorPreview();
+        updateDropPreview();
         dom.uploadStatus.textContent = 'Uploaded';
         setTimeout(() => {
           dom.uploadMeter.hidden = true;
@@ -668,55 +740,49 @@
 
     hydrateTextRolls();
     syncTokenUI();
-    initSplitters();
+    initWorkspaceInteractions();
 
-    dom.themeSwitch.addEventListener('click', () => {
+    dom.themeToggle.addEventListener('click', () => {
       const cur = document.documentElement.getAttribute('data-theme');
       const next = cur === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('portfolio_theme', next);
     });
 
-    dom.layoutFlipBtn.addEventListener('click', () => {
-      dom.dockMatrix.classList.toggle('is-columns');
-      const isCols = dom.dockMatrix.classList.contains('is-columns');
-      dom.splitMainH.className = isCols ? 'splitter-v' : 'splitter-h';
-    });
-
-    dom.navKeys.forEach((btn) => {
+    dom.navItems.forEach((btn) => {
       btn.addEventListener('click', () => applyFilter(btn.dataset.filter));
     });
 
-    dom.maximizeBtns.forEach((btn) => {
+    dom.expandBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        const target = btn.dataset.maximize;
+        const target = btn.dataset.expand;
         applyFilter(state.filter === target ? 'all' : target);
       });
     });
 
-    dom.uploadToggle.addEventListener('click', () => toggleUploadBay());
-    dom.uploadClose.addEventListener('click', () => toggleUploadBay(false));
+    dom.uploadToggle.addEventListener('click', () => toggleUploadDock());
+    dom.uploadClose.addEventListener('click', () => toggleUploadDock(false));
 
     dom.saveToken.addEventListener('click', () => {
       state.token = dom.adminToken.value.trim();
       sessionStorage.setItem('admin_token', state.token);
       syncTokenUI();
-      renderViewports();
+      renderPanels();
     });
 
-    dom.modePills.forEach((pill) => {
-      pill.addEventListener('click', () => {
-        dom.modePills.forEach((p) => p.classList.toggle('is-active', p === pill));
-        const isMedia = pill.dataset.mode === 'media';
+    dom.uploadTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        dom.uploadTabs.forEach((t) => t.classList.toggle('is-active', t === tab));
+        const isMedia = tab.dataset.mode === 'media';
         dom.uploadForm.hidden = !isMedia;
         dom.poemForm.hidden = isMedia;
       });
     });
 
-    dom.uploadFile.addEventListener('change', updateMonitorPreview);
-    dom.monitorWell.addEventListener('dragover', () => dom.monitorWell.classList.add('is-dragover'));
-    dom.monitorWell.addEventListener('dragleave', () => dom.monitorWell.classList.remove('is-dragover'));
-    dom.monitorWell.addEventListener('drop', () => dom.monitorWell.classList.remove('is-dragover'));
+    dom.uploadFile.addEventListener('change', updateDropPreview);
+    dom.dropSurface.addEventListener('dragover', () => dom.dropSurface.classList.add('is-dragover'));
+    dom.dropSurface.addEventListener('dragleave', () => dom.dropSurface.classList.remove('is-dragover'));
+    dom.dropSurface.addEventListener('drop', () => dom.dropSurface.classList.remove('is-dragover'));
 
     dom.uploadForm.addEventListener('submit', handleMediaUpload);
     dom.poemForm.addEventListener('submit', handlePoemUpload);
@@ -731,7 +797,7 @@
         if (e.key === 'ArrowLeft') stepLightbox(-1);
         if (e.key === 'ArrowRight') stepLightbox(1);
       } else if (state.uploadOpen && e.key === 'Escape') {
-        toggleUploadBay(false);
+        toggleUploadDock(false);
       }
     });
 
@@ -740,3 +806,4 @@
 
   init();
 })();
+
