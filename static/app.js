@@ -1,412 +1,707 @@
-// Studio Portfolio Backend - Interactive Client with Security & Anti-Download Protection
+(() => {
+  'use strict';
 
-let adminToken = localStorage.getItem("portfolio_admin_token") || "creative_secret_2026";
+  const STORAGE_TOKEN_KEY = 'archive_admin_token';
+  const STORAGE_THEME_KEY = 'archive_surface_theme';
 
-document.addEventListener("DOMContentLoaded", () => {
-    initAuthBar();
-    initTabs();
-    initUpload();
-    initPoemForm();
-    loadStats();
-    loadMedia();
-    loadPoems();
-});
+  const state = {
+    videos: [],
+    photos: [],
+    poems: [],
+    filterView: 'all',
+    searchQuery: '',
+    adminToken: sessionStorage.getItem(STORAGE_TOKEN_KEY) || localStorage.getItem(STORAGE_TOKEN_KEY) || ''
+  };
 
-// --- Authentication Manager ---
-function initAuthBar() {
-    const input = document.getElementById("adminKeyInput");
-    const btn = document.getElementById("adminKeyBtn");
-    const badge = document.getElementById("authBadge");
+  // DOM Elements
+  const els = {
+    videoGrid: document.getElementById('video-grid'),
+    photoGrid: document.getElementById('photo-grid'),
+    poemGrid: document.getElementById('poem-grid'),
+    countVideos: document.getElementById('count-videos'),
+    countPhotos: document.getElementById('count-photos'),
+    countPoems: document.getElementById('count-poems'),
+    archiveStatus: document.getElementById('archive-status'),
+    searchInput: document.getElementById('archive-search'),
+    filterTabs: document.querySelectorAll('.filter-tab'),
+    sections: document.querySelectorAll('.archive-section'),
+    densityToggle: document.getElementById('density-toggle'),
+    themeToggle: document.getElementById('theme-toggle'),
+    themeLabel: document.getElementById('theme-label'),
 
-    if (input) input.value = adminToken;
-    verifyAdminToken(adminToken);
+    // Viewer Modal
+    viewerModal: document.getElementById('viewer-modal'),
+    viewerClose: document.getElementById('viewer-close'),
+    viewerIndex: document.getElementById('viewer-index'),
+    viewerTitle: document.getElementById('viewer-title'),
+    viewerStage: document.getElementById('viewer-stage'),
+    viewerDescription: document.getElementById('viewer-description'),
+    viewerCaption: document.getElementById('viewer-caption'),
 
-    if (btn) {
-        btn.addEventListener("click", () => {
-            adminToken = input.value.trim();
-            localStorage.setItem("portfolio_admin_token", adminToken);
-            verifyAdminToken(adminToken);
-        });
+    // Admin Modal
+    adminTrigger: document.getElementById('admin-trigger'),
+    adminModal: document.getElementById('admin-modal'),
+    adminClose: document.getElementById('admin-close'),
+    adminDot: document.getElementById('admin-dot'),
+    adminBtnLabel: document.getElementById('admin-btn-label'),
+    adminTokenInput: document.getElementById('admin-token'),
+    saveTokenBtn: document.getElementById('save-token-btn'),
+    clearTokenBtn: document.getElementById('clear-token-btn'),
+    tokenStatus: document.getElementById('token-status'),
+    adminTabs: document.querySelectorAll('.admin-tab'),
+
+    // Upload & Poem Forms
+    uploadForm: document.getElementById('upload-form'),
+    uploadFile: document.getElementById('upload-file'),
+    dropzoneText: document.getElementById('dropzone-text'),
+    uploadTitle: document.getElementById('upload-title'),
+    uploadDesc: document.getElementById('upload-description'),
+    progressWrap: document.getElementById('upload-progress-wrap'),
+    progressBar: document.getElementById('upload-progress-bar'),
+    progressPercent: document.getElementById('upload-percent'),
+    uploadStatusText: document.getElementById('upload-status-text'),
+    uploadFeedback: document.getElementById('upload-feedback'),
+    uploadSubmitBtn: document.getElementById('upload-submit-btn'),
+
+    poemForm: document.getElementById('poem-form'),
+    poemTitle: document.getElementById('poem-title'),
+    poemContent: document.getElementById('poem-content'),
+    poemFeedback: document.getElementById('poem-feedback'),
+    poemSubmitBtn: document.getElementById('poem-submit-btn')
+  };
+
+  /* ========================================================================
+     HELPERS & NORMALIZATION
+     ======================================================================== */
+
+  function padIndex(num) {
+    return String(num).padStart(2, '0');
+  }
+
+  function normalizeUrl(rawUrl) {
+    if (!rawUrl) return '';
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('/')) {
+      return rawUrl;
     }
-}
+    return '/' + rawUrl;
+  }
 
-async function verifyAdminToken(token) {
-    const badge = document.getElementById("authBadge");
-    try {
-        const res = await fetch("/api/auth/verify", {
-            headers: { "X-Admin-Token": token }
-        });
-        const data = await res.json();
-        if (data.authenticated) {
-            badge.textContent = "🔓 ADMIN UNLOCKED";
-            badge.style.background = "rgba(63, 185, 80, 0.2)";
-            badge.style.borderColor = "rgba(63, 185, 80, 0.5)";
-            badge.style.color = "#3fb950";
-        } else {
-            badge.textContent = "🔒 ADMIN LOCKED";
-            badge.style.background = "rgba(248, 81, 73, 0.2)";
-            badge.style.borderColor = "rgba(248, 81, 73, 0.5)";
-            badge.style.color = "#f85149";
-        }
-    } catch {
-        badge.textContent = "⚠️ OFFLINE";
+  function isVideoItem(item) {
+    const type = String(item.media_type || item.type || item.file_type || item.mime_type || '').toLowerCase();
+    const url = String(item.relative_url || item.url || item.filename || '').toLowerCase();
+    if (type.includes('video')) return true;
+    if (type.includes('image') || type.includes('photo')) return false;
+    if (url.includes('/videos/') || /\.(mp4|webm|mov|m4v|ogg)$/i.test(url)) return true;
+    return false;
+  }
+
+  function extractArray(payload, keys) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && typeof payload === 'object') {
+      for (const k of keys) {
+        if (Array.isArray(payload[k])) return payload[k];
+      }
     }
-}
+    return [];
+  }
 
-// --- Tab Management ---
-function initTabs() {
-    const tabs = document.querySelectorAll(".tab-btn");
-    const contents = document.querySelectorAll(".tab-content");
+  function matchesQuery(item, q) {
+    if (!q) return true;
+    const hay = [
+      item.title || '',
+      item.description || '',
+      item.content || '',
+      item.body || '',
+      item.text || ''
+    ].join(' ').toLowerCase();
+    return hay.includes(q);
+  }
 
-    tabs.forEach(tab => {
-        tab.addEventListener("click", () => {
-            tabs.forEach(t => t.classList.remove("active"));
-            contents.forEach(c => c.classList.remove("active"));
+  function createEl(tag, className, textContent) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (textContent !== undefined && textContent !== null) {
+      el.textContent = textContent;
+    }
+    return el;
+  }
 
-            tab.classList.add("active");
-            const target = document.getElementById(tab.dataset.tab);
-            if (target) {
-                target.classList.add("active");
-                if (tab.dataset.tab === "dbTab") {
-                    loadDatabaseInspector();
-                }
-            }
-        });
-    });
+  /* ========================================================================
+     DATA FETCHING
+     ======================================================================== */
 
-    const filterBtns = document.querySelectorAll(".filter-btn");
-    filterBtns.forEach(btn => {
-        btn.addEventListener("click", () => {
-            filterBtns.forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-            loadMedia(btn.dataset.filter);
-        });
-    });
-}
+  async function loadArchive() {
+    els.archiveStatus.textContent = 'SYNCHRONIZING ARCHIVE...';
 
-// --- Stats ---
-async function loadStats() {
     try {
-        const res = await fetch("/api/stats");
-        const data = await res.json();
-        document.getElementById("statVideos").textContent = `🎬 ${data.video_count} Videos`;
-        document.getElementById("statImages").textContent = `🎨 ${data.image_count} Images`;
-        document.getElementById("statPoems").textContent = `✍️ ${data.poem_count} Poems`;
-        document.getElementById("statStorage").textContent = `💾 ${data.total_media_mb} MB`;
+      const [mediaRes, poemsRes] = await Promise.all([
+        fetch('/api/media', { headers: { 'Accept': 'application/json' } }),
+        fetch('/api/poems', { headers: { 'Accept': 'application/json' } })
+      ]);
+
+      const mediaJson = mediaRes.ok ? await mediaRes.json() : [];
+      const poemsJson = poemsRes.ok ? await poemsRes.json() : [];
+
+      const mediaItems = extractArray(mediaJson, ['media', 'items', 'data', 'results']);
+      const poemItems = extractArray(poemsJson, ['poems', 'items', 'data', 'results']);
+
+      state.videos = mediaItems.filter((item) => isVideoItem(item));
+      state.photos = mediaItems.filter((item) => !isVideoItem(item));
+      state.poems = poemItems;
+
+      els.countVideos.textContent = padIndex(state.videos.length);
+      els.countPhotos.textContent = padIndex(state.photos.length);
+      els.countPoems.textContent = padIndex(state.poems.length);
+
+      const total = state.videos.length + state.photos.length + state.poems.length;
+      els.archiveStatus.textContent = `CATALOG ONLINE — ${padIndex(total)} WORKS INDEXED`;
+
+      renderAll();
     } catch (err) {
-        console.error("Stats load failed", err);
+      els.archiveStatus.textContent = 'OFFLINE OR UNREACHABLE API';
+      console.error('Error loading archive:', err);
     }
-}
+  }
 
-// --- Upload Handler (With Admin Token & Progress) ---
-function initUpload() {
-    const form = document.getElementById("uploadForm");
-    const fileInput = document.getElementById("mediaFile");
-    const dropText = document.getElementById("dropText");
-    const progressContainer = document.getElementById("progressContainer");
-    const progressBar = document.getElementById("progressBar");
-    const progressText = document.getElementById("progressText");
-    const uploadBtn = document.getElementById("uploadBtn");
+  /* ========================================================================
+     RENDERING
+     ======================================================================== */
 
-    fileInput.addEventListener("change", () => {
-        if (fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-            dropText.innerHTML = `<span>Selected: <strong>${file.name}</strong></span><small>Size: ${sizeMb} MB | GPS/EXIF will be sanitized & filename anonymized</small>`;
-            
-            const titleInput = document.getElementById("mediaTitle");
-            if (!titleInput.value) {
-                titleInput.value = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-            }
-        }
-    });
+  function renderAll() {
+    const q = state.searchQuery.trim().toLowerCase();
+    renderVideos(state.videos.filter((item) => matchesQuery(item, q)));
+    renderPhotos(state.photos.filter((item) => matchesQuery(item, q)));
+    renderPoems(state.poems.filter((item) => matchesQuery(item, q)));
+    applySectionVisibility();
+  }
 
-    form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const file = fileInput.files[0];
-        if (!file) {
-            alert("Please select a file first");
-            return;
-        }
-
-        const title = document.getElementById("mediaTitle").value;
-        const description = document.getElementById("mediaDesc").value;
-        const typeOverride = document.getElementById("mediaType").value;
-
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("title", title);
-        formData.append("description", description);
-        if (typeOverride !== "auto") {
-            formData.append("type", typeOverride);
-        }
-
-        progressContainer.style.display = "block";
-        uploadBtn.disabled = true;
-
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/upload", true);
-        xhr.setRequestHeader("X-Admin-Token", adminToken);
-
-        xhr.upload.onprogress = (evt) => {
-            if (evt.lengthComputable) {
-                const percent = Math.round((evt.loaded / evt.total) * 100);
-                progressBar.style.width = percent + "%";
-                progressText.textContent = `${percent}% (${(evt.loaded / (1024*1024)).toFixed(1)}MB / ${(evt.total / (1024*1024)).toFixed(1)}MB)`;
-            }
-        };
-
-        xhr.onload = () => {
-            uploadBtn.disabled = false;
-            if (xhr.status === 201) {
-                form.reset();
-                dropText.innerHTML = `<span>📁 Drag & drop or click to browse</span><small>Supports MP4 up to 100MB+, JPG/PNG up to 20MB</small>`;
-                progressContainer.style.display = "none";
-                progressBar.style.width = "0%";
-                loadStats();
-                loadMedia();
-            } else if (xhr.status === 401) {
-                alert("Upload Rejected: Invalid Admin Key. Please unlock in the top navbar.");
-                progressContainer.style.display = "none";
-            } else {
-                alert("Upload failed: " + xhr.responseText);
-                progressContainer.style.display = "none";
-            }
-        };
-
-        xhr.onerror = () => {
-            uploadBtn.disabled = false;
-            alert("Network error during upload");
-            progressContainer.style.display = "none";
-        };
-
-        xhr.send(formData);
-    });
-}
-
-// --- Media Hub (With Anti-Download Video Protection) ---
-async function loadMedia(filter = "all") {
-    const grid = document.getElementById("mediaGrid");
-    try {
-        const url = filter === "all" ? "/api/media" : `/api/media?type=${filter}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        
-        if (!data.media || data.media.length === 0) {
-            grid.innerHTML = `<div class="empty-state">No ${filter === 'all' ? '' : filter} assets yet. Upload one above!</div>`;
-            return;
-        }
-
-        grid.innerHTML = data.media.map(item => {
-            const sizeMb = (item.file_size / (1024 * 1024)).toFixed(2);
-            const isVideo = item.media_type === "video";
-            
-            return `
-            <div class="media-card" id="media-card-${item.id}">
-                ${isVideo ? `
-                    <div style="position:relative;">
-                        <video 
-                            controls 
-                            preload="metadata" 
-                            controlsList="nodownload noplaybackrate" 
-                            oncontextmenu="return false;" 
-                            disablePictureInPicture
-                            style="width:100%; height:180px; object-fit:cover; background:#000;">
-                            <source src="${item.relative_url}" type="${item.mime_type}">
-                            Your browser does not support video playback.
-                        </video>
-                    </div>
-                ` : `
-                    <img src="${item.relative_url}" alt="${item.title}" loading="lazy" oncontextmenu="return false;">
-                `}
-                <div class="media-info">
-                    <div class="media-title-row">
-                        <span class="media-title">${escapeHtml(item.title)}</span>
-                        <span class="badge">${item.media_type.toUpperCase()}</span>
-                    </div>
-                    ${item.description ? `<p style="font-size:0.82rem; color:var(--text-secondary);">${escapeHtml(item.description)}</p>` : ''}
-                    <div class="media-meta">${sizeMb} MB &bull; ${item.mime_type}</div>
-                    <div class="media-url" title="Anonymous hash (no creator or original name leaked)">${item.relative_url}</div>
-                    <div class="media-actions">
-                        <button class="btn-danger" onclick="deleteMedia(${item.id})">Delete Asset</button>
-                    </div>
-                </div>
-            </div>
-            `;
-        }).join("");
-
-    } catch (err) {
-        console.error("Failed to load media", err);
+  function renderVideos(items) {
+    els.videoGrid.replaceChildren();
+    if (!items.length) {
+      els.videoGrid.appendChild(createEl('div', 'empty-cell', 'No motion reels cataloged.'));
+      return;
     }
-}
 
-async function deleteMedia(id) {
-    if (!confirm("Delete this asset from database and disk? (Requires Admin Key)")) return;
-    try {
-        const res = await fetch(`/api/media/${id}`, { 
-            method: "DELETE",
-            headers: { "X-Admin-Token": adminToken }
+    items.forEach((item, idx) => {
+      const src = normalizeUrl(item.relative_url || item.url);
+      const code = `REEL 01.${padIndex(idx + 1)}`;
+      const cell = createEl('article', 'media-cell video-cell');
+
+      const frame = createEl('div', 'media-frame');
+      const video = document.createElement('video');
+      video.src = src;
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+
+      // Quiet hover preview
+      frame.addEventListener('mouseenter', () => {
+        video.play().catch(() => {});
+      });
+      frame.addEventListener('mouseleave', () => {
+        video.pause();
+        video.currentTime = 0;
+      });
+      frame.addEventListener('click', () => {
+        openViewer({
+          type: 'video',
+          code,
+          title: item.title || 'Untitled Reel',
+          description: item.description || '',
+          src
         });
-        if (res.ok) {
-            loadMedia();
-            loadStats();
-        } else if (res.status === 401) {
-            alert("Unauthorized: Check your Admin Key in the top navbar.");
-        } else {
-            alert("Failed to delete media");
-        }
-    } catch (err) {
-        alert("Error deleting media: " + err);
+      });
+
+      const badge = createEl('span', 'play-indicator', 'SCREEN REEL ↗');
+      frame.append(video, badge);
+
+      const caption = createEl('div', 'cell-caption');
+      const headerRow = createEl('div', 'cell-header-row');
+      headerRow.appendChild(createEl('span', 'cell-cat-num', code));
+
+      if (state.adminToken && item.id !== undefined) {
+        const delBtn = createEl('button', 'delete-btn', 'DELETE');
+        delBtn.type = 'button';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteItem('media', item.id, item.title);
+        });
+        headerRow.appendChild(delBtn);
+      }
+
+      const title = createEl('h3', 'cell-title', item.title || 'Untitled Reel');
+      caption.append(headerRow, title);
+
+      if (item.description) {
+        caption.appendChild(createEl('p', 'cell-desc', item.description));
+      }
+
+      cell.append(frame, caption);
+      els.videoGrid.appendChild(cell);
+    });
+  }
+
+  function renderPhotos(items) {
+    els.photoGrid.replaceChildren();
+    if (!items.length) {
+      els.photoGrid.appendChild(createEl('div', 'empty-cell', 'No still plates cataloged.'));
+      return;
     }
-}
 
-// --- Poems Notebook ---
-function initPoemForm() {
-    const form = document.getElementById("poemForm");
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const title = document.getElementById("poemTitle").value;
-        const mood = document.getElementById("poemMood").value;
-        const tags = document.getElementById("poemTags").value;
-        const content = document.getElementById("poemContent").value;
+    items.forEach((item, idx) => {
+      const src = normalizeUrl(item.relative_url || item.url);
+      const code = `PLATE 02.${padIndex(idx + 1)}`;
+      const cell = createEl('article', 'media-cell photo-cell');
 
+      const frame = createEl('div', 'media-frame');
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = item.title || 'Still Photograph';
+      img.loading = 'lazy';
+
+      frame.addEventListener('click', () => {
+        openViewer({
+          type: 'photo',
+          code,
+          title: item.title || 'Untitled Plate',
+          description: item.description || '',
+          src
+        });
+      });
+
+      frame.appendChild(img);
+
+      const caption = createEl('div', 'cell-caption');
+      const headerRow = createEl('div', 'cell-header-row');
+      headerRow.appendChild(createEl('span', 'cell-cat-num', code));
+
+      if (state.adminToken && item.id !== undefined) {
+        const delBtn = createEl('button', 'delete-btn', 'DELETE');
+        delBtn.type = 'button';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteItem('media', item.id, item.title);
+        });
+        headerRow.appendChild(delBtn);
+      }
+
+      const title = createEl('h3', 'cell-title', item.title || 'Untitled Plate');
+      caption.append(headerRow, title);
+
+      if (item.description) {
+        caption.appendChild(createEl('p', 'cell-desc', item.description));
+      }
+
+      cell.append(frame, caption);
+      els.photoGrid.appendChild(cell);
+    });
+  }
+
+  function renderPoems(items) {
+    els.poemGrid.replaceChildren();
+    if (!items.length) {
+      els.poemGrid.appendChild(createEl('div', 'empty-cell', 'No verse entries cataloged.'));
+      return;
+    }
+
+    items.forEach((item, idx) => {
+      const code = `FOLIO 03.${padIndex(idx + 1)}`;
+      const bodyText = item.content || item.body || item.poem || item.text || item.description || '';
+      const cell = createEl('article', 'poem-cell');
+
+      const header = createEl('div', 'poem-header');
+      const titleWrap = createEl('div');
+      titleWrap.appendChild(createEl('span', 'cell-cat-num', code));
+      titleWrap.appendChild(createEl('h3', 'poem-title', item.title || 'Untitled Verse'));
+      header.appendChild(titleWrap);
+
+      if (state.adminToken && item.id !== undefined) {
+        const delBtn = createEl('button', 'delete-btn', 'DELETE');
+        delBtn.type = 'button';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteItem('poems', item.id, item.title);
+        });
+        header.appendChild(delBtn);
+      }
+
+      const excerpt = createEl('div', 'poem-excerpt', bodyText);
+
+      const footer = createEl('div', 'poem-footer');
+      const lineCount = bodyText ? bodyText.split(/\r?\n/).filter(Boolean).length : 0;
+      footer.appendChild(createEl('span', 'mono-label', `${lineCount} LINES`));
+
+      const readBtn = createEl('button', 'text-action', 'READ FOLIO →');
+      readBtn.type = 'button';
+      readBtn.addEventListener('click', () => {
+        openViewer({
+          type: 'poem',
+          code,
+          title: item.title || 'Untitled Verse',
+          description: '',
+          body: bodyText
+        });
+      });
+      footer.appendChild(readBtn);
+
+      cell.append(header, excerpt, footer);
+      els.poemGrid.appendChild(cell);
+    });
+  }
+
+  function applySectionVisibility() {
+    els.sections.forEach((sec) => {
+      const target = sec.getAttribute('data-section');
+      sec.hidden = state.filterView !== 'all' && state.filterView !== target;
+    });
+  }
+
+  /* ========================================================================
+     VIEWER / LIGHTBOX MODAL
+     ======================================================================== */
+
+  function openViewer(item) {
+    els.viewerStage.replaceChildren();
+    els.viewerStage.classList.remove('poem-mode');
+
+    els.viewerIndex.textContent = item.code || 'ARCHIVE';
+    els.viewerTitle.textContent = item.title || 'Untitled';
+
+    if (item.type === 'video') {
+      const video = document.createElement('video');
+      video.src = item.src;
+      video.controls = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      els.viewerStage.appendChild(video);
+    } else if (item.type === 'photo') {
+      const img = document.createElement('img');
+      img.src = item.src;
+      img.alt = item.title || '';
+      els.viewerStage.appendChild(img);
+    } else if (item.type === 'poem') {
+      els.viewerStage.classList.add('poem-mode');
+      const article = createEl('article', 'poem-reader');
+      article.appendChild(createEl('h2', '', item.title));
+      article.appendChild(createEl('div', 'poem-reader-body', item.body));
+      els.viewerStage.appendChild(article);
+    }
+
+    if (item.description) {
+      els.viewerDescription.textContent = item.description;
+      els.viewerCaption.hidden = false;
+    } else {
+      els.viewerDescription.textContent = '';
+      els.viewerCaption.hidden = true;
+    }
+
+    els.viewerModal.hidden = false;
+    els.viewerModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeViewer() {
+    // Stop any playing video
+    const activeVideo = els.viewerStage.querySelector('video');
+    if (activeVideo) {
+      activeVideo.pause();
+      activeVideo.removeAttribute('src');
+    }
+    els.viewerStage.replaceChildren();
+    els.viewerModal.hidden = true;
+    els.viewerModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  /* ========================================================================
+     ADMINISTRATION: UPLOAD, POEM PUBLISH & DELETE
+     ======================================================================== */
+
+  function syncAdminStateUI() {
+    const hasToken = Boolean(state.adminToken);
+    els.adminDot.classList.toggle('unlocked', hasToken);
+    els.adminBtnLabel.textContent = hasToken ? 'CURATOR [UNLOCKED]' : 'CURATOR';
+    els.tokenStatus.textContent = hasToken
+      ? 'Status: Unlocked (Upload & Delete enabled)'
+      : 'Status: Locked (Read-only mode)';
+    els.adminTokenInput.value = state.adminToken;
+    renderAll();
+  }
+
+  function handleMediaUpload(e) {
+    e.preventDefault();
+    els.uploadFeedback.textContent = '';
+    els.uploadFeedback.className = 'form-Feedback';
+
+    if (!state.adminToken) {
+      els.uploadFeedback.textContent = 'ERROR: Enter and save your X-Admin-Token first.';
+      els.uploadFeedback.classList.add('error');
+      return;
+    }
+
+    const file = els.uploadFile.files[0];
+    if (!file) {
+      els.uploadFeedback.textContent = 'ERROR: Select a file to upload.';
+      els.uploadFeedback.classList.add('error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', els.uploadTitle.value.trim());
+    formData.append('description', els.uploadDesc.value.trim());
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload', true);
+    xhr.setRequestHeader('X-Admin-Token', state.adminToken);
+
+    els.progressWrap.hidden = false;
+    els.progressBar.style.width = '0%';
+    els.progressPercent.textContent = '0%';
+    els.uploadStatusText.textContent = 'TRANSMITTING...';
+    els.uploadSubmitBtn.disabled = true;
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const pct = Math.round((event.loaded / event.total) * 100);
+        els.progressBar.style.width = `${pct}%`;
+        els.progressPercent.textContent = `${pct}%`;
+      }
+    };
+
+    xhr.onload = () => {
+      els.uploadSubmitBtn.disabled = false;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        els.uploadStatusText.textContent = 'COMPLETE';
+        els.uploadFeedback.textContent = 'Work committed to archive.';
+        els.uploadFeedback.classList.add('success');
+        els.uploadForm.reset();
+        els.dropzoneText.textContent = 'Select or drag a file from disk';
+        loadArchive();
+      } else {
+        let msg = `Upload failed (${xhr.status})`;
         try {
-            const res = await fetch("/api/poems", {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "X-Admin-Token": adminToken
-                },
-                body: jsonSerializeSafe({ title, mood, tags, content })
-            });
+          const errObj = JSON.parse(xhr.responseText);
+          if (errObj.error || errObj.detail || errObj.message) {
+            msg = errObj.error || errObj.detail || errObj.message;
+          }
+        } catch (_) {}
+        els.uploadFeedback.textContent = `ERROR: ${msg}`;
+        els.uploadFeedback.classList.add('error');
+      }
+    };
 
-            if (res.ok) {
-                form.reset();
-                loadPoems();
-                loadStats();
-            } else if (res.status === 401) {
-                alert("Unauthorized: Please unlock with your Admin Key in the navbar first.");
-            } else {
-                alert("Failed to publish poem");
-            }
-        } catch (err) {
-            alert("Error creating poem: " + err);
-        }
-    });
-}
+    xhr.onerror = () => {
+      els.uploadSubmitBtn.disabled = false;
+      els.uploadFeedback.textContent = 'ERROR: Network transmission interrupted.';
+      els.uploadFeedback.classList.add('error');
+    };
 
-async function loadPoems() {
-    const list = document.getElementById("poemsList");
-    const countBadge = document.getElementById("poemCount");
-    try {
-        const res = await fetch("/api/poems");
-        const data = await res.json();
-        
-        countBadge.textContent = `${data.count} Poems`;
+    xhr.send(formData);
+  }
 
-        if (!data.poems || data.poems.length === 0) {
-            list.innerHTML = `<div class="empty-state">No poems yet. Write your first stanza on the left!</div>`;
-            return;
-        }
+  async function handlePoemPublish(e) {
+    e.preventDefault();
+    els.poemFeedback.textContent = '';
+    els.poemFeedback.className = 'form-Feedback';
 
-        list.innerHTML = data.poems.map(p => {
-            const tagsHtml = p.tags ? p.tags.split(",").map(t => `<span class="tag">#${escapeHtml(t.trim())}</span>`).join(" ") : "";
-            return `
-            <div class="poem-card" id="poem-card-${p.id}">
-                <div class="poem-card-header">
-                    <span class="poem-card-title">${escapeHtml(p.title)}</span>
-                    <div style="display:flex; align-items:center; gap:0.5rem;">
-                        <span class="poem-mood">${escapeHtml(p.mood)}</span>
-                        <button class="btn-danger" onclick="deletePoem(${p.id})">Delete</button>
-                    </div>
-                </div>
-                <div class="poem-stanzas">${escapeHtml(p.content)}</div>
-                ${tagsHtml ? `<div class="poem-tags">${tagsHtml}</div>` : ''}
-            </div>
-            `;
-        }).join("");
-
-    } catch (err) {
-        console.error("Failed to load poems", err);
+    if (!state.adminToken) {
+      els.poemFeedback.textContent = 'ERROR: Enter and save your X-Admin-Token first.';
+      els.poemFeedback.classList.add('error');
+      return;
     }
-}
 
-async function deletePoem(id) {
-    if (!confirm("Delete this poem from database? (Requires Admin Key)")) return;
+    const title = els.poemTitle.value.trim();
+    const content = els.poemContent.value;
+
+    els.poemSubmitBtn.disabled = true;
+
     try {
-        const res = await fetch(`/api/poems/${id}`, { 
-            method: "DELETE",
-            headers: { "X-Admin-Token": adminToken }
+      // First attempt direct JSON POST to /api/poems
+      let res = await fetch('/api/poems', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': state.adminToken
+        },
+        body: JSON.stringify({ title, content, body: content, description: content })
+      });
+
+      // Fallback: if poems are ingested via /api/upload as a .txt blob
+      if (res.status === 404 || res.status === 405) {
+        const fd = new FormData();
+        const blob = new Blob([content], { type: 'text/plain' });
+        fd.append('file', blob, `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'poem'}.txt`);
+        fd.append('title', title);
+        fd.append('description', content);
+
+        res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'X-Admin-Token': state.adminToken },
+          body: fd
         });
-        if (res.ok) {
-            loadPoems();
-            loadStats();
-        } else if (res.status === 401) {
-            alert("Unauthorized: Check your Admin Key in the top navbar.");
-        } else {
-            alert("Failed to delete poem");
-        }
-    } catch (err) {
-        alert("Error deleting poem: " + err);
-    }
-}
+      }
 
-// --- Live Database Inspector ---
-async function loadDatabaseInspector() {
+      if (res.ok) {
+        els.poemFeedback.textContent = 'Verse published to folio.';
+        els.poemFeedback.classList.add('success');
+        els.poemForm.reset();
+        loadArchive();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        els.poemFeedback.textContent = `ERROR: ${errData.error || errData.detail || res.statusText}`;
+        els.poemFeedback.classList.add('error');
+      }
+    } catch (err) {
+      els.poemFeedback.textContent = 'ERROR: Could not reach server.';
+      els.poemFeedback.classList.add('error');
+    } finally {
+      els.poemSubmitBtn.disabled = false;
+    }
+  }
+
+  async function deleteItem(endpointType, id, title) {
+    if (!state.adminToken) return;
+    const label = title ? `"${title}"` : `#${id}`;
+    if (!window.confirm(`Permanently remove ${label} from the archive?`)) return;
+
     try {
-        const mRes = await fetch("/api/media");
-        const mData = await mRes.json();
-        const mBody = document.querySelector("#dbMediaTable tbody");
-        if (mData.media && mData.media.length > 0) {
-            mBody.innerHTML = mData.media.map(m => `
-                <tr>
-                    <td>${m.id}</td>
-                    <td><strong>${escapeHtml(m.title)}</strong></td>
-                    <td><span class="badge">${m.media_type}</span></td>
-                    <td><code style="color:var(--accent-purple);">${escapeHtml(m.filename)}</code></td>
-                    <td><code>${m.relative_url}</code></td>
-                    <td>${(m.file_size / (1024*1024)).toFixed(2)} MB</td>
-                    <td>${m.mime_type}</td>
-                    <td>${m.created_at.slice(0, 19).replace('T', ' ')}</td>
-                </tr>
-            `).join("");
-        } else {
-            mBody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Table 'media' is currently empty</td></tr>`;
+      const res = await fetch(`/api/${endpointType}/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Admin-Token': state.adminToken
         }
+      });
 
-        const pRes = await fetch("/api/poems");
-        const pData = await pRes.json();
-        const pBody = document.querySelector("#dbPoemsTable tbody");
-        if (pData.poems && pData.poems.length > 0) {
-            pBody.innerHTML = pData.poems.map(p => `
-                <tr>
-                    <td>${p.id}</td>
-                    <td><strong>${escapeHtml(p.title)}</strong></td>
-                    <td>${escapeHtml(p.mood)}</td>
-                    <td>${escapeHtml(p.tags)}</td>
-                    <td>${escapeHtml(p.content.slice(0, 45))}...</td>
-                    <td>${p.created_at.slice(0, 19).replace('T', ' ')}</td>
-                </tr>
-            `).join("");
-        } else {
-            pBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Table 'poems' is currently empty</td></tr>`;
-        }
-    } catch (err) {
-        console.error("Inspector error", err);
+      if (res.ok) {
+        loadArchive();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        window.alert(`Delete failed: ${err.error || err.detail || res.statusText}`);
+      }
+    } catch (e) {
+      window.alert('Network error while attempting deletion.');
     }
-}
+  }
 
-// Utility
-function escapeHtml(str) {
-    if (!str) return "";
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+  /* ========================================================================
+     EVENT LISTENERS & INITIALIZATION
+     ======================================================================== */
 
-function jsonSerializeSafe(obj) {
-    return JSON.stringify(obj);
-}
+  function initTheme() {
+    const saved = localStorage.getItem(STORAGE_THEME_KEY) || 'carbon';
+    document.documentElement.setAttribute('data-theme', saved);
+    els.themeLabel.textContent = `SURFACE: ${saved.toUpperCase()}`;
+
+    els.themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'carbon';
+      const next = current === 'carbon' ? 'paper' : 'carbon';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem(STORAGE_THEME_KEY, next);
+      els.themeLabel.textContent = `SURFACE: ${next.toUpperCase()}`;
+    });
+  }
+
+  function initControls() {
+    // Filter tabs
+    els.filterTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        els.filterTabs.forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        state.filterView = tab.getAttribute('data-view') || 'all';
+        applySectionVisibility();
+      });
+    });
+
+    // Live search
+    els.searchInput.addEventListener('input', (e) => {
+      state.searchQuery = e.target.value;
+      renderAll();
+    });
+
+    // Photo grid density
+    els.densityToggle.addEventListener('click', () => {
+      const isCompact = els.photoGrid.classList.toggle('compact');
+      els.densityToggle.textContent = isCompact ? 'GRID: COMPACT' : 'GRID: STANDARD';
+    });
+
+    // Viewer Modal events
+    els.viewerClose.addEventListener('click', closeViewer);
+    els.viewerModal.addEventListener('click', (e) => {
+      if (e.target === els.viewerModal) closeViewer();
+    });
+
+    // Admin Modal events
+    els.adminTrigger.addEventListener('click', () => {
+      els.adminModal.hidden = false;
+      els.adminModal.setAttribute('aria-hidden', 'false');
+    });
+
+    els.adminClose.addEventListener('click', () => {
+      els.adminModal.hidden = true;
+      els.adminModal.setAttribute('aria-hidden', 'true');
+    });
+
+    els.adminModal.addEventListener('click', (e) => {
+      if (e.target === els.adminModal) {
+        els.adminModal.hidden = true;
+        els.adminModal.setAttribute('aria-hidden', 'true');
+      }
+    });
+
+    // Escape key closes active modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!els.viewerModal.hidden) closeViewer();
+        if (!els.adminModal.hidden) {
+          els.adminModal.hidden = true;
+          els.adminModal.setAttribute('aria-hidden', 'true');
+        }
+      }
+    });
+
+    // Admin Token Management
+    els.saveTokenBtn.addEventListener('click', () => {
+      state.adminToken = els.adminTokenInput.value.trim();
+      if (state.adminToken) {
+        sessionStorage.setItem(STORAGE_TOKEN_KEY, state.adminToken);
+      }
+      syncAdminStateUI();
+    });
+
+    els.clearTokenBtn.addEventListener('click', () => {
+      state.adminToken = '';
+      sessionStorage.removeItem(STORAGE_TOKEN_KEY);
+      localStorage.removeItem(STORAGE_TOKEN_KEY);
+      syncAdminStateUI();
+    });
+
+    // Admin Mode Switcher
+    els.adminTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        els.adminTabs.forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        const mode = tab.getAttribute('data-admin-mode');
+        els.uploadForm.hidden = mode !== 'media';
+        els.poemForm.hidden = mode !== 'poem';
+      });
+    });
+
+    // File input label update
+    els.uploadFile.addEventListener('change', () => {
+      const file = els.uploadFile.files[0];
+      els.dropzoneText.textContent = file
+        ? `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`
+        : 'Select or drag a file from disk';
+    });
+
+    els.uploadForm.addEventListener('submit', handleMediaUpload);
+    els.poemForm.addEventListener('submit', handlePoemPublish);
+  }
+
+  // Boot
+  initTheme();
+  initControls();
+  syncAdminStateUI();
+  loadArchive();
+})();
