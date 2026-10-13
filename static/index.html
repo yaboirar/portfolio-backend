@@ -4,241 +4,230 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
-  <link rel="stylesheet" href="/static/style.css?v=9.0">
+  <link rel="stylesheet" href="/static/style.css?v=10.0">
 </head>
 <body>
-  <!-- Top Bar: Kinetic TextRoll Navigation + Corner Controls -->
-  <header class="site-header">
-    <nav class="kinetic-nav" aria-label="Sections">
-      <button type="button" class="nav-roll-btn is-active" data-filter="all">
-        <span class="js-text-roll nav-roll-word" data-text="ALL" data-center="true">ALL</span>
-      </button>
-      <button type="button" class="nav-roll-btn" data-filter="videos">
-        <span class="js-text-roll nav-roll-word" data-text="VIDEOS" data-center="true">VIDEOS</span>
-      </button>
-      <button type="button" class="nav-roll-btn" data-filter="photos">
-        <span class="js-text-roll nav-roll-word" data-text="PHOTOS" data-center="true">PHOTOS</span>
-      </button>
-      <button type="button" class="nav-roll-btn" data-filter="poems">
-        <span class="js-text-roll nav-roll-word" data-text="POEMS" data-center="true">POEMS</span>
-      </button>
-    </nav>
-
-    <div class="header-controls">
-      <!-- Animated SVG Sun/Moon Switch -->
-      <button
-        type="button"
-        class="theme-switch"
-        id="theme-switch"
-        aria-label="Toggle theme"
-      >
-        <span class="theme-switch-track">
-          <span class="theme-switch-thumb">
-            <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <mask id="moon-mask">
-                <rect x="0" y="0" width="100%" height="100%" fill="white" />
-                <circle class="moon-cutout" cx="17" cy="7" r="6" fill="black" />
-              </mask>
-              <circle class="sun-core" cx="12" cy="12" r="5" fill="currentColor" mask="url(#moon-mask)" />
-              <g class="sun-rays">
-                <line x1="12" y1="1.5" x2="12" y2="3.5" />
-                <line x1="12" y1="20.5" x2="12" y2="22.5" />
-                <line x1="4.57" y1="4.57" x2="5.98" y2="5.98" />
-                <line x1="18.02" y1="18.02" x2="19.43" y2="19.43" />
-                <line x1="1.5" y1="12" x2="3.5" y2="12" />
-                <line x1="20.5" y1="12" x2="22.5" y2="12" />
-                <line x1="4.57" y1="19.43" x2="5.98" y2="18.02" />
-                <line x1="18.02" y1="5.98" x2="19.43" y2="4.57" />
-              </g>
-            </svg>
-          </span>
-        </span>
-      </button>
-
-      <!-- Upload Slide-Drawer Trigger -->
-      <button
-        type="button"
-        class="upload-trigger"
-        id="upload-trigger"
-        aria-label="Open upload panel"
-        title="Upload"
-      >
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 19V5" />
-          <polyline points="5 12 12 5 19 12" />
-        </svg>
-        <span class="auth-dot" id="auth-dot" hidden></span>
-      </button>
-    </div>
-  </header>
-
-  <!-- Main Content -->
-  <main class="canvas" id="canvas">
-    <!-- Videos -->
-    <section class="work-block" id="block-videos">
-      <div class="block-header">
-        <span class="block-title">Videos</span>
-      </div>
-      <div class="media-grid" id="grid-videos"></div>
-    </section>
-
-    <!-- Photos -->
-    <section class="work-block" id="block-photos">
-      <div class="block-header">
-        <span class="block-title">Photos</span>
-      </div>
-      <div class="media-grid" id="grid-photos"></div>
-    </section>
-
-    <!-- Poems -->
-    <section class="work-block" id="block-poems">
-      <div class="block-header">
-        <span class="block-title">Poems</span>
-      </div>
-      <div class="poems-layout" id="layout-poems">
-        <ul class="poems-nav" id="poems-nav"></ul>
-        <article class="poem-stage" id="poem-stage" hidden></article>
-      </div>
-    </section>
-  </main>
-
-  <!-- Slide-Left Upload Panel -->
-  <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
-  <aside class="upload-drawer" id="upload-drawer" aria-hidden="true">
-    <!-- Draggable left edge to adjust drawer width -->
-    <div class="drawer-resizer" id="drawer-resizer" title="Drag to resize panel"></div>
-
-    <div class="drawer-inner">
-      <header class="drawer-top">
-        <div class="drawer-tabs" role="tablist">
-          <button type="button" class="drawer-tab is-active" data-tab="media">
-            <span class="js-text-roll" data-text="UPLOAD MEDIA">UPLOAD MEDIA</span>
-          </button>
-          <button type="button" class="drawer-tab" data-tab="poem">
-            <span class="js-text-roll" data-text="NEW POEM">NEW POEM</span>
-          </button>
-        </div>
-
-        <button type="button" class="icon-btn" id="drawer-close" aria-label="Close panel">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+  <div class="app-shell" id="app-shell">
+    <!-- Top Workspace Bar -->
+    <header class="top-bar">
+      <!-- Hover-Slide Navigation -->
+      <nav class="hover-nav" id="hover-nav" aria-label="View selector">
+        <button type="button" class="nav-trigger is-active" data-filter="all" id="nav-primary">
+          <span class="js-text-roll nav-word" data-text="ALL" data-center="true">ALL</span>
         </button>
-      </header>
 
-      <div class="drawer-body">
-        <!-- Token Bar -->
-        <div class="token-bar">
-          <input type="password" id="admin-token" placeholder="Admin token" autocomplete="off">
-          <button type="button" class="token-save-btn" id="save-token">
-            <span class="js-text-roll" data-text="SAVE">SAVE</span>
+        <div class="nav-slide-tray" id="nav-slide-tray">
+          <span class="nav-sep"></span>
+          <button type="button" class="nav-option" data-filter="videos">
+            <span class="js-text-roll nav-word" data-text="VIDEOS" data-center="true">VIDEOS</span>
+          </button>
+          <button type="button" class="nav-option" data-filter="photos">
+            <span class="js-text-roll nav-word" data-text="PHOTOS" data-center="true">PHOTOS</span>
+          </button>
+          <button type="button" class="nav-option" data-filter="poems">
+            <span class="js-text-roll nav-word" data-text="POEMS" data-center="true">POEMS</span>
           </button>
         </div>
+      </nav>
 
-        <!-- Media Upload Form -->
-        <form id="upload-form" class="drawer-form">
-          <!-- Sleek File Selector & Adjustable Preview -->
-          <div class="file-picker" id="file-picker">
-            <input type="file" id="upload-file" name="file" accept="image/*,video/*" required>
-            <div class="file-picker-bar">
-              <div class="file-picker-info">
-                <span class="file-picker-name" id="file-name">Select video or photo</span>
-                <span class="file-picker-meta" id="file-meta">MP4, WebM, MOV, JPG, PNG, WebP</span>
-              </div>
-              <span class="file-picker-action">Browse</span>
-            </div>
+      <!-- Right Workspace Controls -->
+      <div class="bar-controls">
+        <!-- Animated SVG Eclipse Theme Switch -->
+        <button
+          type="button"
+          class="theme-switch"
+          id="theme-switch"
+          aria-label="Toggle theme"
+        >
+          <span class="theme-switch-track">
+            <span class="theme-switch-thumb">
+              <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <mask id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle class="moon-cutout" cx="17" cy="7" r="6" fill="black" />
+                </mask>
+                <circle class="sun-core" cx="12" cy="12" r="5" fill="currentColor" mask="url(#moon-mask)" />
+                <g class="sun-rays">
+                  <line x1="12" y1="1.5" x2="12" y2="3.5" />
+                  <line x1="12" y1="20.5" x2="12" y2="22.5" />
+                  <line x1="4.57" y1="4.57" x2="5.98" y2="5.98" />
+                  <line x1="18.02" y1="18.02" x2="19.43" y2="19.43" />
+                  <line x1="1.5" y1="12" x2="3.5" y2="12" />
+                  <line x1="20.5" y1="12" x2="22.5" y2="12" />
+                  <line x1="4.57" y1="19.43" x2="5.98" y2="18.02" />
+                  <line x1="18.02" y1="5.98" x2="19.43" y2="4.57" />
+                </g>
+              </svg>
+            </span>
+          </span>
+        </button>
 
-            <div class="file-preview-wrap" id="file-preview-wrap" hidden>
-              <div class="file-preview-stage" id="file-preview-stage"></div>
-              <div class="preview-height-bar">
-                <span>Preview height</span>
-                <input type="range" id="preview-height-slider" min="120" max="420" value="220">
-              </div>
-            </div>
-          </div>
-
-          <!-- Space / Grid Width Selector -->
-          <div class="space-control">
-            <div class="space-label-row">
-              <span>Grid space</span>
-              <span class="space-value" id="space-value">50% width</span>
-            </div>
-            <div class="space-options" role="radiogroup" aria-label="Grid space">
-              <button type="button" class="space-btn" data-span="3">25%</button>
-              <button type="button" class="space-btn is-active" data-span="6">50%</button>
-              <button type="button" class="space-btn" data-span="9">75%</button>
-              <button type="button" class="space-btn" data-span="12">100%</button>
-            </div>
-          </div>
-
-          <div class="input-group">
-            <label for="upload-title">Title</label>
-            <input type="text" id="upload-title" name="title" placeholder="Enter title" required>
-          </div>
-
-          <div class="input-group">
-            <label for="upload-desc">Description</label>
-            <textarea id="upload-desc" name="description" rows="3" placeholder="Optional caption"></textarea>
-          </div>
-
-          <div class="progress-line" id="upload-meter" hidden>
-            <div class="progress-fill" id="upload-meter-fill"></div>
-          </div>
-
-          <div class="drawer-foot">
-            <span class="status-text" id="upload-feedback"></span>
-            <button type="submit" class="primary-roll-btn" id="upload-submit">
-              <span class="js-text-roll" data-text="UPLOAD" data-center="true">UPLOAD</span>
-            </button>
-          </div>
-        </form>
-
-        <!-- Poem Form -->
-        <form id="poem-form" class="drawer-form" hidden>
-          <div class="input-group">
-            <label for="poem-title">Title</label>
-            <input type="text" id="poem-title" name="title" placeholder="Enter poem title" required>
-          </div>
-
-          <div class="input-group">
-            <label for="poem-content">Poem</label>
-            <textarea id="poem-content" name="content" rows="10" placeholder="Write or paste poem..." required></textarea>
-          </div>
-
-          <div class="drawer-foot">
-            <span class="status-text" id="poem-feedback"></span>
-            <button type="submit" class="primary-roll-btn" id="poem-submit">
-              <span class="js-text-roll" data-text="PUBLISH" data-center="true">PUBLISH</span>
-            </button>
-          </div>
-        </form>
+        <!-- Full Dock Access Toggle (Pushes workspace left instead of overlay) -->
+        <button type="button" class="dock-toggle-btn" id="dock-toggle" aria-expanded="false">
+          <span class="dock-status-dot" id="auth-dot" hidden></span>
+          <span class="js-text-roll dock-toggle-word" data-text="UPLOAD" data-center="true">UPLOAD</span>
+        </button>
       </div>
-    </div>
-  </aside>
+    </header>
 
-  <!-- Fullscreen Lightbox -->
+    <!-- Main Docked Workspace (Shrinks when right dock slides in) -->
+    <div class="workspace" id="workspace">
+      <main class="stage-dock" id="stage-dock">
+        <!-- Panel 1: Videos -->
+        <section class="dock-panel" id="panel-videos" data-panel="videos" style="flex-basis: 38%;">
+          <header class="panel-bar">
+            <span class="panel-label">Videos</span>
+            <button type="button" class="panel-focus-btn" data-focus="videos" title="Maximize / Restore">
+              <span class="js-text-roll" data-text="EXPAND">EXPAND</span>
+            </button>
+          </header>
+          <div class="panel-scroll" id="list-videos"></div>
+        </section>
+
+        <!-- Vertical Splitter 1 (Videos <-> Photos) -->
+        <div class="v-splitter" id="splitter-vp" data-left="panel-videos" data-right="panel-photos" title="Drag to resize panels (Double-click to reset)"></div>
+
+        <!-- Panel 2: Photos -->
+        <section class="dock-panel" id="panel-photos" data-panel="photos" style="flex-basis: 34%;">
+          <header class="panel-bar">
+            <span class="panel-label">Photos</span>
+            <button type="button" class="panel-focus-btn" data-focus="photos" title="Maximize / Restore">
+              <span class="js-text-roll" data-text="EXPAND">EXPAND</span>
+            </button>
+          </header>
+          <div class="panel-scroll" id="list-photos"></div>
+        </section>
+
+        <!-- Vertical Splitter 2 (Photos <-> Poems) -->
+        <div class="v-splitter" id="splitter-pp" data-left="panel-photos" data-right="panel-poems" title="Drag to resize panels (Double-click to reset)"></div>
+
+        <!-- Panel 3: Poems -->
+        <section class="dock-panel" id="panel-poems" data-panel="poems" style="flex-basis: 28%;">
+          <header class="panel-bar">
+            <span class="panel-label">Poems</span>
+            <button type="button" class="panel-focus-btn" data-focus="poems" title="Maximize / Restore">
+              <span class="js-text-roll" data-text="EXPAND">EXPAND</span>
+            </button>
+          </header>
+          <div class="panel-scroll poems-scroll" id="list-poems"></div>
+        </section>
+      </main>
+
+      <!-- Splitter between Main Stage and Right Upload Dock -->
+      <div class="v-splitter dock-edge-splitter" id="dock-splitter" hidden title="Drag to resize upload dock"></div>
+
+      <!-- Right Slide-In Dock (Pushes main stage, 0% overlay) -->
+      <aside class="side-dock" id="side-dock" aria-hidden="true">
+        <div class="side-dock-inner">
+          <header class="panel-bar side-dock-bar">
+            <div class="dock-mode-switch" role="tablist">
+              <button type="button" class="dock-mode-btn is-active" data-mode="media">
+                <span class="js-text-roll" data-text="MEDIA">MEDIA</span>
+              </button>
+              <button type="button" class="dock-mode-btn" data-mode="poem">
+                <span class="js-text-roll" data-text="POEM">POEM</span>
+              </button>
+            </div>
+            <button type="button" class="panel-focus-btn" id="dock-close">
+              <span class="js-text-roll" data-text="CLOSE">CLOSE</span>
+            </button>
+          </header>
+
+          <!-- Token Bar -->
+          <div class="dock-auth-row">
+            <input type="password" id="admin-token" placeholder="Admin token" autocomplete="off">
+            <button type="button" class="dock-action-btn" id="save-token">
+              <span class="js-text-roll" data-text="SAVE">SAVE</span>
+            </button>
+          </div>
+
+          <!-- Media Upload Pane -->
+          <form id="upload-form" class="dock-form">
+            <!-- Resizable Media Canvas / File Drop -->
+            <div class="media-slot" id="media-slot">
+              <input type="file" id="upload-file" name="file" accept="image/*,video/*" required>
+              <div class="media-slot-preview" id="media-slot-preview" hidden></div>
+              <div class="media-slot-empty" id="media-slot-empty">
+                <span class="slot-primary" id="slot-filename">Select or drag video / photo</span>
+                <span class="slot-secondary" id="slot-filesize">Drag bottom edge below to resize this area</span>
+              </div>
+            </div>
+
+            <!-- Horizontal Splitter to resize File Drop / Preview height -->
+            <div class="h-splitter" id="slot-splitter" title="Drag up/down to resize file area"></div>
+
+            <div class="dock-fields">
+              <div class="field-row">
+                <label for="upload-title">Title</label>
+                <input type="text" id="upload-title" name="title" placeholder="Title" required>
+              </div>
+
+              <div class="field-row">
+                <label for="upload-desc">Description</label>
+                <textarea id="upload-desc" name="description" rows="3" placeholder="Optional description"></textarea>
+              </div>
+
+              <div class="upload-bar" id="upload-meter" hidden>
+                <div class="upload-bar-fill" id="upload-meter-fill"></div>
+              </div>
+
+              <div class="dock-submit-row">
+                <span class="dock-feedback" id="upload-feedback"></span>
+                <button type="submit" class="dock-submit-btn" id="upload-submit">
+                  <span class="js-text-roll" data-text="UPLOAD" data-center="true">UPLOAD</span>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <!-- Poem Editor Pane -->
+          <form id="poem-form" class="dock-form" hidden>
+            <div class="dock-fields poem-fields">
+              <div class="field-row">
+                <label for="poem-title">Title</label>
+                <input type="text" id="poem-title" name="title" placeholder="Poem title" required>
+              </div>
+
+              <div class="field-row field-row--grow">
+                <label for="poem-content">Text</label>
+                <textarea id="poem-content" name="content" placeholder="Write poem..." required></textarea>
+              </div>
+
+              <div class="dock-submit-row">
+                <span class="dock-feedback" id="poem-feedback"></span>
+                <button type="submit" class="dock-submit-btn" id="poem-submit">
+                  <span class="js-text-roll" data-text="PUBLISH" data-center="true">PUBLISH</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Lightbox for Full-Res Inspection -->
   <div class="lightbox" id="lightbox" hidden aria-hidden="true">
-    <div class="lightbox-top">
-      <div class="lightbox-caption">
+    <header class="lightbox-bar">
+      <div class="lightbox-meta">
         <span class="lightbox-title" id="lb-title"></span>
         <span class="lightbox-desc" id="lb-desc"></span>
       </div>
-      <div class="lightbox-actions">
-        <button type="button" class="icon-btn" id="lb-prev" aria-label="Previous">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <div class="lightbox-controls">
+        <button type="button" class="dock-action-btn" id="lb-prev">
+          <span class="js-text-roll" data-text="PREV">PREV</span>
         </button>
-        <button type="button" class="icon-btn" id="lb-next" aria-label="Next">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <button type="button" class="dock-action-btn" id="lb-next">
+          <span class="js-text-roll" data-text="NEXT">NEXT</span>
         </button>
-        <button type="button" class="icon-btn" id="lb-close" aria-label="Close">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <button type="button" class="dock-action-btn" id="lb-close">
+          <span class="js-text-roll" data-text="CLOSE">CLOSE</span>
         </button>
       </div>
-    </div>
+    </header>
     <div class="lightbox-stage" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=9.0"></script>
+  <script src="/static/app.js?v=10.0"></script>
 </body>
 </html>

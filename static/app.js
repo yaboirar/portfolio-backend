@@ -8,47 +8,46 @@
     photos: [],
     poems: [],
     filter: 'all',
-    activePoemIndex: 0,
+    dockOpen: false,
     lightboxIndex: -1,
-    selectedSpan: 6,
-    spans: JSON.parse(localStorage.getItem('portfolio_spans') || '{}'),
     token: sessionStorage.getItem('admin_token') || '',
   };
 
   const dom = {
+    hoverNav: document.getElementById('hover-nav'),
+    navBtns: document.querySelectorAll('[data-filter]'),
     themeSwitch: document.getElementById('theme-switch'),
-    uploadTrigger: document.getElementById('upload-trigger'),
+    dockToggle: document.getElementById('dock-toggle'),
     authDot: document.getElementById('auth-dot'),
-    navBtns: document.querySelectorAll('.nav-roll-btn'),
 
-    blockVideos: document.getElementById('block-videos'),
-    blockPhotos: document.getElementById('block-photos'),
-    blockPoems: document.getElementById('block-poems'),
-    gridVideos: document.getElementById('grid-videos'),
-    gridPhotos: document.getElementById('grid-photos'),
-    poemsNav: document.getElementById('poems-nav'),
-    poemStage: document.getElementById('poem-stage'),
+    stageDock: document.getElementById('stage-dock'),
+    panelVideos: document.getElementById('panel-videos'),
+    panelPhotos: document.getElementById('panel-photos'),
+    panelPoems: document.getElementById('panel-poems'),
+    splitterVP: document.getElementById('splitter-vp'),
+    splitterPP: document.getElementById('splitter-pp'),
+    focusBtns: document.querySelectorAll('[data-focus]'),
 
-    drawerBackdrop: document.getElementById('drawer-backdrop'),
-    uploadDrawer: document.getElementById('upload-drawer'),
-    drawerResizer: document.getElementById('drawer-resizer'),
-    drawerClose: document.getElementById('drawer-close'),
-    drawerTabs: document.querySelectorAll('.drawer-tab'),
+    listVideos: document.getElementById('list-videos'),
+    listPhotos: document.getElementById('list-photos'),
+    listPoems: document.getElementById('list-poems'),
+
+    dockSplitter: document.getElementById('dock-splitter'),
+    sideDock: document.getElementById('side-dock'),
+    dockClose: document.getElementById('dock-close'),
+    dockModeBtns: document.querySelectorAll('.dock-mode-btn'),
 
     adminToken: document.getElementById('admin-token'),
     saveToken: document.getElementById('save-token'),
 
     uploadForm: document.getElementById('upload-form'),
-    filePicker: document.getElementById('file-picker'),
+    mediaSlot: document.getElementById('media-slot'),
     uploadFile: document.getElementById('upload-file'),
-    fileName: document.getElementById('file-name'),
-    fileMeta: document.getElementById('file-meta'),
-    filePreviewWrap: document.getElementById('file-preview-wrap'),
-    filePreviewStage: document.getElementById('file-preview-stage'),
-    previewHeightSlider: document.getElementById('preview-height-slider'),
-
-    spaceBtns: document.querySelectorAll('.space-btn'),
-    spaceValue: document.getElementById('space-value'),
+    mediaSlotPreview: document.getElementById('media-slot-preview'),
+    mediaSlotEmpty: document.getElementById('media-slot-empty'),
+    slotFilename: document.getElementById('slot-filename'),
+    slotFilesize: document.getElementById('slot-filesize'),
+    slotSplitter: document.getElementById('slot-splitter'),
 
     uploadTitle: document.getElementById('upload-title'),
     uploadDesc: document.getElementById('upload-desc'),
@@ -117,7 +116,149 @@
   }
 
   /* ========================================================================
-     DATA HELPERS
+     AFTER EFFECTS STYLE PANEL SPLITTERS
+     ======================================================================== */
+  function initWorkspaceSplitters() {
+    // 1. Splitters between Videos <-> Photos and Photos <-> Poems
+    [dom.splitterVP, dom.splitterPP].forEach((splitter) => {
+      let active = false;
+      let leftPanel = null;
+      let rightPanel = null;
+      let startX = 0;
+      let startLeftW = 0;
+      let startRightW = 0;
+
+      splitter.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        leftPanel = document.getElementById(splitter.dataset.left);
+        rightPanel = document.getElementById(splitter.dataset.right);
+        if (!leftPanel || !rightPanel || leftPanel.hidden || rightPanel.hidden) return;
+
+        active = true;
+        startX = e.clientX;
+        startLeftW = leftPanel.getBoundingClientRect().width;
+        startRightW = rightPanel.getBoundingClientRect().width;
+
+        splitter.classList.add('is-active');
+        document.body.classList.add('is-resizing');
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!active) return;
+        const totalStageW = dom.stageDock.getBoundingClientRect().width;
+        const delta = e.clientX - startX;
+        const combined = startLeftW + startRightW;
+
+        const minW = 180;
+        const newLeftW = Math.min(Math.max(startLeftW + delta, minW), combined - minW);
+        const newRightW = combined - newLeftW;
+
+        leftPanel.style.flexBasis = `${(newLeftW / totalStageW) * 100}%`;
+        rightPanel.style.flexBasis = `${(newRightW / totalStageW) * 100}%`;
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!active) return;
+        active = false;
+        splitter.classList.remove('is-active');
+        document.body.classList.remove('is-resizing');
+      });
+
+      splitter.addEventListener('dblclick', () => {
+        dom.panelVideos.style.flexBasis = '38%';
+        dom.panelPhotos.style.flexBasis = '34%';
+        dom.panelPoems.style.flexBasis = '28%';
+      });
+    });
+
+    // 2. Splitter for the Right Upload Dock (pushes/shrinks main workspace)
+    let dockDrag = false;
+    dom.dockSplitter.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dockDrag = true;
+      dom.dockSplitter.classList.add('is-active');
+      document.body.classList.add('is-resizing');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!dockDrag) return;
+      const newW = Math.min(Math.max(window.innerWidth - e.clientX, 280), window.innerWidth * 0.65);
+      document.documentElement.style.setProperty('--side-dock-w', `${newW}px`);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!dockDrag) return;
+      dockDrag = false;
+      dom.dockSplitter.classList.remove('is-active');
+      document.body.classList.remove('is-resizing');
+    });
+
+    // 3. Horizontal Splitter inside Upload Dock to resize the File Dropzone height
+    let slotDrag = false;
+    let slotStartY = 0;
+    let slotStartH = 0;
+
+    dom.slotSplitter.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      slotDrag = true;
+      slotStartY = e.clientY;
+      slotStartH = dom.mediaSlot.getBoundingClientRect().height;
+      dom.slotSplitter.classList.add('is-active');
+      document.body.classList.add('is-resizing');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!slotDrag) return;
+      const nextH = Math.min(Math.max(slotStartH + (e.clientY - slotStartY), 90), window.innerHeight * 0.65);
+      document.documentElement.style.setProperty('--slot-h', `${nextH}px`);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!slotDrag) return;
+      slotDrag = false;
+      dom.slotSplitter.classList.remove('is-active');
+      document.body.classList.remove('is-resizing');
+    });
+  }
+
+  /* ========================================================================
+     VIEW FILTERING & DOCK TOGGLE
+     ======================================================================== */
+  function setFilter(nextFilter) {
+    state.filter = nextFilter;
+
+    dom.navBtns.forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.filter === nextFilter);
+    });
+
+    // Keep the hover tray visible whenever a specific sub-category is active
+    dom.hoverNav.classList.toggle('has-subfilter', nextFilter !== 'all');
+    dom.stageDock.classList.toggle('is-single', nextFilter !== 'all');
+
+    const isAll = nextFilter === 'all';
+    dom.panelVideos.hidden = !isAll && nextFilter !== 'videos';
+    dom.panelPhotos.hidden = !isAll && nextFilter !== 'photos';
+    dom.panelPoems.hidden = !isAll && nextFilter !== 'poems';
+
+    dom.splitterVP.hidden = !isAll;
+    dom.splitterPP.hidden = !isAll;
+
+    dom.focusBtns.forEach((btn) => {
+      const label = isAll ? 'EXPAND' : 'SPLIT';
+      btn.replaceChildren(createTextRollNode(label, false));
+    });
+  }
+
+  function toggleSideDock(forceState) {
+    state.dockOpen = typeof forceState === 'boolean' ? forceState : !state.dockOpen;
+    dom.sideDock.classList.toggle('is-open', state.dockOpen);
+    dom.sideDock.setAttribute('aria-hidden', String(!state.dockOpen));
+    dom.dockSplitter.hidden = !state.dockOpen;
+    dom.dockToggle.setAttribute('aria-expanded', String(state.dockOpen));
+  }
+
+  /* ========================================================================
+     DATA FETCHING & RENDERING
      ======================================================================== */
   function unwrapArray(payload, keys) {
     if (Array.isArray(payload)) return payload;
@@ -140,15 +281,6 @@
     if (t.includes('image') || t.includes('photo')) return false;
     const u = String(item.relative_url || item.url || item.filename || '').toLowerCase();
     return u.includes('/videos/') || /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u);
-  }
-
-  function getSpanForItem(id) {
-    return state.spans[String(id)] || 6;
-  }
-
-  function setSpanForItem(id, span) {
-    state.spans[String(id)] = Number(span);
-    localStorage.setItem('portfolio_spans', JSON.stringify(state.spans));
   }
 
   async function fetchPortfolio() {
@@ -184,140 +316,67 @@
         content: p.content || p.body || p.text || p.poem || '',
       }));
 
-      if (state.activePoemIndex >= state.poems.length) {
-        state.activePoemIndex = 0;
-      }
-
-      renderCanvas();
+      renderPanels();
     } catch (err) {
       console.error('Failed to load portfolio:', err);
     }
   }
 
-  /* ========================================================================
-     RENDERING
-     ======================================================================== */
-  function buildMediaBar(item, figureEl) {
-    const bar = document.createElement('figcaption');
-    bar.className = 'media-bar';
+  function buildCaption(item, endpoint) {
+    const cap = document.createElement('figcaption');
+    cap.className = 'work-caption';
 
-    const meta = document.createElement('div');
-    meta.className = 'media-meta';
+    const left = document.createElement('div');
+    left.className = 'work-caption-left';
 
     const title = document.createElement('span');
-    title.className = 'media-title';
+    title.className = 'work-title';
     title.textContent = item.title;
-    meta.appendChild(title);
+    left.appendChild(title);
 
     if (item.description) {
       const desc = document.createElement('span');
-      desc.className = 'media-desc';
+      desc.className = 'work-desc';
       desc.textContent = item.description;
-      meta.appendChild(desc);
+      left.appendChild(desc);
     }
 
-    bar.appendChild(meta);
+    cap.appendChild(left);
 
     if (state.token && item.id !== undefined) {
-      const controls = document.createElement('div');
-      controls.className = 'media-controls';
-
-      const currentSpan = getSpanForItem(item.id);
-      const sizes = [
-        { span: 3, label: '25%' },
-        { span: 6, label: '50%' },
-        { span: 9, label: '75%' },
-        { span: 12, label: '100%' },
-      ];
-
-      sizes.forEach(({ span, label }) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'span-pill' + (currentSpan === span ? ' is-active' : '');
-        btn.textContent = label;
-        btn.title = `Set width to ${label}`;
-        btn.addEventListener('click', () => {
-          setSpanForItem(item.id, span);
-          figureEl.dataset.span = String(span);
-          controls.querySelectorAll('.span-pill').forEach((p) => p.classList.remove('is-active'));
-          btn.classList.add('is-active');
-        });
-        controls.appendChild(btn);
-      });
-
       const del = document.createElement('button');
       del.type = 'button';
-      del.className = 'delete-link';
+      del.className = 'work-delete';
       del.textContent = 'Delete';
-      del.addEventListener('click', () => deleteEntry('media', item.id));
-      controls.appendChild(del);
-
-      bar.appendChild(controls);
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteEntry(endpoint, item.id);
+      });
+      cap.appendChild(del);
     }
 
-    return bar;
+    return cap;
   }
 
-  function makeEmptyNotice(text) {
+  function makeEmpty(label) {
     const div = document.createElement('div');
-    div.className = 'empty-notice';
-    div.textContent = text;
+    div.className = 'empty-pane';
+    div.textContent = `No ${label} yet.`;
     return div;
   }
 
-  function renderPoemReader() {
-    dom.poemStage.replaceChildren();
-    const poem = state.poems[state.activePoemIndex];
-    if (!poem) {
-      dom.poemStage.hidden = true;
-      return;
-    }
-
-    dom.poemStage.hidden = false;
-
-    const head = document.createElement('div');
-    head.className = 'poem-stage-head';
-
-    const title = document.createElement('h3');
-    title.className = 'poem-stage-title';
-    title.textContent = poem.title;
-    head.appendChild(title);
-
-    if (state.token && poem.id !== undefined) {
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'delete-link';
-      del.textContent = 'Delete';
-      del.addEventListener('click', () => deleteEntry('poems', poem.id));
-      head.appendChild(del);
-    }
-
-    const body = document.createElement('div');
-    body.className = 'poem-stage-body';
-    body.textContent = poem.content;
-
-    dom.poemStage.appendChild(head);
-    dom.poemStage.appendChild(body);
-  }
-
-  function renderCanvas() {
-    const f = state.filter;
-    dom.blockVideos.hidden = f !== 'all' && f !== 'videos';
-    dom.blockPhotos.hidden = f !== 'all' && f !== 'photos';
-    dom.blockPoems.hidden = f !== 'all' && f !== 'poems';
-
-    // Videos
-    dom.gridVideos.replaceChildren();
+  function renderPanels() {
+    // Videos Panel
+    dom.listVideos.replaceChildren();
     if (state.videos.length === 0) {
-      dom.gridVideos.appendChild(makeEmptyNotice('No videos uploaded yet.'));
+      dom.listVideos.appendChild(makeEmpty('videos'));
     } else {
       state.videos.forEach((v) => {
         const fig = document.createElement('figure');
-        fig.className = 'media-item';
-        fig.dataset.span = String(getSpanForItem(v.id));
+        fig.className = 'work-item';
 
-        const stage = document.createElement('div');
-        stage.className = 'media-stage';
+        const wrap = document.createElement('div');
+        wrap.className = 'work-media-wrap';
 
         const video = document.createElement('video');
         video.src = v.url;
@@ -325,123 +384,77 @@
         video.preload = 'metadata';
         video.playsInline = true;
 
-        stage.appendChild(video);
-        fig.appendChild(stage);
-        fig.appendChild(buildMediaBar(v, fig));
-        dom.gridVideos.appendChild(fig);
+        wrap.appendChild(video);
+        fig.appendChild(wrap);
+        fig.appendChild(buildCaption(v, 'media'));
+        dom.listVideos.appendChild(fig);
       });
     }
 
-    // Photos
-    dom.gridPhotos.replaceChildren();
+    // Photos Panel
+    dom.listPhotos.replaceChildren();
     if (state.photos.length === 0) {
-      dom.gridPhotos.appendChild(makeEmptyNotice('No photos uploaded yet.'));
+      dom.listPhotos.appendChild(makeEmpty('photos'));
     } else {
       state.photos.forEach((p, idx) => {
         const fig = document.createElement('figure');
-        fig.className = 'media-item';
-        fig.dataset.span = String(getSpanForItem(p.id));
+        fig.className = 'work-item';
 
-        const stage = document.createElement('div');
-        stage.className = 'media-stage';
-        stage.addEventListener('click', () => openLightbox(idx));
+        const wrap = document.createElement('div');
+        wrap.className = 'work-media-wrap';
+        wrap.addEventListener('click', () => openLightbox(idx));
 
         const img = document.createElement('img');
         img.src = p.url;
         img.alt = p.title;
         img.loading = 'lazy';
 
-        stage.appendChild(img);
-        fig.appendChild(stage);
-        fig.appendChild(buildMediaBar(p, fig));
-        dom.gridPhotos.appendChild(fig);
+        wrap.appendChild(img);
+        fig.appendChild(wrap);
+        fig.appendChild(buildCaption(p, 'media'));
+        dom.listPhotos.appendChild(fig);
       });
     }
 
-    // Poems
-    dom.poemsNav.replaceChildren();
-    dom.poemStage.replaceChildren();
-
+    // Poems Panel
+    dom.listPoems.replaceChildren();
     if (state.poems.length === 0) {
-      dom.poemStage.hidden = true;
-      dom.poemsNav.appendChild(makeEmptyNotice('No poems published yet.'));
+      dom.listPoems.appendChild(makeEmpty('poems'));
     } else {
-      state.poems.forEach((poem, idx) => {
-        const li = document.createElement('li');
-        li.className = 'poem-nav-item';
+      state.poems.forEach((poem) => {
+        const article = document.createElement('article');
+        article.className = 'poem-card';
 
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'poem-nav-btn' + (idx === state.activePoemIndex ? ' is-active' : '');
+        const head = document.createElement('div');
+        head.className = 'poem-card-head';
 
-        const rollTitle = createTextRollNode(poem.title.toUpperCase(), false, 'poem-roll-title');
-        btn.appendChild(rollTitle);
+        const title = document.createElement('h3');
+        title.className = 'poem-card-title';
+        title.textContent = poem.title;
+        head.appendChild(title);
 
-        btn.addEventListener('click', () => {
-          state.activePoemIndex = idx;
-          dom.poemsNav.querySelectorAll('.poem-nav-btn').forEach((b, bIdx) => {
-            b.classList.toggle('is-active', bIdx === idx);
-          });
-          renderPoemReader();
-        });
+        if (state.token && poem.id !== undefined) {
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'work-delete';
+          del.textContent = 'Delete';
+          del.addEventListener('click', () => deleteEntry('poems', poem.id));
+          head.appendChild(del);
+        }
 
-        li.appendChild(btn);
-        dom.poemsNav.appendChild(li);
+        const body = document.createElement('div');
+        body.className = 'poem-card-body';
+        body.textContent = poem.content;
+
+        article.appendChild(head);
+        article.appendChild(body);
+        dom.listPoems.appendChild(article);
       });
-
-      renderPoemReader();
     }
   }
 
   /* ========================================================================
-     SLIDE-LEFT DRAWER & RESIZER
-     ======================================================================== */
-  function openDrawer() {
-    dom.drawerBackdrop.hidden = false;
-    requestAnimationFrame(() => {
-      dom.drawerBackdrop.classList.add('is-open');
-      dom.uploadDrawer.classList.add('is-open');
-      dom.uploadDrawer.setAttribute('aria-hidden', 'false');
-    });
-  }
-
-  function closeDrawer() {
-    dom.drawerBackdrop.classList.remove('is-open');
-    dom.uploadDrawer.classList.remove('is-open');
-    dom.uploadDrawer.setAttribute('aria-hidden', 'true');
-    setTimeout(() => {
-      if (!dom.uploadDrawer.classList.contains('is-open')) {
-        dom.drawerBackdrop.hidden = true;
-      }
-    }, 450);
-  }
-
-  function initDrawerResize() {
-    let dragging = false;
-
-    dom.drawerResizer.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      dragging = true;
-      dom.drawerResizer.classList.add('is-dragging');
-      document.body.style.userSelect = 'none';
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (!dragging) return;
-      const newWidth = Math.min(Math.max(window.innerWidth - e.clientX, 340), 780);
-      document.documentElement.style.setProperty('--drawer-width', `${newWidth}px`);
-    });
-
-    window.addEventListener('mouseup', () => {
-      if (!dragging) return;
-      dragging = false;
-      dom.drawerResizer.classList.remove('is-dragging');
-      document.body.style.userSelect = '';
-    });
-  }
-
-  /* ========================================================================
-     UPLOAD & DELETE HANDLERS
+     UPLOAD, POEM PUBLISH & DELETE
      ======================================================================== */
   function syncTokenUI() {
     dom.adminToken.value = state.token;
@@ -464,35 +477,33 @@
     }
   }
 
-  function updateFilePreview() {
+  function updateSlotPreview() {
     const file = dom.uploadFile.files[0];
-    dom.filePreviewStage.replaceChildren();
+    dom.mediaSlotPreview.replaceChildren();
 
     if (!file) {
-      dom.filePreviewWrap.hidden = true;
-      dom.fileName.textContent = 'Select video or photo';
-      dom.fileMeta.textContent = 'MP4, WebM, MOV, JPG, PNG, WebP';
+      dom.mediaSlotPreview.hidden = true;
+      dom.mediaSlotEmpty.hidden = false;
+      dom.slotFilename.textContent = 'Select or drag video / photo';
+      dom.slotFilesize.textContent = 'Drag bottom edge below to resize this area';
       return;
     }
 
-    const mb = (file.size / (1024 * 1024)).toFixed(2);
-    dom.fileName.textContent = file.name;
-    dom.fileMeta.textContent = `${mb} MB`;
+    const url = URL.createObjectURL(file);
+    dom.mediaSlotEmpty.hidden = true;
+    dom.mediaSlotPreview.hidden = false;
 
-    const blobUrl = URL.createObjectURL(file);
     if (file.type.startsWith('video/')) {
       const vid = document.createElement('video');
-      vid.src = blobUrl;
+      vid.src = url;
       vid.controls = true;
       vid.muted = true;
       vid.playsInline = true;
-      dom.filePreviewStage.appendChild(vid);
-      dom.filePreviewWrap.hidden = false;
+      dom.mediaSlotPreview.appendChild(vid);
     } else if (file.type.startsWith('image/')) {
       const img = document.createElement('img');
-      img.src = blobUrl;
-      dom.filePreviewStage.appendChild(img);
-      dom.filePreviewWrap.hidden = false;
+      img.src = url;
+      dom.mediaSlotPreview.appendChild(img);
     }
   }
 
@@ -502,11 +513,11 @@
     const file = dom.uploadFile.files[0];
 
     if (!token) {
-      dom.uploadFeedback.textContent = 'Enter admin token first';
+      dom.uploadFeedback.textContent = 'Token required';
       return;
     }
     if (!file) {
-      dom.uploadFeedback.textContent = 'Select a file first';
+      dom.uploadFeedback.textContent = 'Select a file';
       return;
     }
 
@@ -539,16 +550,8 @@
     xhr.onload = async () => {
       dom.uploadSubmit.disabled = false;
       if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const created = JSON.parse(xhr.responseText);
-          const newId = created.id || (created.media && created.media.id);
-          if (newId !== undefined) {
-            setSpanForItem(newId, state.selectedSpan);
-          }
-        } catch (_) {}
-
         dom.uploadForm.reset();
-        updateFilePreview();
+        updateSlotPreview();
         dom.uploadFeedback.textContent = 'Uploaded';
         setTimeout(() => {
           dom.uploadMeter.hidden = true;
@@ -571,7 +574,7 @@
     e.preventDefault();
     const token = dom.adminToken.value.trim() || state.token;
     if (!token) {
-      dom.poemFeedback.textContent = 'Enter admin token first';
+      dom.poemFeedback.textContent = 'Token required';
       return;
     }
 
@@ -614,14 +617,12 @@
     updateLightbox();
     dom.lightbox.hidden = false;
     dom.lightbox.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
   }
 
   function closeLightbox() {
     dom.lbCanvas.replaceChildren();
     dom.lightbox.hidden = true;
     dom.lightbox.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
   }
 
   function stepLightbox(delta) {
@@ -654,7 +655,7 @@
 
     hydrateTextRolls();
     syncTokenUI();
-    initDrawerResize();
+    initWorkspaceSplitters();
 
     dom.themeSwitch.addEventListener('click', () => {
       const current = document.documentElement.getAttribute('data-theme');
@@ -664,64 +665,50 @@
     });
 
     dom.navBtns.forEach((btn) => {
+      btn.addEventListener('click', () => setFilter(btn.dataset.filter));
+    });
+
+    dom.focusBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        state.filter = btn.dataset.filter;
-        dom.navBtns.forEach((b) => b.classList.toggle('is-active', b === btn));
-        renderCanvas();
+        const target = btn.dataset.focus;
+        setFilter(state.filter === target ? 'all' : target);
       });
     });
 
-    dom.uploadTrigger.addEventListener('click', openDrawer);
-    dom.drawerClose.addEventListener('click', closeDrawer);
-    dom.drawerBackdrop.addEventListener('click', closeDrawer);
+    dom.dockToggle.addEventListener('click', () => toggleSideDock());
+    dom.dockClose.addEventListener('click', () => toggleSideDock(false));
 
     dom.saveToken.addEventListener('click', () => {
       state.token = dom.adminToken.value.trim();
       sessionStorage.setItem('admin_token', state.token);
       syncTokenUI();
-      renderCanvas();
+      renderPanels();
     });
 
-    dom.drawerTabs.forEach((tab) => {
-      tab.addEventListener('click', () => {
-        dom.drawerTabs.forEach((t) => t.classList.toggle('is-active', t === tab));
-        const isMedia = tab.dataset.tab === 'media';
+    dom.dockModeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        dom.dockModeBtns.forEach((b) => b.classList.toggle('is-active', b === btn));
+        const isMedia = btn.dataset.mode === 'media';
         dom.uploadForm.hidden = !isMedia;
         dom.poemForm.hidden = isMedia;
       });
     });
 
-    dom.uploadFile.addEventListener('change', updateFilePreview);
-    dom.previewHeightSlider.addEventListener('input', (e) => {
-      dom.filePreviewStage.style.height = `${e.target.value}px`;
-    });
-
-    const spanLabels = { 3: '25% width', 6: '50% width', 9: '75% width', 12: '100% width' };
-    dom.spaceBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.selectedSpan = Number(btn.dataset.span);
-        dom.spaceBtns.forEach((b) => b.classList.toggle('is-active', b === btn));
-        dom.spaceValue.textContent = spanLabels[state.selectedSpan];
-      });
-    });
-
+    dom.uploadFile.addEventListener('change', updateSlotPreview);
     dom.uploadForm.addEventListener('submit', handleMediaUpload);
     dom.poemForm.addEventListener('submit', handlePoemPublish);
 
     dom.lbClose.addEventListener('click', closeLightbox);
     dom.lbPrev.addEventListener('click', () => stepLightbox(-1));
     dom.lbNext.addEventListener('click', () => stepLightbox(1));
-    dom.lightbox.addEventListener('click', (e) => {
-      if (e.target === dom.lightbox || e.target === dom.lbCanvas) closeLightbox();
-    });
 
     document.addEventListener('keydown', (e) => {
       if (!dom.lightbox.hidden) {
         if (e.key === 'Escape') closeLightbox();
         if (e.key === 'ArrowLeft') stepLightbox(-1);
         if (e.key === 'ArrowRight') stepLightbox(1);
-      } else if (dom.uploadDrawer.classList.contains('is-open') && e.key === 'Escape') {
-        closeDrawer();
+      } else if (state.dockOpen && e.key === 'Escape') {
+        toggleSideDock(false);
       }
     });
 
