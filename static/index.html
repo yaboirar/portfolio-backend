@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
-  <link rel="stylesheet" href="/static/style.css?v=15.0">
+  <link rel="stylesheet" href="/static/style.css?v=16.0">
 </head>
 <body>
   <!-- Ambient Background Glow -->
@@ -16,78 +16,66 @@
   <div class="app-frame">
     <!-- Floating Top Bar -->
     <header class="top-bar">
-      <!-- Hover-Slide TextRoll Pill -->
+      <!-- Top-Left: Active Category Pill (Shrinks to current category, slides out others on hover) -->
       <nav class="nav-pill" id="nav-pill" aria-label="Categories">
-        <button type="button" class="nav-item is-active" data-filter="all">
+        <button type="button" class="nav-item is-active" id="nav-current" data-filter="all">
           <span class="js-text-roll nav-roll" data-text="ALL" data-center="true">ALL</span>
         </button>
 
         <div class="nav-drawer" id="nav-drawer">
           <span class="nav-divider"></span>
-          <button type="button" class="nav-item" data-filter="videos">
-            <span class="js-text-roll nav-roll" data-text="VIDEOS" data-center="true">VIDEOS</span>
-          </button>
-          <button type="button" class="nav-item" data-filter="photos">
-            <span class="js-text-roll nav-roll" data-text="PHOTOS" data-center="true">PHOTOS</span>
-          </button>
-          <button type="button" class="nav-item" data-filter="poems">
-            <span class="js-text-roll nav-roll" data-text="POEMS" data-center="true">POEMS</span>
-          </button>
+          <div class="nav-drawer-list" id="nav-drawer-list">
+            <button type="button" class="nav-item" data-filter="videos">
+              <span class="js-text-roll nav-roll" data-text="VIDEOS" data-center="true">VIDEOS</span>
+            </button>
+            <button type="button" class="nav-item" data-filter="photos">
+              <span class="js-text-roll nav-roll" data-text="PHOTOS" data-center="true">PHOTOS</span>
+            </button>
+            <button type="button" class="nav-item" data-filter="poems">
+              <span class="js-text-roll nav-roll" data-text="POEMS" data-center="true">POEMS</span>
+            </button>
+          </div>
         </div>
       </nav>
 
-      <!-- WebSearch Pill & Dropdown (21st.dev inspired) -->
-      <div class="web-search" id="web-search">
-        <div class="web-search-trigger" id="web-search-trigger" role="combobox" aria-expanded="false" aria-haspopup="listbox">
-          <!-- Globe Tile with Animated Fill Ring -->
-          <span class="globe-tile" id="search-globe-tile">
-            <svg class="globe-svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+      <!-- Center: Glassmorphic Pop & Resize Search Bar (No arrow, no black circle) -->
+      <div class="search-hub" id="search-hub">
+        <div class="search-pill" id="search-pill">
+          <span class="search-tile" aria-hidden="true">
+            <svg class="search-tile-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="20" y1="20" x2="16.2" y2="16.2"></line>
             </svg>
-            <svg class="globe-ring-svg" viewBox="0 0 28 28" aria-hidden="true">
-              <circle class="ring-bg" cx="14" cy="14" r="13" />
-              <circle class="ring-fill" id="search-ring-fill" cx="14" cy="14" r="13" />
+            <svg class="search-ring-svg" viewBox="0 0 28 28">
+              <circle class="search-ring-track" cx="14" cy="14" r="12.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+              <circle class="search-ring-fill" id="search-ring-fill" cx="14" cy="14" r="12.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
             </svg>
           </span>
 
-          <!-- Search Input -->
-          <div class="search-label-wrap">
-            <input
-              type="text"
-              id="search-input"
-              class="search-input"
-              placeholder="Search portfolio..."
-              aria-label="Search portfolio"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </div>
+          <input
+            type="search"
+            class="search-input"
+            id="search-input"
+            placeholder="Search..."
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Search uploaded items"
+          >
 
-          <!-- Matching Category Badges Stack (Fanned out on hover) -->
-          <span class="favicon-stack" id="search-badge-stack" aria-label="Matching categories"></span>
+          <!-- Stacked Match Badges -->
+          <span class="search-stack" id="search-stack" hidden></span>
 
-          <!-- Chevron Expand / Collapse Indicator -->
-          <button type="button" class="search-chevron" id="search-chevron" aria-label="Toggle search results">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
+          <!-- Match Count -->
+          <span class="search-count" id="search-count" hidden>0</span>
+
+          <!-- Clear Button (Only visible when text is typed) -->
+          <button type="button" class="search-clear" id="search-clear" hidden aria-label="Clear search">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-        </div>
-
-        <!-- Floating Collapsible Dropdown -->
-        <div class="search-dropdown" id="search-dropdown" hidden aria-hidden="true">
-          <div class="search-dropdown-inner">
-            <div class="search-header-row">
-              <span class="search-status-text" id="search-status-text">0 items found</span>
-              <span class="search-hint">Press Esc to exit &bull; / to focus</span>
-            </div>
-            <ol class="search-grid" id="search-grid"></ol>
-          </div>
         </div>
       </div>
 
-      <!-- Right Floating Controls -->
+      <!-- Top-Right: Floating Controls -->
       <div class="control-pill">
         <!-- Animated Sun / Moon Switch -->
         <button
@@ -138,7 +126,7 @@
     <div class="bento-workspace" id="bento-workspace">
       <main class="bento-stage" id="bento-stage">
         <!-- Left Primary Slot -->
-        <div class="bento-slot slot-primary" id="slot-primary" style="flex-basis: 54%;">
+        <div class="bento-slot slot-primary" id="slot-primary">
           <section class="bento-panel" id="panel-videos" data-panel="videos" draggable="true">
             <header class="panel-header" title="Drag header to swap panel position">
               <div class="panel-title-wrap">
@@ -146,7 +134,8 @@
                 <span class="js-text-roll panel-heading" data-text="VIDEOS">VIDEOS</span>
               </div>
               <button type="button" class="panel-expand-btn" data-expand="videos" aria-label="Expand Videos">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                <svg class="icon-collapse" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
               </button>
             </header>
             <div class="panel-body" id="body-videos"></div>
@@ -159,9 +148,9 @@
         </div>
 
         <!-- Right Secondary Stack -->
-        <div class="bento-stack" id="slot-stack" style="flex-basis: 46%;">
+        <div class="bento-stack" id="slot-stack">
           <!-- Top Right Slot -->
-          <div class="bento-slot slot-top" id="slot-top" style="flex-basis: 52%;">
+          <div class="bento-slot slot-top" id="slot-top">
             <section class="bento-panel" id="panel-photos" data-panel="photos" draggable="true">
               <header class="panel-header" title="Drag header to swap panel position">
                 <div class="panel-title-wrap">
@@ -169,7 +158,8 @@
                   <span class="js-text-roll panel-heading" data-text="PHOTOS">PHOTOS</span>
                 </div>
                 <button type="button" class="panel-expand-btn" data-expand="photos" aria-label="Expand Photos">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  <svg class="icon-collapse" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                 </button>
               </header>
               <div class="panel-body" id="body-photos"></div>
@@ -182,7 +172,7 @@
           </div>
 
           <!-- Bottom Right Slot -->
-          <div class="bento-slot slot-bottom" id="slot-bottom" style="flex-basis: 48%;">
+          <div class="bento-slot slot-bottom" id="slot-bottom">
             <section class="bento-panel" id="panel-poems" data-panel="poems" draggable="true">
               <header class="panel-header" title="Drag header to swap panel position">
                 <div class="panel-title-wrap">
@@ -190,7 +180,8 @@
                   <span class="js-text-roll panel-heading" data-text="POEMS">POEMS</span>
                 </div>
                 <button type="button" class="panel-expand-btn" data-expand="poems" aria-label="Expand Poems">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  <svg class="icon-collapse" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                 </button>
               </header>
               <div class="panel-body poems-body" id="body-poems"></div>
@@ -204,7 +195,7 @@
         <span class="gutter-pill"></span>
       </div>
 
-      <!-- Slide-Left Push Upload Panel (Compresses main workspace, no dark overlay) -->
+      <!-- Slide-Left Push Upload Panel -->
       <aside class="upload-dock" id="upload-dock" aria-hidden="true">
         <div class="bento-panel upload-panel-surface">
           <header class="panel-header upload-header">
@@ -222,7 +213,6 @@
           </header>
 
           <div class="upload-scroll">
-            <!-- Admin Token Pill -->
             <div class="token-pill">
               <input type="password" id="admin-token" placeholder="Admin token" autocomplete="off">
               <button type="button" class="pill-btn" id="save-token">
@@ -230,9 +220,7 @@
               </button>
             </div>
 
-            <!-- Media Upload Form -->
             <form id="upload-form" class="upload-form">
-              <!-- Adjustable File Drop & Preview Surface -->
               <div class="drop-surface" id="drop-surface">
                 <input type="file" id="upload-file" name="file" accept="image/*,video/*" required>
                 <div class="drop-preview" id="drop-preview" hidden></div>
@@ -248,7 +236,6 @@
                 </div>
               </div>
 
-              <!-- Horizontal Gutter to resize Drop Surface Height -->
               <div class="gutter-h drop-resizer" id="gutter-drop" title="Drag up/down to resize preview area">
                 <span class="gutter-pill"></span>
               </div>
@@ -270,7 +257,6 @@
               </div>
             </form>
 
-            <!-- Poem Upload Form -->
             <form id="poem-form" class="upload-form" hidden>
               <div class="form-fields">
                 <input type="text" class="sleek-input" id="poem-title" name="title" placeholder="Title" required>
@@ -312,7 +298,7 @@
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=15.0"></script>
+  <script src="/static/app.js?v=16.0"></script>
 </body>
 </html>
 

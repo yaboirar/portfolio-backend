@@ -2,37 +2,48 @@
   'use strict';
 
   const STAGGER = 0.035;
+  const RING_CIRCUMFERENCE = 2 * Math.PI * 12.5; // ~78.54
+  const CATEGORIES = [
+    { key: 'all', label: 'ALL' },
+    { key: 'videos', label: 'VIDEOS' },
+    { key: 'photos', label: 'PHOTOS' },
+    { key: 'poems', label: 'POEMS' },
+  ];
 
   const state = {
     videos: [],
     photos: [],
     poems: [],
     filter: 'all',
+    searchQuery: '',
     uploadOpen: false,
     lightboxIndex: -1,
     token: sessionStorage.getItem('admin_token') || '',
-    searchQuery: '',
-    searchOpen: false,
-    searchExpanded: false,
+    // Saved split ratios for 'all' view so single-category view can go 100% fullscreen cleanly
+    split: {
+      primaryPct: 54,
+      stackPct: 46,
+      topPct: 52,
+      bottomPct: 48,
+    },
   };
 
   const dom = {
     navPill: document.getElementById('nav-pill'),
-    navItems: document.querySelectorAll('.nav-item'),
+    navCurrent: document.getElementById('nav-current'),
+    navDrawerList: document.getElementById('nav-drawer-list'),
+
+    searchHub: document.getElementById('search-hub'),
+    searchPill: document.getElementById('search-pill'),
+    searchInput: document.getElementById('search-input'),
+    searchRingFill: document.getElementById('search-ring-fill'),
+    searchStack: document.getElementById('search-stack'),
+    searchCount: document.getElementById('search-count'),
+    searchClear: document.getElementById('search-clear'),
+
     themeToggle: document.getElementById('theme-toggle'),
     uploadToggle: document.getElementById('upload-toggle'),
     authIndicator: document.getElementById('auth-indicator'),
-
-    webSearch: document.getElementById('web-search'),
-    searchTrigger: document.getElementById('web-search-trigger'),
-    searchGlobeTile: document.getElementById('search-globe-tile'),
-    searchRingFill: document.getElementById('search-ring-fill'),
-    searchInput: document.getElementById('search-input'),
-    searchBadgeStack: document.getElementById('search-badge-stack'),
-    searchChevron: document.getElementById('search-chevron'),
-    searchDropdown: document.getElementById('search-dropdown'),
-    searchStatusText: document.getElementById('search-status-text'),
-    searchGrid: document.getElementById('search-grid'),
 
     bentoStage: document.getElementById('bento-stage'),
     slotPrimary: document.getElementById('slot-primary'),
@@ -134,6 +145,188 @@
   }
 
   /* ========================================================================
+     TOP-LEFT NAVIGATION: SHRINK TO ACTIVE CATEGORY & SLIDE OUT OTHERS ON HOVER
+     ======================================================================== */
+  function renderNavPill(activeKey, shrinkImmediately = false) {
+    const currentCat = CATEGORIES.find((c) => c.key === activeKey) || CATEGORIES[0];
+    const otherCats = CATEGORIES.filter((c) => c.key !== currentCat.key);
+
+    // Set the main visible button on the left to the active category (e.g. VIDEOS)
+    dom.navCurrent.dataset.filter = currentCat.key;
+    dom.navCurrent.replaceChildren(
+      createTextRollNode(currentCat.label, true, 'nav-roll')
+    );
+
+    // Put the other 3 categories inside the hover drawer
+    dom.navDrawerList.replaceChildren();
+    otherCats.forEach((cat) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'nav-item';
+      btn.dataset.filter = cat.key;
+      btn.appendChild(createTextRollNode(cat.label, true, 'nav-roll'));
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyFilter(cat.key, true);
+      });
+      dom.navDrawerList.appendChild(btn);
+    });
+
+    // Force drawer to shrink back to the left immediately after clicking an option
+    if (shrinkImmediately) {
+      dom.navPill.classList.add('is-collapsing');
+      if (document.activeElement && dom.navPill.contains(document.activeElement)) {
+        document.activeElement.blur();
+      }
+    }
+  }
+
+  /* ========================================================================
+     FILTERING & TRUE 100% FULLSCREEN SINGLE-CATEGORY VIEW
+     ======================================================================== */
+  function syncSlotFlexSizing() {
+    if (state.filter === 'all') {
+      dom.slotPrimary.style.flex = `0 0 ${state.split.primaryPct}%`;
+      dom.slotStack.style.flex = `0 0 ${state.split.stackPct}%`;
+      dom.slotTop.style.flex = `0 0 ${state.split.topPct}%`;
+      dom.slotBottom.style.flex = `0 0 ${state.split.bottomPct}%`;
+    } else {
+      // Fullscreen: 100% width and height for whichever slot & stack is visible
+      dom.slotPrimary.style.flex = '1 1 100%';
+      dom.slotStack.style.flex = '1 1 100%';
+      dom.slotTop.style.flex = '1 1 100%';
+      dom.slotBottom.style.flex = '1 1 100%';
+    }
+  }
+
+  function applyFilter(nextFilter, shrinkNav = false) {
+    state.filter = nextFilter;
+    renderNavPill(nextFilter, shrinkNav);
+
+    const isAll = nextFilter === 'all';
+    dom.bentoStage.classList.toggle('is-single-view', !isAll);
+
+    const pPrimary = dom.slotPrimary.querySelector('.bento-panel');
+    const pTop = dom.slotTop.querySelector('.bento-panel');
+    const pBottom = dom.slotBottom.querySelector('.bento-panel');
+
+    const showPrimary = isAll || (pPrimary && pPrimary.dataset.panel === nextFilter);
+    const showTop = isAll || (pTop && pTop.dataset.panel === nextFilter);
+    const showBottom = isAll || (pBottom && pBottom.dataset.panel === nextFilter);
+
+    dom.slotPrimary.hidden = !showPrimary;
+    dom.slotTop.hidden = !showTop;
+    dom.slotBottom.hidden = !showBottom;
+    dom.slotStack.hidden = !showTop && !showBottom;
+
+    dom.gutterMainV.hidden = !(showPrimary && (showTop || showBottom));
+    dom.gutterStackH.hidden = !(showTop && showBottom);
+
+    syncSlotFlexSizing();
+
+    dom.expandBtns.forEach((btn) => {
+      const isExpanded = !isAll && btn.dataset.expand === nextFilter;
+      btn.classList.toggle('is-expanded', isExpanded);
+      btn.setAttribute(
+        'aria-label',
+        isExpanded ? `Exit fullscreen ${btn.dataset.expand}` : `Expand ${btn.dataset.expand}`
+      );
+    });
+  }
+
+  /* ========================================================================
+     CENTER GLASSMORPHIC SEARCH ENGINE (Live Filtering + Ring + Badges)
+     ======================================================================== */
+  function hashText(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function matchesQuery(item, kind, q) {
+    if (!q) return true;
+    const hay = [
+      item.title || '',
+      item.description || '',
+      item.content || '',
+      item.url || '',
+      kind,
+    ]
+      .join(' ')
+      .toLowerCase();
+    return hay.includes(q);
+  }
+
+  function getFilteredItems() {
+    const q = state.searchQuery.trim().toLowerCase();
+    const videos = state.videos.filter((v) => matchesQuery(v, 'video videos', q));
+    const photos = state.photos.filter((p) => matchesQuery(p, 'photo photos image', q));
+    const poems = state.poems.filter((pm) => matchesQuery(pm, 'poem poems text', q));
+    return { videos, photos, poems, q };
+  }
+
+  function updateSearchUI() {
+    const { videos, photos, poems, q } = getFilteredItems();
+    const hasQuery = q.length > 0;
+    dom.searchHub.classList.toggle('has-query', hasQuery);
+    dom.searchClear.hidden = !hasQuery;
+
+    const allMatches = [
+      ...videos.map((v) => ({ ...v, kind: 'video' })),
+      ...photos.map((p) => ({ ...p, kind: 'photo' })),
+      ...poems.map((pm) => ({ ...pm, kind: 'poem' })),
+    ];
+
+    const count = allMatches.length;
+
+    // Animated ring progress around the search icon
+    const progress = !hasQuery
+      ? 0
+      : count === 0
+        ? 0.08
+        : Math.min(1, 1 - Math.pow(1 - 0.3, count));
+    const offset = RING_CIRCUMFERENCE * (1 - progress);
+    dom.searchRingFill.style.strokeDashoffset = `${offset.toFixed(2)}`;
+
+    dom.searchCount.hidden = !hasQuery;
+    dom.searchCount.textContent = `${count}`;
+
+    // Stacked Badges inside the pill
+    dom.searchStack.replaceChildren();
+    if (hasQuery && count > 0) {
+      dom.searchStack.hidden = false;
+      allMatches.slice(0, 4).forEach((item, i) => {
+        const wrap = document.createElement('span');
+        wrap.className = 'search-badge';
+        wrap.style.zIndex = String(10 - i);
+
+        const inner = document.createElement('span');
+        inner.className = 'search-badge-inner';
+        const hue = hashText(item.title || item.kind) % 360;
+        inner.style.background = `linear-gradient(135deg, oklch(0.72 0.15 ${hue}), oklch(0.58 0.17 ${(hue + 30) % 360}))`;
+
+        if (item.kind === 'photo' && item.url) {
+          const img = document.createElement('img');
+          img.src = item.url;
+          img.alt = '';
+          inner.appendChild(img);
+        } else {
+          inner.textContent = (item.title || item.kind).charAt(0);
+        }
+
+        wrap.appendChild(inner);
+        dom.searchStack.appendChild(wrap);
+      });
+    } else {
+      dom.searchStack.hidden = true;
+    }
+
+    renderPanels();
+  }
+
+  /* ========================================================================
      RESIZABLE GUTTERS & DRAG-TO-SWAP PANELS
      ======================================================================== */
   function initWorkspaceInteractions() {
@@ -154,8 +347,9 @@
     });
 
     dom.gutterMainV.addEventListener('dblclick', () => {
-      dom.slotPrimary.style.flexBasis = '54%';
-      dom.slotStack.style.flexBasis = '46%';
+      state.split.primaryPct = 54;
+      state.split.stackPct = 46;
+      syncSlotFlexSizing();
     });
 
     // 2. Stack Horizontal Gutter (Top Slot <-> Bottom Slot)
@@ -175,8 +369,9 @@
     });
 
     dom.gutterStackH.addEventListener('dblclick', () => {
-      dom.slotTop.style.flexBasis = '52%';
-      dom.slotBottom.style.flexBasis = '48%';
+      state.split.topPct = 52;
+      state.split.bottomPct = 48;
+      syncSlotFlexSizing();
     });
 
     // 3. Upload Dock Width Gutter
@@ -209,8 +404,9 @@
         const minW = 240;
         const nextLeft = Math.min(Math.max(startLeftW + delta, minW), total - minW);
         const nextRight = total - nextLeft;
-        dom.slotPrimary.style.flexBasis = `${(nextLeft / total) * 100}%`;
-        dom.slotStack.style.flexBasis = `${(nextRight / total) * 100}%`;
+        state.split.primaryPct = (nextLeft / total) * 100;
+        state.split.stackPct = (nextRight / total) * 100;
+        syncSlotFlexSizing();
       }
 
       if (hDrag) {
@@ -219,8 +415,9 @@
         const minH = 140;
         const nextTop = Math.min(Math.max(startTopH + delta, minH), total - minH);
         const nextBot = total - nextTop;
-        dom.slotTop.style.flexBasis = `${(nextTop / total) * 100}%`;
-        dom.slotBottom.style.flexBasis = `${(nextBot / total) * 100}%`;
+        state.split.topPct = (nextTop / total) * 100;
+        state.split.bottomPct = (nextBot / total) * 100;
+        syncSlotFlexSizing();
       }
 
       if (upDrag) {
@@ -248,7 +445,7 @@
       }
     });
 
-    // 5. Drag-and-Drop Panel Swapping (Swap any two Bento slots)
+    // 5. Drag-and-Drop Panel Swapping
     let draggedPanel = null;
 
     dom.panels.forEach((panel) => {
@@ -277,7 +474,7 @@
         if (slotA && slotB) {
           slotA.appendChild(panel);
           slotB.appendChild(draggedPanel);
-          applyFilter(state.filter);
+          applyFilter(state.filter, false);
         }
         draggedPanel = null;
       });
@@ -285,35 +482,8 @@
   }
 
   /* ========================================================================
-     FILTERING & UPLOAD DOCK TOGGLE
+     UPLOAD DOCK TOGGLE
      ======================================================================== */
-  function applyFilter(nextFilter) {
-    state.filter = nextFilter;
-
-    dom.navItems.forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.filter === nextFilter);
-    });
-
-    dom.navPill.classList.toggle('is-pinned', nextFilter !== 'all');
-
-    const isAll = nextFilter === 'all';
-    const pPrimary = dom.slotPrimary.querySelector('.bento-panel');
-    const pTop = dom.slotTop.querySelector('.bento-panel');
-    const pBottom = dom.slotBottom.querySelector('.bento-panel');
-
-    const showPrimary = isAll || (pPrimary && pPrimary.dataset.panel === nextFilter);
-    const showTop = isAll || (pTop && pTop.dataset.panel === nextFilter);
-    const showBottom = isAll || (pBottom && pBottom.dataset.panel === nextFilter);
-
-    dom.slotPrimary.hidden = !showPrimary;
-    dom.slotTop.hidden = !showTop;
-    dom.slotBottom.hidden = !showBottom;
-    dom.slotStack.hidden = !showTop && !showBottom;
-
-    dom.gutterMainV.hidden = !(showPrimary && (showTop || showBottom));
-    dom.gutterStackH.hidden = !(showTop && showBottom);
-  }
-
   function openUploadWithMode(mode) {
     state.uploadOpen = true;
     dom.uploadDock.classList.add('is-open');
@@ -403,7 +573,7 @@
         content: p.content || p.body || p.text || p.poem || '',
       }));
 
-      renderPanels();
+      updateSearchUI();
     } catch (err) {
       console.error('Failed to load portfolio:', err);
     }
@@ -464,242 +634,22 @@
     return info;
   }
 
-  /* ========================================================================
-     WEB SEARCH ENGINE (21st.dev inspired with Progress Ring & Match Stack)
-     ======================================================================== */
-  const CIRCLE_CIRCUMFERENCE = 81.68; // 2 * PI * 13
-
-  function setRingProgress(progress) {
-    if (!dom.searchRingFill) return;
-    const p = Math.max(0, Math.min(1, progress));
-    const offset = CIRCLE_CIRCUMFERENCE * (1 - p);
-    dom.searchRingFill.style.strokeDashoffset = `${offset.toFixed(2)}`;
-  }
-
-  function getMatchingItems(query) {
-    const q = (query || '').toLowerCase().trim();
-    if (!q) {
-      return {
-        videos: state.videos,
-        photos: state.photos,
-        poems: state.poems,
-        total: state.videos.length + state.photos.length + state.poems.length,
-      };
-    }
-
-    const videos = state.videos.filter(v =>
-      (v.title || '').toLowerCase().includes(q) || (v.description || '').toLowerCase().includes(q)
-    );
-    const photos = state.photos.filter(p =>
-      (p.title || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)
-    );
-    const poems = state.poems.filter(p =>
-      (p.title || '').toLowerCase().includes(q) || (p.content || '').toLowerCase().includes(q)
-    );
-
-    return { videos, photos, poems, total: videos.length + photos.length + poems.length };
-  }
-
-  function updateSearchUI() {
-    const q = state.searchQuery.trim();
-    const hasQuery = q.length > 0;
-    const totalAll = state.videos.length + state.photos.length + state.poems.length;
-    const matches = getMatchingItems(q);
-
-    // Update progress ring
-    if (!hasQuery) {
-      setRingProgress(0);
-      dom.webSearch.classList.remove('is-searching');
-    } else {
-      dom.webSearch.classList.add('is-searching');
-      const ratio = totalAll > 0 ? matches.total / totalAll : 0;
-      const prog = Math.min(1, Math.max(0.25, ratio));
-      setRingProgress(prog);
-    }
-
-    // Update Badge Stack (FaviconStack fanning out on hover)
-    dom.searchBadgeStack.replaceChildren();
-    if (hasQuery && matches.total > 0) {
-      const badges = [];
-      if (matches.videos.length > 0) badges.push({ type: 'video', label: 'V', count: matches.videos.length });
-      if (matches.photos.length > 0) badges.push({ type: 'photo', label: 'P', count: matches.photos.length });
-      if (matches.poems.length > 0) badges.push({ type: 'poem', label: 'W', count: matches.poems.length });
-
-      badges.forEach((b) => {
-        const span = document.createElement('span');
-        span.className = `stack-badge stack-badge--${b.type}`;
-        span.title = `${b.count} ${b.type}s`;
-        span.textContent = b.label;
-        dom.searchBadgeStack.appendChild(span);
-      });
-    }
-
-    // Update Dropdown Grid
-    if (state.searchOpen && hasQuery) {
-      dom.searchDropdown.hidden = false;
-      dom.searchDropdown.setAttribute('aria-hidden', 'false');
-      dom.webSearch.classList.add('is-open');
-      dom.searchTrigger.setAttribute('aria-expanded', 'true');
-
-      dom.searchStatusText.textContent = `${matches.total} ${matches.total === 1 ? 'item' : 'items'} found`;
-
-      dom.searchGrid.replaceChildren();
-
-      if (matches.total === 0) {
-        const emptyLi = document.createElement('li');
-        emptyLi.style.gridColumn = '1 / -1';
-        emptyLi.appendChild(createEmptyState('NO MATCHES', `No items matching "${q}"`));
-        dom.searchGrid.appendChild(emptyLi);
-      } else {
-        const allMatches = [
-          ...matches.videos.map((v) => ({ ...v, type: 'video', label: 'Video', sub: v.description || 'Video track' })),
-          ...matches.photos.map((p) => ({ ...p, type: 'photo', label: 'Photo', sub: p.description || 'Photo capture' })),
-          ...matches.poems.map((pm) => ({ ...pm, type: 'poem', label: 'Poem', sub: pm.content ? pm.content.slice(0, 45) + '...' : 'Poem' })),
-        ];
-
-        const COLUMNS = 4;
-        const limit = state.searchExpanded ? allMatches.length : COLUMNS;
-        const shown = allMatches.slice(0, limit);
-        const overflow = allMatches.length > COLUMNS && !state.searchExpanded;
-
-        shown.forEach((item, idx) => {
-          const li = document.createElement('li');
-          const card = document.createElement('div');
-          card.className = 'source-card';
-          card.tabIndex = 0;
-
-          const title = document.createElement('div');
-          title.className = 'source-card-title';
-          title.textContent = item.title;
-          card.appendChild(title);
-
-          const footer = document.createElement('div');
-          footer.className = 'source-card-footer';
-
-          const typePill = document.createElement('span');
-          typePill.className = `source-type-pill stack-badge--${item.type}`;
-          typePill.textContent = item.label;
-          footer.appendChild(typePill);
-
-          const sub = document.createElement('span');
-          sub.className = 'source-card-sub';
-          sub.textContent = item.sub;
-          footer.appendChild(sub);
-
-          const idxSpan = document.createElement('span');
-          idxSpan.className = 'source-card-idx';
-          idxSpan.textContent = `${idx + 1}`;
-          footer.appendChild(idxSpan);
-
-          card.appendChild(footer);
-
-          // Card click navigation
-          card.addEventListener('click', () => {
-            selectSearchResult(item);
-          });
-          card.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') selectSearchResult(item);
-          });
-
-          li.appendChild(card);
-          dom.searchGrid.appendChild(li);
-        });
-
-        if (overflow) {
-          const moreLi = document.createElement('li');
-          const moreBtn = document.createElement('button');
-          moreBtn.type = 'button';
-          moreBtn.className = 'more-card';
-          moreBtn.innerHTML = `
-            <span class="more-card-text">+${allMatches.length - COLUMNS} more items</span>
-            <span class="source-card-sub">Click to expand all</span>
-          `;
-          moreBtn.addEventListener('click', () => {
-            state.searchExpanded = true;
-            updateSearchUI();
-          });
-          moreLi.appendChild(moreBtn);
-          dom.searchGrid.appendChild(moreLi);
-        } else if (state.searchExpanded && allMatches.length > COLUMNS) {
-          const lessLi = document.createElement('li');
-          lessLi.style.gridColumn = '1 / -1';
-          const lessBtn = document.createElement('button');
-          lessBtn.type = 'button';
-          lessBtn.className = 'pill-btn';
-          lessBtn.style.margin = '4px auto 0';
-          lessBtn.textContent = 'Show less';
-          lessBtn.addEventListener('click', () => {
-            state.searchExpanded = false;
-            updateSearchUI();
-          });
-          lessLi.appendChild(lessBtn);
-          dom.searchGrid.appendChild(lessLi);
-        }
-      }
-    } else {
-      closeSearchDropdown();
-    }
-
-    renderPanels();
-  }
-
-  function selectSearchResult(item) {
-    closeSearchDropdown();
-    if (item.type === 'photo') {
-      const idx = state.photos.findIndex(p => p.id === item.id);
-      if (idx !== -1) openLightbox(idx);
-    } else if (item.type === 'video') {
-      applyFilter('all');
-      const vCard = dom.bodyVideos.querySelector(`[data-id="${item.id}"]`) || dom.bodyVideos.firstElementChild;
-      if (vCard) {
-        vCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        vCard.style.outline = '2px solid var(--fg)';
-        setTimeout(() => { vCard.style.outline = ''; }, 1800);
-      }
-    } else if (item.type === 'poem') {
-      applyFilter('all');
-      const pCard = dom.bodyPoems.querySelector(`[data-id="${item.id}"]`) || dom.bodyPoems.firstElementChild;
-      if (pCard) {
-        pCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        pCard.style.outline = '2px solid var(--fg)';
-        setTimeout(() => { pCard.style.outline = ''; }, 1800);
-      }
-    }
-  }
-
-  function closeSearchDropdown() {
-    state.searchOpen = false;
-    dom.searchDropdown.hidden = true;
-    dom.searchDropdown.setAttribute('aria-hidden', 'true');
-    dom.webSearch.classList.remove('is-open');
-    dom.searchTrigger.setAttribute('aria-expanded', 'false');
-  }
-
   function renderPanels() {
-    const q = state.searchQuery.toLowerCase().trim();
-    const hasQuery = q.length > 0;
-
-    const vList = hasQuery
-      ? state.videos.filter(v => (v.title || '').toLowerCase().includes(q) || (v.description || '').toLowerCase().includes(q))
-      : state.videos;
-    const pList = hasQuery
-      ? state.photos.filter(p => (p.title || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q))
-      : state.photos;
-    const pmList = hasQuery
-      ? state.poems.filter(pm => (pm.title || '').toLowerCase().includes(q) || (pm.content || '').toLowerCase().includes(q))
-      : state.poems;
+    const { videos, photos, poems, q } = getFilteredItems();
 
     // Videos
     dom.bodyVideos.replaceChildren();
-    if (vList.length === 0) {
+    if (videos.length === 0) {
       dom.bodyVideos.appendChild(
-        createEmptyState('NO MEDIA', hasQuery ? `No videos matching "${state.searchQuery}"` : 'No videos yet')
+        createEmptyState(
+          q ? 'NO MATCHES' : 'NO MEDIA',
+          q ? `No videos matching "${state.searchQuery}"` : 'No videos yet'
+        )
       );
     } else {
-      vList.forEach((v) => {
+      videos.forEach((v) => {
         const fig = document.createElement('figure');
-        fig.className = 'media-card';
-        if (v.id !== undefined) fig.dataset.id = v.id;
+        fig.className = `media-card ${q ? 'is-highlighted' : ''}`.trim();
 
         const visual = document.createElement('div');
         visual.className = 'media-visual';
@@ -719,20 +669,22 @@
 
     // Photos
     dom.bodyPhotos.replaceChildren();
-    if (pList.length === 0) {
+    if (photos.length === 0) {
       dom.bodyPhotos.appendChild(
-        createEmptyState('NO MEDIA', hasQuery ? `No photos matching "${state.searchQuery}"` : 'No photos yet')
+        createEmptyState(
+          q ? 'NO MATCHES' : 'NO MEDIA',
+          q ? `No photos matching "${state.searchQuery}"` : 'No photos yet'
+        )
       );
     } else {
-      pList.forEach((p) => {
+      photos.forEach((p) => {
+        const fullIdx = state.photos.indexOf(p);
         const fig = document.createElement('figure');
-        fig.className = 'media-card';
-        if (p.id !== undefined) fig.dataset.id = p.id;
+        fig.className = `media-card ${q ? 'is-highlighted' : ''}`.trim();
 
         const visual = document.createElement('div');
         visual.className = 'media-visual';
-        const originalIdx = state.photos.findIndex(item => item.id === p.id);
-        visual.addEventListener('click', () => openLightbox(originalIdx !== -1 ? originalIdx : 0));
+        visual.addEventListener('click', () => openLightbox(fullIdx !== -1 ? fullIdx : 0));
 
         const img = document.createElement('img');
         img.src = p.url;
@@ -748,15 +700,17 @@
 
     // Poems
     dom.bodyPoems.replaceChildren();
-    if (pmList.length === 0) {
+    if (poems.length === 0) {
       dom.bodyPoems.appendChild(
-        createEmptyState('NO POEMS', hasQuery ? `No poems matching "${state.searchQuery}"` : 'No poems yet')
+        createEmptyState(
+          q ? 'NO MATCHES' : 'NO POEMS',
+          q ? `No poems matching "${state.searchQuery}"` : 'No poems yet'
+        )
       );
     } else {
-      pmList.forEach((poem) => {
+      poems.forEach((poem) => {
         const article = document.createElement('article');
-        article.className = 'poem-card';
-        if (poem.id !== undefined) article.dataset.id = poem.id;
+        article.className = `poem-card ${q ? 'is-highlighted' : ''}`.trim();
 
         const head = document.createElement('div');
         head.className = 'poem-head';
@@ -987,8 +941,60 @@
     document.documentElement.setAttribute('data-theme', savedTheme);
 
     hydrateTextRolls();
+    applyFilter('all', false);
     syncTokenUI();
     initWorkspaceInteractions();
+
+    // Release the temporary collapse lock as soon as cursor leaves the top-left pill
+    dom.navPill.addEventListener('mouseleave', () => {
+      dom.navPill.classList.remove('is-collapsing');
+    });
+
+    // Clicking the currently active category pill button returns to ALL
+    dom.navCurrent.addEventListener('click', () => {
+      const curKey = dom.navCurrent.dataset.filter;
+      if (curKey !== 'all') {
+        applyFilter('all', true);
+      }
+    });
+
+    // Search Pill Pop & Resize on Click/Focus
+    dom.searchPill.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      dom.searchHub.classList.add('is-focused');
+      dom.searchInput.focus();
+    });
+
+    dom.searchInput.addEventListener('focus', () => {
+      dom.searchHub.classList.add('is-focused');
+      dom.searchInput.placeholder = 'Search files, titles, poems...';
+    });
+
+    dom.searchInput.addEventListener('blur', () => {
+      if (!state.searchQuery.trim()) {
+        dom.searchInput.placeholder = 'Search...';
+      }
+    });
+
+    dom.searchInput.addEventListener('input', (e) => {
+      state.searchQuery = e.target.value;
+      updateSearchUI();
+    });
+
+    dom.searchClear.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.searchQuery = '';
+      dom.searchInput.value = '';
+      updateSearchUI();
+      dom.searchInput.focus();
+    });
+
+    // Clicking anywhere outside un-pops the search bar without blocking the click
+    document.addEventListener('pointerdown', (e) => {
+      if (!dom.searchHub.contains(e.target)) {
+        dom.searchHub.classList.remove('is-focused');
+      }
+    });
 
     dom.themeToggle.addEventListener('click', () => {
       const cur = document.documentElement.getAttribute('data-theme');
@@ -997,14 +1003,10 @@
       localStorage.setItem('portfolio_theme', next);
     });
 
-    dom.navItems.forEach((btn) => {
-      btn.addEventListener('click', () => applyFilter(btn.dataset.filter));
-    });
-
     dom.expandBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const target = btn.dataset.expand;
-        applyFilter(state.filter === target ? 'all' : target);
+        applyFilter(state.filter === target ? 'all' : target, true);
       });
     });
 
@@ -1039,61 +1041,16 @@
     dom.lbPrev.addEventListener('click', () => stepLightbox(-1));
     dom.lbNext.addEventListener('click', () => stepLightbox(1));
 
-    // WebSearch Events
-    if (dom.searchInput) {
-      dom.searchInput.addEventListener('input', (e) => {
-        state.searchQuery = e.target.value;
-        state.searchOpen = state.searchQuery.trim().length > 0;
-        updateSearchUI();
-      });
-
-      dom.searchInput.addEventListener('focus', () => {
-        if (state.searchQuery.trim().length > 0) {
-          state.searchOpen = true;
-          updateSearchUI();
-        }
-      });
-    }
-
-    if (dom.searchChevron) {
-      dom.searchChevron.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.searchOpen = !state.searchOpen;
-        updateSearchUI();
-      });
-    }
-
-    document.addEventListener('click', (e) => {
-      if (dom.webSearch && !dom.webSearch.contains(e.target)) {
-        closeSearchDropdown();
-      }
-    });
-
     document.addEventListener('keydown', (e) => {
       if (!dom.lightbox.hidden) {
         if (e.key === 'Escape') closeLightbox();
         if (e.key === 'ArrowLeft') stepLightbox(-1);
         if (e.key === 'ArrowRight') stepLightbox(1);
-      } else if (state.searchOpen && e.key === 'Escape') {
-        closeSearchDropdown();
-      } else if (document.activeElement === dom.searchInput && e.key === 'Escape') {
-        dom.searchInput.value = '';
-        state.searchQuery = '';
-        closeSearchDropdown();
-        updateSearchUI();
+      } else if (dom.searchHub.classList.contains('is-focused') && e.key === 'Escape') {
+        dom.searchHub.classList.remove('is-focused');
         dom.searchInput.blur();
       } else if (state.uploadOpen && e.key === 'Escape') {
         toggleUploadDock(false);
-      } else if (
-        e.key === '/' &&
-        dom.searchInput &&
-        document.activeElement !== dom.searchInput &&
-        document.activeElement.tagName !== 'INPUT' &&
-        document.activeElement.tagName !== 'TEXTAREA'
-      ) {
-        e.preventDefault();
-        dom.searchInput.focus();
-        dom.searchInput.select();
       }
     });
 
