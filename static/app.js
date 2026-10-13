@@ -306,6 +306,7 @@
     dom.uploadDock.setAttribute('aria-hidden', 'false');
     dom.gutterUpload.hidden = false;
     dom.uploadToggle.setAttribute('aria-expanded', 'true');
+    dom.uploadToggle.classList.add('is-active');
 
     if (mode) {
       dom.uploadTabs.forEach((t) => t.classList.toggle('is-active', t.dataset.mode === mode));
@@ -325,6 +326,7 @@
       dom.uploadDock.setAttribute('aria-hidden', 'true');
       dom.gutterUpload.hidden = true;
       dom.uploadToggle.setAttribute('aria-expanded', 'false');
+      dom.uploadToggle.classList.remove('is-active');
     }
   }
 
@@ -393,19 +395,23 @@
     }
   }
 
-  function createInteractiveEmpty(rollLabel, subText, targetMode) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'empty-card';
-    btn.appendChild(createTextRollNode(rollLabel, true, 'empty-card-label'));
+  function createEmptyState(labelText, subText) {
+    const box = document.createElement('div');
+    box.className = 'empty-state';
 
-    const sub = document.createElement('span');
-    sub.className = 'empty-card-sub';
-    sub.textContent = subText;
-    btn.appendChild(sub);
+    const label = document.createElement('span');
+    label.className = 'empty-state-label';
+    label.textContent = labelText;
+    box.appendChild(label);
 
-    btn.addEventListener('click', () => openUploadWithMode(targetMode));
-    return btn;
+    if (subText) {
+      const sub = document.createElement('span');
+      sub.className = 'empty-state-sub';
+      sub.textContent = subText;
+      box.appendChild(sub);
+    }
+
+    return box;
   }
 
   function buildMediaInfo(item, endpoint) {
@@ -449,7 +455,7 @@
     dom.bodyVideos.replaceChildren();
     if (state.videos.length === 0) {
       dom.bodyVideos.appendChild(
-        createInteractiveEmpty('UPLOAD VIDEO', 'Click to open upload panel', 'media')
+        createEmptyState('NO MEDIA', 'No videos yet')
       );
     } else {
       state.videos.forEach((v) => {
@@ -476,7 +482,7 @@
     dom.bodyPhotos.replaceChildren();
     if (state.photos.length === 0) {
       dom.bodyPhotos.appendChild(
-        createInteractiveEmpty('UPLOAD PHOTO', 'Click to open upload panel', 'media')
+        createEmptyState('NO MEDIA', 'No photos yet')
       );
     } else {
       state.photos.forEach((p, idx) => {
@@ -503,7 +509,7 @@
     dom.bodyPoems.replaceChildren();
     if (state.poems.length === 0) {
       dom.bodyPoems.appendChild(
-        createInteractiveEmpty('NEW POEM', 'Click to write a poem', 'poem')
+        createEmptyState('NO POEMS', 'No poems yet')
       );
     } else {
       state.poems.forEach((poem) => {
