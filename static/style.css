@@ -278,49 +278,43 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   line-height: 0.82;
 }
 
-/* Persistent nodes allow both opening and closing transitions to complete. */
 #nav-current {
   flex: 0 0 auto;
-  overflow: hidden;
-  transition: width 0.45s var(--ease-in-out), color 0.25s ease;
 }
-.nav-current-labels { display: grid; overflow: hidden; }
-.nav-current-labels > span {
-  grid-area: 1 / 1;
-  justify-self: start;
-  white-space: nowrap;
-  transition: transform 0.4s var(--ease-in-out), opacity 0.3s ease;
-}
-.nav-selected-label { transform: translateY(0); opacity: 1; }
-.nav-all-label { transform: translateY(110%); opacity: 0; }
-.nav-pill.is-expanded .nav-selected-label { transform: translateY(-110%); opacity: 0; }
-.nav-pill.is-expanded .nav-all-label { transform: translateY(0); opacity: 1; }
+
+/* Collapsed by default so only the current category shows on the top-left */
 .nav-drawer {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
   gap: 20px;
-  width: 0;
+  max-width: 0;
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
   padding-left: 0;
   transform: translateX(-8px);
-  transition: width 0.45s var(--ease-in-out),
-    opacity 0.3s ease, transform 0.4s var(--ease-in-out),
-    padding-left 0.45s var(--ease-in-out);
+  transition:
+    max-width 0.45s var(--ease-spring),
+    opacity 0.28s var(--ease-spring),
+    transform 0.4s var(--ease-spring),
+    padding-left 0.4s var(--ease-spring);
 }
-.nav-drawer-list { display: inline-flex; align-items: center; gap: 20px; flex: 0 0 auto; }
-.nav-pill.is-expanded .nav-drawer {
-  width: var(--nav-drawer-width, 360px);
+
+.nav-drawer-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 20px;
+  flex: 0 0 auto;
+}
+
+/* Slides out on hover and stays closed when .is-collapsing is set */
+.nav-pill:not(.is-collapsing):hover .nav-drawer,
+.nav-pill:not(.is-collapsing):focus-within .nav-drawer {
+  max-width: 520px;
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
   padding-left: 18px;
-}
-@media (prefers-reduced-motion: reduce) {
-  #nav-current, .nav-drawer, .nav-current-labels > span,
-  .nav-pill .text-roll-char { transition: none; }
 }
 
 .nav-divider {
@@ -331,7 +325,7 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 }
 
 /* ==========================================================================
-   CENTER SEARCH PILL (True Glassmorphism + Short Default + Pop & Scale)
+   CENTER SEARCH PILL (True Glassmorphism + Smooth Spring Width)
    ========================================================================== */
 .search-hub {
   justify-self: center;
@@ -356,33 +350,32 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   align-items: center;
   gap: 9px;
   cursor: text;
-  transform: translateY(0) scale(1);
-  transform-origin: center center;
+  transform: translateY(0);
   transition:
-    width 0.48s var(--ease-pop),
-    transform 0.42s var(--ease-pop),
+    width 0.38s var(--ease-spring),
+    transform 0.28s var(--ease-spring),
     background 0.25s ease,
     border-color 0.25s ease,
-    box-shadow 0.35s var(--ease-spring);
+    box-shadow 0.25s ease;
 }
 
 .search-pill:hover {
   border-color: var(--border-strong);
-  transform: translateY(-1px) scale(1.02);
+  transform: translateY(-1px);
 }
 
-/* Clicked / Focused state: expands width & pops with spring scale while everything else stays clickable */
+/* Clicked / Focused state: smoothly expands width with Apple spring curve */
 .search-hub.is-focused .search-pill,
 .search-hub:focus-within .search-pill {
-  width: 340px;
+  width: 330px;
   background: var(--glass-pill-active);
   border-color: var(--border-strong);
   box-shadow: var(--shadow-pop);
-  transform: translateY(-1px) scale(1.06);
+  transform: translateY(-1px);
 }
 
-.search-hub.has-query:not(.is-focused) .search-pill {
-  width: 270px;
+.search-hub.has-query:not(.is-focused):not(:focus-within) .search-pill {
+  width: 260px;
   border-color: var(--border-strong);
 }
 
