@@ -3,171 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portfolio</title>
-  <link rel="stylesheet" href="/static/style.css?v=3.0">
+  <title>Index</title>
+  <link rel="stylesheet" href="/static/style.css?v=4.0">
 </head>
 <body>
-  <header class="site-header">
-    <div class="header-inner">
-      <a href="#" class="site-title" id="reset-filter">Portfolio</a>
+  <div class="layout">
+    <nav class="rail">
+      <ul class="nav-list">
+        <li><button type="button" class="nav-link is-active" data-view="all">index</button></li>
+        <li><button type="button" class="nav-link" data-view="videos">videos</button></li>
+        <li><button type="button" class="nav-link" data-view="photos">photos</button></li>
+        <li><button type="button" class="nav-link" data-view="poems">poems</button></li>
+      </ul>
 
-      <nav class="filter-nav" aria-label="Section filter">
-        <button type="button" class="filter-btn is-active" data-filter="all">
-          All <span class="count" id="count-all">0</span>
-        </button>
-        <button type="button" class="filter-btn" data-filter="videos">
-          Videos <span class="count" id="count-videos">0</span>
-        </button>
-        <button type="button" class="filter-btn" data-filter="photos">
-          Photos <span class="count" id="count-photos">0</span>
-        </button>
-        <button type="button" class="filter-btn" data-filter="poems">
-          Poems <span class="count" id="count-poems">0</span>
-        </button>
-      </nav>
-
-      <div class="header-actions">
-        <button type="button" class="action-btn" id="theme-toggle">Light</button>
-        <button type="button" class="action-btn" id="admin-toggle">Admin</button>
+      <div class="rail-meta">
+        <button type="button" class="nav-link" id="theme-toggle">light</button>
+        <button type="button" class="nav-link" id="admin-toggle">admin</button>
       </div>
-    </div>
-  </header>
+    </nav>
 
-  <main class="site-main" id="main-content">
-    <div id="status-banner" class="status-banner" hidden></div>
-
-    <!-- Videos Section -->
-    <section class="portfolio-section" id="section-videos" data-section="videos">
-      <div class="section-header">
-        <h2>Videos</h2>
-        <span class="section-meta" id="meta-videos">0 items</span>
-      </div>
-      <div class="media-grid video-grid" id="grid-videos"></div>
-    </section>
-
-    <!-- Photos Section -->
-    <section class="portfolio-section" id="section-photos" data-section="photos">
-      <div class="section-header">
-        <h2>Photos</h2>
-        <span class="section-meta" id="meta-photos">0 items</span>
-      </div>
-      <div class="media-grid photo-grid" id="grid-photos"></div>
-    </section>
-
-    <!-- Poems Section -->
-    <section class="portfolio-section" id="section-poems" data-section="poems">
-      <div class="section-header">
-        <h2>Poems</h2>
-        <span class="section-meta" id="meta-poems">0 items</span>
-      </div>
-      <div class="poem-list" id="grid-poems"></div>
-    </section>
-  </main>
-
-  <!-- Media Lightbox / Player Modal -->
-  <div class="modal-backdrop" id="viewer-modal" hidden aria-hidden="true">
-    <div class="modal-dialog modal-viewer" role="dialog" aria-modal="true" aria-labelledby="viewer-title">
-      <div class="modal-bar">
-        <span class="modal-index" id="viewer-type">Media</span>
-        <div class="modal-bar-actions">
-          <button type="button" class="text-btn danger-btn" id="viewer-delete" hidden>Delete</button>
-          <button type="button" class="text-btn" id="viewer-prev" title="Previous (Left Arrow)">Prev</button>
-          <button type="button" class="text-btn" id="viewer-next" title="Next (Right Arrow)">Next</button>
-          <button type="button" class="text-btn" id="viewer-close" title="Close (Esc)">Close</button>
-        </div>
-      </div>
-      <div class="viewer-stage" id="viewer-stage"></div>
-      <div class="viewer-footer">
-        <div class="viewer-info">
-          <h3 id="viewer-title"></h3>
-          <p id="viewer-description"></p>
-        </div>
-        <div class="viewer-meta" id="viewer-date"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Admin Modal -->
-  <div class="modal-backdrop" id="admin-modal" hidden aria-hidden="true">
-    <div class="modal-dialog modal-admin" role="dialog" aria-modal="true" aria-labelledby="admin-heading">
-      <div class="modal-bar">
-        <span id="admin-heading" class="modal-index">Admin</span>
-        <button type="button" class="text-btn" id="admin-close">Close</button>
-      </div>
-
-      <div class="admin-body">
-        <div class="field-group">
-          <label for="admin-token">Admin Token (X-Admin-Token)</label>
-          <div class="token-row">
-            <input type="password" id="admin-token" placeholder="Enter token" autocomplete="off">
-            <button type="button" class="btn" id="save-token-btn">Save</button>
-          </div>
-          <small class="field-hint" id="token-status">Not set. Saving a token also enables Delete buttons on items.</small>
+    <main class="canvas">
+      <!-- Admin drawer (inline, hidden by default) -->
+      <section id="admin-panel" class="admin-panel" hidden>
+        <div class="admin-row">
+          <input type="password" id="admin-token" placeholder="X-Admin-Token" autocomplete="off">
+          <button type="button" id="save-token">save token</button>
+          <button type="button" id="close-admin">close</button>
         </div>
 
-        <hr class="divider">
-
-        <div class="tab-bar" role="tablist">
-          <button type="button" class="tab-btn is-active" data-tab="upload-media">Upload Media</button>
-          <button type="button" class="tab-btn" data-tab="add-poem">Add Poem</button>
-        </div>
-
-        <!-- Media Upload Form -->
-        <form id="upload-form" class="admin-form">
-          <div class="field-group">
-            <label for="upload-file">File (Video or Image)</label>
+        <div class="admin-forms">
+          <form id="upload-form" class="plain-form">
+            <div class="form-title">upload video / photo</div>
             <input type="file" id="upload-file" name="file" accept="image/*,video/*" required>
-          </div>
-
-          <div class="field-group">
-            <label for="upload-title">Title</label>
-            <input type="text" id="upload-title" name="title" required maxlength="200">
-          </div>
-
-          <div class="field-group">
-            <label for="upload-description">Description</label>
-            <textarea id="upload-description" name="description" rows="3" maxlength="2000"></textarea>
-          </div>
-
-          <div class="progress-wrap" id="upload-progress-wrap" hidden>
-            <div class="progress-meta">
-              <span id="upload-status-text">Uploading...</span>
-              <span id="upload-percent">0%</span>
+            <input type="text" id="upload-title" name="title" placeholder="title" required>
+            <textarea id="upload-description" name="description" rows="2" placeholder="description (optional)"></textarea>
+            <div class="form-foot">
+              <span id="upload-status"></span>
+              <button type="submit" id="upload-submit">upload</button>
             </div>
-            <div class="progress-track">
-              <div class="progress-fill" id="upload-progress-bar"></div>
+          </form>
+
+          <form id="poem-form" class="plain-form">
+            <div class="form-title">new poem</div>
+            <input type="text" id="poem-title" name="title" placeholder="title" required>
+            <textarea id="poem-content" name="content" rows="6" placeholder="text" required></textarea>
+            <div class="form-foot">
+              <span id="poem-status"></span>
+              <button type="submit" id="poem-submit">publish</button>
             </div>
-          </div>
+          </form>
+        </div>
+      </section>
 
-          <div class="form-message" id="upload-message" hidden></div>
+      <!-- Videos -->
+      <section id="view-videos" class="work-section">
+        <div class="video-list" id="list-videos"></div>
+      </section>
 
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="upload-submit">Upload</button>
-          </div>
-        </form>
+      <!-- Photos -->
+      <section id="view-photos" class="work-section">
+        <div class="photo-columns" id="list-photos"></div>
+      </section>
 
-        <!-- Poem Form -->
-        <form id="poem-form" class="admin-form" hidden>
-          <div class="field-group">
-            <label for="poem-title">Title</label>
-            <input type="text" id="poem-title" name="title" required maxlength="200">
-          </div>
-
-          <div class="field-group">
-            <label for="poem-content">Text</label>
-            <textarea id="poem-content" name="content" rows="8" required></textarea>
-          </div>
-
-          <div class="form-message" id="poem-message" hidden></div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="poem-submit">Publish Poem</button>
-          </div>
-        </form>
-      </div>
-    </div>
+      <!-- Poems -->
+      <section id="view-poems" class="work-section">
+        <div class="poem-column" id="list-poems"></div>
+      </section>
+    </main>
   </div>
 
-  <script src="/static/app.js?v=3.0"></script>
+  <!-- Fullscreen Lightbox -->
+  <div id="lightbox" class="lightbox" hidden>
+    <div class="lightbox-bar">
+      <span id="lightbox-caption"></span>
+      <div class="lightbox-controls">
+        <button type="button" id="lightbox-prev">prev</button>
+        <button type="button" id="lightbox-next">next</button>
+        <button type="button" id="lightbox-close">close</button>
+      </div>
+    </div>
+    <div class="lightbox-stage" id="lightbox-stage"></div>
+  </div>
+
+  <script src="/static/app.js?v=4.0"></script>
 </body>
 </html>
