@@ -36,29 +36,38 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 import json
-import struct
+import subprocess
 import io
 import tempfile
 import tracemalloc
 import unittest.mock as mock
 
 from PIL import Image
-from mutagen.mp4 import MP4
 
 import database
-from server import ThreadingHTTPServer, PortfolioHandler, MultipartStreamParser, ADMIN_TOKEN, UPLOADS_DIR, BASE_DIR
+from upload_parser import parse_upload
+from server import ThreadingHTTPServer, PortfolioHandler, ADMIN_TOKEN, UPLOADS_DIR, BASE_DIR
 
 TEST_PORT = 8994
 BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
 
 
 def create_minimal_valid_mp4() -> bytes:
-    """Builds a structurally valid, playable minimal MP4 container with ftyp, moov, and mdat boxes."""
-    ftyp = struct.pack('>I4s4sI', 20, b'ftyp', b'mp42', 0) + b'mp42'
-    mvhd = struct.pack('>I4sIIIIII', 32, b'mvhd', 0, 0, 0, 1000, 1000, 0x00010000)
-    moov = struct.pack('>I4s', 8 + len(mvhd), b'moov') + mvhd
-    mdat = struct.pack('>I4s', 16, b'mdat') + (b'0' * 8)
-    return ftyp + moov + mdat
+    """Encode a real H.264 video track with no audio; requires FFmpeg."""
+    with tempfile.TemporaryDirectory() as folder:
+        video = Path(folder) / "fixture.mp4"
+        subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
+                        "color=c=blue:s=160x90:d=1", "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p", "-an", "-y", str(video)],
+                       check=True, timeout=30)
+        return video.read_bytes()
+
+
+def parse_test_upload(stream, content_type, size, output):
+    return parse_upload(stream, content_type, size, output,
+                        video_exts={".mp4", ".mov", ".webm"},
+                        image_exts={".jpg", ".jpeg", ".png", ".webp"},
+                        video_limit=50 * 1024 * 1024, image_limit=10 * 1024 * 1024)
 
 
 def create_valid_test_jpeg() -> bytes:
@@ -257,7 +266,7 @@ def test_suite():
             print("  ✓ Test 5: Actual photo decoded and verified via Pillow; fake image rejected with 400")
 
         # =====================================================================
-        # TEST 6: Actual Playable Video Validation (Mutagen ISO-BMFF)
+        # TEST 6: Actual Playable Video Validation (FFprobe tracks)
         # =====================================================================
         # Reject 8-byte 0000ftyp stub
         stub_mp4 = b"\x00\x00\x00\x08ftyp"
@@ -284,42 +293,25 @@ def test_suite():
         ).encode("utf-8") + large_video + f"\r\n--{boundary_b}--\r\n".encode("utf-8")
 
         raw_stream = io.BytesIO(stream_body)
-        parser = MultipartStreamParser(raw_stream, boundary_b.encode("utf-8"), len(stream_body))
-        parser.read_line()  # start line
-        while parser.read_line().strip(): pass  # headers
-
-        with tempfile.NamedTemporaryFile(dir=BASE_DIR / ".tmp_uploads", delete=False) as tf:
-            tf_path = Path(tf.name)
+        with tempfile.TemporaryFile() as tf:
             tracemalloc.start()
-            parser.stream_part_to_file(tf, 50 * 1024 * 1024)
-            current_mem, peak_mem = tracemalloc.get_traced_memory()
+            parse_test_upload(raw_stream, "multipart/form-data; boundary=B", len(stream_body), tf)
+            _, peak_mem = tracemalloc.get_traced_memory()
             tracemalloc.stop()
-        tf_path.unlink()
+            assert tf.tell() == len(large_video)
+        assert peak_mem < 400 * 1024, f"Parser peak memory exceeded bound: {peak_mem}"
+        print(f"  ✓ Test 7: Maintained parser peak allocations: {peak_mem / 1024:.1f} KiB for 8 MiB")
 
-        peak_kb = peak_mem / 1024
-        assert peak_kb < 250, f"Parser memory exceeded bound: {peak_kb} KiB"
-        print(f"  ✓ Test 7: Isolated parser memory strictly bounded (measured peak: {peak_kb:.1f} KiB for 8 MiB part)")
-
-        # =====================================================================
-        # TEST 8: Boundaries Split Across Small Read Chunks (4 bytes)
-        # =====================================================================
-        chunked_stream = io.BytesIO(multipart_data_1)
         class ChunkedReader:
-            def __init__(self, s): self.s = s
-            def read(self, n): return self.s.read(min(4, n))
-
-        chunked_parser = MultipartStreamParser(ChunkedReader(chunked_stream), boundary_b.encode("utf-8"), len(multipart_data_1))
-        first_line = chunked_parser.read_line()
-        assert first_line.strip().startswith(b"--" + boundary_b.encode("utf-8"))
-        # Read headers
-        while chunked_parser.read_line().strip(): pass
-        title_val = chunked_parser.read_part_to_string()
-        assert title_val == "Prefix Film"
-        while chunked_parser.read_line().strip(): pass
+            def __init__(self, stream): self.stream = stream
+            def read(self, n): return self.stream.read(min(4, n))
         out_buf = io.BytesIO()
-        chunked_parser.stream_part_to_file(out_buf, 50 * 1024 * 1024)
+        fields, filename = parse_test_upload(
+            ChunkedReader(io.BytesIO(multipart_data_1)),
+            "multipart/form-data; boundary=B", len(multipart_data_1), out_buf)
+        assert fields["title"] == "Prefix Film" and filename == "prefix.mp4"
         assert out_buf.getvalue() == tricky_bytes_1
-        print("  ✓ Test 8: Boundaries split across 4-byte reads parsed with 100% integrity")
+        print("  ✓ Test 8: Boundaries split across four-byte reads preserve file data")
 
         # =====================================================================
         # TEST 9: Multiple File Rejection
@@ -480,7 +472,9 @@ def test_suite():
 
     finally:
         httpd.shutdown()
+        httpd.server_close()
 
 
 if __name__ == "__main__":
     test_suite()
+

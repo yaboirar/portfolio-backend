@@ -1,124 +1,87 @@
-# 🎬 Creative Portfolio Backend
+# Creative Portfolio Backend
 
-A dependable, maintainable backend tailored for a creative portfolio (<50 MB video showreels, 3–5 MB photography, and written poems/essays).
+Python backend for videos up to 50 MiB, images up to 10 MiB, and poems. SQLite stores text and media descriptions; media files live in `uploads/`. The existing dashboard and API endpoints are included.
 
----
+## Local setup
 
-## ⚙️ Dependencies
+Use Python 3.11 or newer. Install **FFmpeg**, which includes `ffprobe`, and ensure both commands are on your PATH. For example, on Ubuntu/Debian:
 
-The backend utilizes standard Python libraries alongside focused, industry-standard packages for media inspection, image decoding, and streaming:
-
-| Package | Minimum Version | Purpose |
-| :--- | :--- | :--- |
-| **Pillow** | `10.0.0+` | Full image decoding, structural verification, EXIF orientation normalization, and metadata stripping. |
-| **mutagen** | `1.47.0+` | ISO-BMFF container & stream inspection for MP4/MOV files (rejects truncated files and stubs lacking movie/track headers). |
-| **python-multipart** | `0.0.20+` | Stream form-data parsing reference utilities. |
-
-Install all dependencies via `requirements.txt`:
 ```bash
-pip install -r requirements.txt
+sudo apt install ffmpeg
 ```
 
----
+On Windows, install FFmpeg from its official distribution instructions and add its `bin` directory to PATH. Confirm the installation:
 
-## 🚀 Quickstart & Local Setup
-
-### 1. Installation
-Clone or navigate to the repository directory:
 ```bash
-cd /home/abe/.gemini/antigravity/scratch/portfolio-backend
-pip install -r requirements.txt
+ffmpeg -version
+ffprobe -version
 ```
 
-### 2. Start the Server
+Create an isolated Python environment and install packages:
+
 ```bash
-python3 server.py
-```
-By default, the server listens on `http://localhost:8000`. You can specify a different port:
-```bash
-python3 server.py 8080
+python -m venv .venv
 ```
 
-On first startup:
-- Creates the SQLite database (`portfolio.db`) in WAL mode with indexes.
-- Generates a secure administrative token in `.admin_token` (or reads `PORTFOLIO_ADMIN_TOKEN` from your environment).
-- Performs startup recovery: purges any stale files in `.tmp_uploads` and cleans up unfinished deletions.
+Activate it with `source .venv/bin/activate` on macOS/Linux, or `.venv\Scripts\Activate.ps1` in Windows PowerShell. Then:
 
-### 3. Open the Dashboard
-Navigate to `http://localhost:8000` in any web browser to view the portfolio catalog, test media uploads, compose poems, and test video scrubbing.
-
-### 4. Run the Regression Suite
 ```bash
-python3 test_server.py
+python -m pip install -r requirements.txt
+python server.py
 ```
-Runs 14 repeatable verification tests covering parser edge cases, disconnects, true media validation, memory bounds, and deletion recovery.
 
----
+Open `http://localhost:8000`. An optional port can be supplied with `python server.py 8080`.
 
-## 🛡️ Architecture & Verification Details
+The application creates `portfolio.db`, upload directories, and a random `.admin_token` on first use. Enter that token into the dashboard when prompted, or supply your own secret through the `PORTFOLIO_ADMIN_TOKEN` environment variable. Keep secrets, the live database, and uploaded files out of GitHub. Back them up separately.
 
-### 1. Upload Parsing & Request Completion
-- **RFC 2046 Streaming Parser**: Correctly distinguishes delimiter lines from file data. Payloads containing boundary prefixes (e.g. `AAA\r\n--BXYZ\r\nBBB`) or false closing delimiters (e.g. `\r\n--B--XYZ`) are preserved with 100% byte integrity.
-- **Enforced Body Completion**: If a request declares `Content-Length: 128 KiB`, transmits 64 KiB with an early closing delimiter, and disconnects, the server drains the stream. Because the connection closed before the declared body completed, the upload is rejected with `400 Bad Request` and never published.
-- **Connection Handling**: Rejected requests set `Connection: close` to prevent socket desynchronization.
+## Upload behavior
 
-### 2. Media Handling & Privacy Policy
-- **Photos (JPEG, PNG, WebP)**:
-  - Validated by full decoding through Pillow (`img.verify()` and load pass). Corrupt or masquerading files are rejected.
-  - **Orientation Policy**: EXIF orientation is normalized using `ImageOps.exif_transpose`, rotating the pixel data directly so the photo displays upright on all screens.
-  - **Metadata Removal**: Saved clean without EXIF, GPS location tags, camera make/model, or IPTC comments.
-- **Videos (MP4, MOV, WebM)**:
-  - Validated by structural inspection through Mutagen. The container must contain valid `ftyp`, `moov`, movie header (`mvhd`), and active stream tracks. Stubs such as `0000ftyp` lacking movie headers are rejected.
-  - WebM containers are validated for EBML header IDs, DocType (`webm`/`matroska`), and Segment headers.
+- Werkzeug's streaming multipart decoder handles file parts. A small adapter requires complete closing delimiter lines and enforces one file, at most 10 parts, 4 KiB of headers per part, and 10 KiB per text field.
+- Video parts stream to temporary files with bounded Python buffers. Images are decoded into memory for processing; their memory use depends on pixel dimensions.
+- The complete declared request body must arrive before an upload is committed. Early EOF or missing multipart closure rejects the upload. Upload parse errors close the connection to prevent leftover bytes becoming another request.
+- Upload requests require `Content-Length`. Chunked upload requests are not supported. The global request limit is 60 MiB, including form overhead.
+- Pillow verifies images and normalizes EXIF orientation before re-encoding JPEG, PNG, or WebP. Re-encoding can change image file sizes and quality. Video metadata is retained.
+- FFprobe inspects MP4, MOV, and WebM containers and requires an identified video codec, positive dimensions, and positive finite duration. Silent videos are supported; audio-only files and header stubs are rejected. Inspection has a 15-second timeout and does **not** decode every frame or guarantee that every browser supports the codec.
+- A failed response delivery never removes an already committed upload.
 
-### 3. Persistence, Deletion Recovery & File Serving
-- **Decoupled Persistence**: Responses are sent inside guarded handlers. If a client disconnects while the server delivers the HTTP response, the committed database record and file remain safe.
-- **Status-Aware File Serving**: The `/uploads/...` route checks `database.is_media_active_by_url(path)`. Any item marked `pending_delete` or removed from SQLite returns `404 Not Found`.
-- **Deletion Retries**: If disk unlinking encounters an OS permission error, the item transitions to `pending_delete`. Subsequent deletion attempts retry unlinking and permanently delete the database record on success.
-- **Cleanup Utilities**: Startup routines and `POST /api/admin/cleanup` safely purge abandoned temporary uploads and finalize pending deletions.
+## Deletion and recovery
 
-### 4. Bounded Request Limits
-- **File limits**: Videos capped at 50 MB; images capped at 10 MB; global payload cap at 60 MB.
-- **Text & header limits**: Text fields capped at 10 KB; form part headers capped at 4 KB; max 10 parts per form.
-- **Framing validation**: Chunked transfer encoding is rejected; `Content-Length` is mandatory on uploads.
-- **Memory consumption**: Parser allocates in 64 KB streaming buffers, maintaining a flat memory profile (~192 KiB peak) independently of whether file sizes are 8 MB or 50 MB.
+Deletion first marks a media record `pending_delete`. Public lists and file URLs then stop serving it. The file is removed before the record is purged. Failed removal preserves the pending record for retry.
 
----
+Startup recovery and authenticated `POST /api/admin/cleanup` retry pending deletions. A failed cleanup removal also preserves the record, rather than falsely counting it as purged. Temporary files are outside the public media directory; cleanup only removes temporary files older than one hour, avoiding immediate deletion of current uploads.
 
-## 🔌 API Reference
+## Tests
 
-### 📝 Poems
-- `GET /api/poems` — List all active poems (optional: `?tag=reflection`)
-- `GET /api/poems/<id>` — Get single poem
-- `POST /api/poems` — Create poem (requires `X-Admin-Token` or `Authorization: Bearer <token>`)
-- `PUT /api/poems/<id>` — Update poem
-- `DELETE /api/poems/<id>` — Delete poem
+FFmpeg and FFprobe must be available for real video fixtures.
 
-### 🎬 Media
-- `GET /api/media` — List all active media (optional: `?type=video` or `?type=image`)
-- `GET /api/media/<id>` — Get metadata for item
-- `GET /uploads/videos/<filename>` — Stream video with RFC 9110 byte-range seeking (`206 Partial Content`)
-- `GET /uploads/images/<filename>` — Serve sanitized image
-- `POST /api/upload` — Multipart form upload (`file`, `title`, `description`)
-- `POST /api/upload/raw?filename=showreel.mp4&title=Reel` — Raw streaming upload
-- `DELETE /api/media/<id>` — Deletion with state recovery machine
+```bash
+python test_server.py
+python -m unittest -v test_backend
+```
 
-### 📊 System & Maintenance
-- `GET /api/health` — Health and version info
-- `GET /api/stats` — Item counts and total storage used
-- `POST /api/admin/cleanup` — Admin trigger for temporary file and deletion cleanup
+The HTTP suite covers uploads, boundary-prefix preservation, incomplete requests, images, ranges, and deletion access. The additional suite covers read splits from 1 through 64 bytes, headers and field limits, cleanup failures and retries, trackless containers, fake WebM files, and real silent MP4/MOV/WebM videos.
 
----
+The parser-memory check excludes construction of the input bytes. Test results describe the exercised cases, not proof of an absence of defects. The HTTP suite creates and removes test records in the configured local database; run it in a development checkout, not against production data.
 
-## 📋 Deployment Readiness Assessment
+## API
 
-### What is verified and dependable in this version:
-- Robust multi-threaded HTTP/1.1 serving with RFC 9110 range playback for instant video seeking.
-- Structural decoding and validation of photos and video containers.
-- Guaranteed connection and file cleanup on interruptions or failed uploads.
-- Strict path traversal prevention and status-aware asset serving.
+Public reads:
 
-### What is needed before public deployment:
-1. **Reverse Proxy / TLS Termination**: Place an established web server (such as Caddy or Nginx) in front of Python to handle HTTPS/TLS certificates, rate limiting, and slowloris protection.
-2. **Environment Variable Configuration**: Set `PORTFOLIO_ADMIN_TOKEN` as a secret environment variable rather than relying on local token files.
-3. **Automated Backups**: Periodically copy `portfolio.db` (using SQLite's online backup API or `sqlite3 .backup`) and the `uploads/` folder to remote object storage.
+- `GET /api/health`, `/api/stats`
+- `GET /api/media`, `/api/media/<id>`; optional `?type=video` or `?type=image`
+- `GET /api/poems`, `/api/poems/<id>`; optional `?tag=reflection`
+- `GET /uploads/videos/<filename>` or `/uploads/images/<filename>` for active media only
+
+Owner operations require `X-Admin-Token` or `Authorization: Bearer <token>`:
+
+- `POST /api/upload`: multipart fields `file`, `title`, `description`
+- `POST /api/upload/raw?filename=showreel.mp4&title=Reel`: raw file body
+- `DELETE /api/media/<id>`
+- `POST /api/poems`, `PUT /api/poems/<id>`, `DELETE /api/poems/<id>`
+- `POST /api/admin/cleanup`
+
+## Before public hosting
+
+This application still uses Python's development HTTP server. Configure a production HTTPS proxy, request/connection limits, persistent storage, and backups before publishing. Only one application instance should own this local SQLite database and media directory. Range support enables seeking, but playback speed still depends on codec, bitrate, and network conditions.
+
+Back up SQLite through its online backup API and back up media files separately. Hosting and the public portfolio's creative design are separate decisions.

@@ -1,40 +1,8 @@
-"""
-Consolidated Web Server for Creative Portfolio Backend.
-Fully resolves all findings, edge cases, and architectural requirements:
+"""Creative portfolio API: SQLite metadata, streamed uploads, and media files.
 
-1. Upload Parsing & Request Completion:
-   - RFC 2046 compliant streaming parser with strict delimiter line verification.
-   - Preserves false boundary prefixes (AAA\\r\\n--BXYZ\\r\\nBBB) and false closing delimiters (\\r\\n--B--XYZ).
-   - Enforces complete HTTP request body arrival: if client declares 128 KiB, sends 64 KiB, and cuts transmission,
-     the upload is rejected with 400 Bad Request (never published as 201).
-   - Properly drains unread request bytes and sets Connection: close on rejected requests.
-
-2. True Media Content Validation & Privacy Sanitization:
-   - Decodes images via Pillow (PIL) to verify structural integrity.
-   - Preserves EXIF orientation via ImageOps.exif_transpose before stripping metadata.
-   - Strips sensitive metadata: GPS location, camera model/settings, IPTC/XMP text chunks.
-   - Validates video container & stream structures via Mutagen (MP4/MOV). Rejects 8-byte stubs (e.g. 0000ftyp).
-   - Validates WebM containers via EBML header ID, DocType, and Segment structure.
-   - Resource bounded: Image dimensions max 8192x8192, MAX_IMAGE_PIXELS protection.
-
-3. Persistence, Deletion Recovery & Status-Aware File Serving:
-   - Committed uploads remain safe if response delivery fails (BrokenPipeError/ConnectionResetError caught).
-   - Failed file unlinking marks media as 'pending_delete'.
-   - File serving (/uploads/...) strictly verifies status == 'active' in SQLite (404 for pending_delete).
-   - Deletion retries re-attempt disk unlinking and purge database records on success.
-   - Startup and admin cleanup functions purge stale temp files and unfinished deletions.
-
-4. Strict Request Limits & Framing Validation:
-   - Video upload max: 50 MB.
-   - Image upload max: 10 MB.
-   - Global upload limit: 60 MB.
-   - Field length limit: 10 KB. Part headers limit: 4 KB. Part count limit: 10 parts. Single file per request.
-   - Rejects unsupported framing (Chunked transfer-encoding rejected; Content-Length required).
-
-5. Range Streaming & Security:
-   - RFC 9110 compliant byte ranges: suffix ranges (bytes=-3), capped ends (bytes=0-999), 416 with Content-Length: 0.
-   - Path containment using Path.resolve().is_relative_to(base).
-   - CSP header includes connect-src 'self' for browser fetch/XHR compatibility.
+Multipart decoding uses Werkzeug with bounded fields, headers, and file sizes.
+Pillow normalizes image orientation. FFprobe checks video containers and tracks.
+Run behind a production HTTPS proxy before exposing this development server.
 """
 
 import os
@@ -46,14 +14,15 @@ import urllib.parse
 import re
 import socketserver
 import secrets
-import struct
+import subprocess
+import math
 import tempfile
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Optional, Tuple, Dict, Any
 
 from PIL import Image, ImageOps, UnidentifiedImageError
-from mutagen.mp4 import MP4, MP4StreamInfoError
+from upload_parser import parse_upload
 
 import database
 
@@ -158,34 +127,40 @@ def validate_and_sanitize_image(input_path: Path, output_path: Path, ext: str) -
 
 
 def validate_video_file(file_path: Path, ext: str) -> float:
-    """
-    Validates video container and stream structure.
-    Rejects stubs (such as 8-byte 0000ftyp) that lack movie header (moov) or valid tracks.
-    Returns: duration in seconds (or estimated length)
-    """
-    ext = ext.lower()
-    if ext in ('.mp4', '.mov'):
-        try:
-            m = MP4(str(file_path))
-            if not m.info or m.info.length <= 0:
-                raise ValueError("Video missing playable movie stream or duration")
-            return float(m.info.length)
-        except Exception as e:
-            raise ValueError(f"Corrupt or incomplete {ext.upper()} container: {str(e)}")
-    elif ext == '.webm':
-        # Validate WebM / Matroska EBML container header and DocType
-        try:
-            with open(file_path, 'rb') as f:
-                header = f.read(4096)
-            if len(header) < 16 or not header.startswith(b'\x1a\x45\xdf\xa3'):
-                raise ValueError("Not a valid WebM container: missing EBML header")
-            if b'webm' not in header and b'matroska' not in header:
-                raise ValueError("Not a valid WebM container: missing webm/matroska DocType")
-            return 1.0  # valid webm container
-        except Exception as e:
-            raise ValueError(f"Corrupt WebM video: {str(e)}")
-    else:
-        raise ValueError(f"Unsupported video format: {ext}")
+    """Inspect real video tracks with FFprobe; this does not decode every frame."""
+    if ext.lower() not in ALLOWED_VIDEO_EXTS:
+        raise ValueError("Unsupported video format")
+    command = ["ffprobe", "-v", "error", "-protocol_whitelist", "file",
+               "-show_entries", "format=format_name,duration:stream=codec_type,codec_name,width,height,duration",
+               "-of", "json", str(file_path)]
+    try:
+        result = subprocess.run(command, capture_output=True, timeout=15, check=False)
+    except FileNotFoundError as exc:
+        raise ValueError("FFprobe is required for video uploads; install FFmpeg") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError("Video inspection exceeded its time limit") from exc
+    if result.returncode != 0 or len(result.stdout) > 1024 * 1024:
+        raise ValueError("Corrupt or unsupported video container")
+    try:
+        info = json.loads(result.stdout)
+        formats = set(info.get("format", {}).get("format_name", "").split(","))
+        allowed = {"matroska", "webm"} if ext.lower() == ".webm" else {"mov", "mp4"}
+        if not formats & allowed:
+            raise ValueError("Video container does not match its extension")
+        tracks = [track for track in info.get("streams", [])
+                  if track.get("codec_type") == "video" and track.get("codec_name")
+                  and int(track.get("width", 0)) > 0 and int(track.get("height", 0)) > 0]
+        if not tracks:
+            raise ValueError("File contains no usable video track")
+        duration = info.get("format", {}).get("duration")
+        if duration is None:
+            duration = next((track.get("duration") for track in tracks if track.get("duration")), None)
+        seconds = float(duration)
+        if not math.isfinite(seconds) or seconds <= 0:
+            raise ValueError("Video must have a positive finite duration")
+        return seconds
+    except (TypeError, KeyError, json.JSONDecodeError) as exc:
+        raise ValueError("Invalid video inspection result") from exc
 
 
 # --- Path Resolution & Containment Helper ---
@@ -252,180 +227,6 @@ def parse_byte_range(range_header: str, total_size: int) -> Optional[Tuple[int, 
     return None
 
 
-# --- Strict RFC 2046 Multipart Stream Parser ---
-
-class MultipartStreamParser:
-    """
-    RFC 2046 compliant streaming parser:
-    - Strictly validates delimiter lines: distinguishes true delimiters from payload data.
-    - Preserves file data containing boundary prefixes or false close delimiters (e.g. \\r\\n--B--XYZ).
-    - Detects valid closing delimiter (--boundary--).
-    - Aborts immediately on unexpected EOF (no infinite loops).
-    - Bounded peak memory (< 130 KiB).
-    """
-    def __init__(self, stream, boundary: bytes, total_len: int):
-        self.stream = stream
-        self.boundary = boundary
-        self.total = total_len
-        self.bytes_read = 0
-        self.buf = bytearray()
-        self.delimiter = b'\r\n--' + boundary
-        self.CHUNK = 64 * 1024
-        self.hit_close = False
-
-    def _fill_buf(self, min_bytes=1):
-        while len(self.buf) < min_bytes and self.bytes_read < self.total:
-            to_read = min(self.CHUNK, self.total - self.bytes_read)
-            chunk = self.stream.read(to_read)
-            if not chunk:
-                raise ConnectionResetError(f"Upload interrupted: expected {self.total} bytes, received {self.bytes_read}")
-            self.bytes_read += len(chunk)
-            self.buf.extend(chunk)
-
-    def read_line(self) -> bytes:
-        while True:
-            idx = self.buf.find(b'\n')
-            if idx != -1:
-                line = bytes(self.buf[:idx + 1])
-                del self.buf[:idx + 1]
-                if len(line) > MAX_PART_HEADER_LEN:
-                    raise ValueError("Multipart line exceeds maximum header size limit")
-                return line
-            if self.bytes_read >= self.total:
-                line = bytes(self.buf)
-                self.buf.clear()
-                if len(line) > MAX_PART_HEADER_LEN:
-                    raise ValueError("Multipart line exceeds maximum header size limit")
-                return line
-            self._fill_buf(len(self.buf) + self.CHUNK)
-
-    def find_true_delimiter(self) -> Tuple[int, bool, int]:
-        """
-        Searches buffer for delimiter b'\\r\\n--' + boundary.
-        Verifies following characters complete a valid RFC 2046 delimiter line:
-        - Intermediate: optional [ \\t]* followed by \\r\\n or \\n
-        - Closing: '--' followed by optional [ \\t]* and \\r\\n, \\n, or EOF
-        Rejects false prefixes like b'\\r\\n--BXYZ' and false close delimiters like b'\\r\\n--B--XYZ'.
-        Returns (pos, is_closing, line_end_pos). If not found, pos is -1.
-        """
-        delim_len = len(self.delimiter)
-        idx = 0
-        while True:
-            pos = self.buf.find(self.delimiter, idx)
-            if pos == -1:
-                return -1, False, -1
-
-            after = pos + delim_len
-            if len(self.buf) < after + 4 and self.bytes_read < self.total:
-                self._fill_buf(after + 4)
-
-            # Check if this could be a closing delimiter (--boundary--)
-            if self.buf[after:after + 2] == b'--':
-                p = after + 2
-                while True:
-                    if p >= len(self.buf):
-                        if self.bytes_read < self.total:
-                            self._fill_buf(p + 1)
-                        else:
-                            break
-                    if p < len(self.buf) and self.buf[p] in (32, 9):  # space or tab
-                        p += 1
-                    else:
-                        break
-
-                if p >= len(self.buf) and self.bytes_read >= self.total:
-                    return pos, True, p
-
-                if p + 1 < len(self.buf) and self.buf[p:p + 2] == b'\r\n':
-                    return pos, True, p + 2
-                elif p < len(self.buf) and self.buf[p:p + 1] == b'\n':
-                    return pos, True, p + 1
-                else:
-                    # False alarm (e.g. \\r\\n--B--XYZ), keep searching
-                    idx = pos + 1
-                    continue
-
-            # Otherwise check if this could be an intermediate delimiter (--boundary)
-            p = after
-            while True:
-                if p >= len(self.buf):
-                    if self.bytes_read < self.total:
-                        self._fill_buf(p + 1)
-                    else:
-                        break
-                if p < len(self.buf) and self.buf[p] in (32, 9):  # space or tab
-                    p += 1
-                else:
-                    break
-
-            if p + 1 < len(self.buf) and self.buf[p:p + 2] == b'\r\n':
-                return pos, False, p + 2
-            elif p < len(self.buf) and self.buf[p:p + 1] == b'\n':
-                return pos, False, p + 1
-            else:
-                # False alarm (e.g. \\r\\n--BXYZ), keep searching
-                idx = pos + 1
-                continue
-
-    def stream_part_to_file(self, out_file, max_bytes: int) -> int:
-        written = 0
-        min_retain = len(self.delimiter) + 32
-        while True:
-            pos, is_close, line_end = self.find_true_delimiter()
-            if pos != -1:
-                chunk = self.buf[:pos]
-                written += len(chunk)
-                if written > max_bytes:
-                    raise ValueError(f"File exceeds maximum allowed size of {max_bytes // (1024*1024)}MB")
-                out_file.write(chunk)
-                del self.buf[:line_end]
-                if is_close:
-                    self.hit_close = True
-                return written
-
-            if len(self.buf) > min_retain:
-                safe = len(self.buf) - min_retain
-                chunk = self.buf[:safe]
-                written += len(chunk)
-                if written > max_bytes:
-                    raise ValueError(f"File exceeds maximum allowed size of {max_bytes // (1024*1024)}MB")
-                out_file.write(chunk)
-                del self.buf[:safe]
-
-            if self.bytes_read >= self.total and len(self.buf) <= min_retain:
-                return written
-
-            self._fill_buf(len(self.buf) + self.CHUNK)
-
-    def read_part_to_string(self) -> str:
-        res = bytearray()
-        min_retain = len(self.delimiter) + 32
-        while True:
-            pos, is_close, line_end = self.find_true_delimiter()
-            if pos != -1:
-                chunk = self.buf[:pos]
-                res.extend(chunk)
-                if len(res) > MAX_FIELD_LEN:
-                    raise ValueError(f"Form field exceeds maximum limit of {MAX_FIELD_LEN} bytes")
-                del self.buf[:line_end]
-                if is_close:
-                    self.hit_close = True
-                return res.decode('utf-8', errors='ignore').strip()
-
-            if len(self.buf) > min_retain:
-                safe = len(self.buf) - min_retain
-                chunk = self.buf[:safe]
-                res.extend(chunk)
-                if len(res) > MAX_FIELD_LEN:
-                    raise ValueError(f"Form field exceeds maximum limit of {MAX_FIELD_LEN} bytes")
-                del self.buf[:safe]
-
-            if self.bytes_read >= self.total and len(self.buf) <= min_retain:
-                return res.decode('utf-8', errors='ignore').strip()
-
-            self._fill_buf(len(self.buf) + self.CHUNK)
-
-
 class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -486,7 +287,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
 
     def parse_json_body(self) -> dict:
         content_length = int(self.headers.get("Content-Length", 0))
-        if content_length == 0:
+        if content_length <= 0:
             return {}
         if content_length > 1 * 1024 * 1024:  # 1 MB max for JSON
             self.close_connection = True
@@ -687,7 +488,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         if path == "/api/admin/cleanup":
             if not self.require_auth():
                 return
-            cleaned_tmp = cleanup_orphaned_tmp_files(TMP_DIR, max_age_seconds=0)
+            cleaned_tmp = cleanup_orphaned_tmp_files(TMP_DIR)
             cleaned_del = database.cleanup_unfinished_deletions(UPLOADS_DIR)
             self.send_json(200, {
                 "success": True,
@@ -787,7 +588,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 return
 
             content_length = int(cl_header)
-            if content_length == 0:
+            if content_length <= 0:
                 self.send_error_json(400, "Empty payload")
                 return
 
@@ -898,7 +699,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 return
 
             content_length = int(cl_header)
-            if content_length == 0:
+            if content_length <= 0:
                 self.send_error_json(400, "Empty payload")
                 return
             if content_length > MAX_GLOBAL_UPLOAD:
@@ -906,94 +707,15 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 self.send_error_json(413, f"Payload exceeds maximum allowed size of {MAX_GLOBAL_UPLOAD // (1024*1024)}MB")
                 return
 
-            content_type = self.headers.get("Content-Type", "")
-            boundary_match = re.search(r'boundary=([^\s;]+)', content_type)
-            if not boundary_match:
-                self.close_connection = True
-                self.send_error_json(400, "Missing multipart boundary in Content-Type")
-                return
-
-            boundary = boundary_match.group(1).encode("utf-8")
-            if boundary.startswith(b'"') and boundary.endswith(b'"'):
-                boundary = boundary[1:-1]
-
-            parser = MultipartStreamParser(self.rfile, boundary, content_length)
-
-            first_line = parser.read_line()
-            if not first_line.strip().startswith(b'--' + boundary):
-                self.close_connection = True
-                self.send_error_json(400, "Malformed multipart start")
-                return
-
-            fields = {}
-            original_filename = None
-            file_count = 0
-            part_count = 0
-
             with tempfile.NamedTemporaryFile(dir=TMP_DIR, delete=False) as tmp:
                 tmp_path = Path(tmp.name)
-                while (parser.bytes_read < content_length or len(parser.buf) > 0) and not parser.hit_close:
-                    part_count += 1
-                    if part_count > MAX_PARTS:
-                        self.close_connection = True
-                        self.send_error_json(400, f"Too many parts in form (limit: {MAX_PARTS})")
-                        return
-
-                    headers = []
-                    while True:
-                        line = parser.read_line()
-                        if line in (b'\r\n', b'\n', b''):
-                            break
-                        headers.append(line.decode('utf-8', errors='ignore'))
-
-                    if not headers:
-                        break
-
-                    header_text = ''.join(headers)
-                    cd_match = re.search(r'name="([^"]+)"(?:;\s*filename="([^"]+)")?', header_text)
-                    if not cd_match:
-                        break
-
-                    name = cd_match.group(1)
-                    filename = cd_match.group(2)
-
-                    if filename:
-                        file_count += 1
-                        if file_count > 1:
-                            self.close_connection = True
-                            self.send_error_json(400, "Multiple files not permitted. Upload files one at a time.")
-                            return
-                        original_filename = filename
-                        ext_check = os.path.splitext(filename)[1].lower()
-                        is_vid = ext_check in ALLOWED_VIDEO_EXTS
-                        max_part_limit = MAX_VIDEO_SIZE if is_vid else MAX_IMAGE_SIZE
-                        bytes_streamed = parser.stream_part_to_file(tmp, max_part_limit)
-                    else:
-                        fields[name] = parser.read_part_to_string()
-
-            # Verify that valid closing delimiter (--boundary--) was encountered
-            if not parser.hit_close:
-                self.close_connection = True
-                self.send_error_json(400, "Malformed multipart: missing closing boundary delimiter")
-                return
-
-            # CRITICAL: Ensure the complete declared HTTP body arrived!
-            # If the client declared 128 KiB but sent only 64 KiB with an early closing boundary,
-            # we must drain the remaining unread bytes up to Content-Length.
-            # If the client cut transmission early, draining will fail and abort the upload.
-            remaining = content_length - parser.bytes_read
-            while remaining > 0:
-                to_read = min(CHUNK_SIZE, remaining)
-                drain_chunk = self.rfile.read(to_read)
-                if not drain_chunk:
-                    self.close_connection = True
-                    raise ConnectionResetError(f"Upload interrupted: client closed connection before declared body completed (expected {content_length} bytes, received {content_length - remaining})")
-                remaining -= len(drain_chunk)
-                parser.bytes_read += len(drain_chunk)
-
-            if not original_filename:
-                self.send_error_json(400, "No file provided in form-data")
-                return
+                fields, original_filename = parse_upload(
+                    self.rfile, self.headers.get("Content-Type", ""), content_length, tmp,
+                    video_exts=ALLOWED_VIDEO_EXTS, image_exts=ALLOWED_IMAGE_EXTS,
+                    video_limit=MAX_VIDEO_SIZE, image_limit=MAX_IMAGE_SIZE,
+                    field_limit=MAX_FIELD_LEN, header_limit=MAX_PART_HEADER_LEN,
+                    part_limit=MAX_PARTS, chunk_size=CHUNK_SIZE,
+                )
 
             ext = os.path.splitext(original_filename)[1].lower()
             if ext not in ALLOWED_EXTS:
@@ -1066,8 +788,10 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 pass
 
         except ConnectionResetError as conn_err:
+            self.close_connection = True
             self.send_error_json(400, str(conn_err))
         except ValueError as val_err:
+            self.close_connection = True
             self.send_error_json(400, str(val_err))
         except Exception as e:
             self.send_error_json(500, f"Upload failed: {str(e)}")
@@ -1104,3 +828,4 @@ def run_server(port: int = 8000, host: str = "0.0.0.0"):
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     run_server(port=port)
+

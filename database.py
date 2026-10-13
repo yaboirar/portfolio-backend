@@ -216,14 +216,21 @@ def cleanup_unfinished_deletions(uploads_dir) -> int:
     base_uploads = Path(uploads_dir).resolve()
     for item in pending:
         rel_url = item.get("relative_url", "")
-        if rel_url.startswith("/uploads/"):
-            rel_disk = rel_url[len("/uploads/"):].lstrip("/")
+        if not rel_url.startswith("/uploads/"):
+            continue
+        rel_disk = rel_url[len("/uploads/"):].lstrip("/")
+        try:
             disk_target = (base_uploads / rel_disk).resolve()
-            if disk_target.is_file() and disk_target.is_relative_to(base_uploads):
-                try:
-                    disk_target.unlink()
-                except OSError:
-                    pass
+            if not disk_target.is_relative_to(base_uploads):
+                continue
+            if disk_target.exists():
+                if not disk_target.is_file():
+                    continue
+                disk_target.unlink()
+        except FileNotFoundError:
+            pass  # Another deletion already removed the file.
+        except (OSError, ValueError, RuntimeError):
+            continue  # Keep the recovery record so a later cleanup can retry.
         delete_media_final(item["id"])
         purged_count += 1
     return purged_count
@@ -249,3 +256,4 @@ def get_stats() -> Dict[str, Any]:
             "total_media_bytes": total_media_bytes,
             "total_media_mb": round(total_media_bytes / (1024 * 1024), 2)
         }
+
