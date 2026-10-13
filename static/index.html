@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
-  <link rel="stylesheet" href="/static/style.css?v=14.0">
+  <link rel="stylesheet" href="/static/style.css?v=15.0">
 </head>
 <body>
   <!-- Ambient Background Glow -->
@@ -35,6 +35,57 @@
           </button>
         </div>
       </nav>
+
+      <!-- WebSearch Pill & Dropdown (21st.dev inspired) -->
+      <div class="web-search" id="web-search">
+        <div class="web-search-trigger" id="web-search-trigger" role="combobox" aria-expanded="false" aria-haspopup="listbox">
+          <!-- Globe Tile with Animated Fill Ring -->
+          <span class="globe-tile" id="search-globe-tile">
+            <svg class="globe-svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+            </svg>
+            <svg class="globe-ring-svg" viewBox="0 0 28 28" aria-hidden="true">
+              <circle class="ring-bg" cx="14" cy="14" r="13" />
+              <circle class="ring-fill" id="search-ring-fill" cx="14" cy="14" r="13" />
+            </svg>
+          </span>
+
+          <!-- Search Input -->
+          <div class="search-label-wrap">
+            <input
+              type="text"
+              id="search-input"
+              class="search-input"
+              placeholder="Search portfolio..."
+              aria-label="Search portfolio"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+
+          <!-- Matching Category Badges Stack (Fanned out on hover) -->
+          <span class="favicon-stack" id="search-badge-stack" aria-label="Matching categories"></span>
+
+          <!-- Chevron Expand / Collapse Indicator -->
+          <button type="button" class="search-chevron" id="search-chevron" aria-label="Toggle search results">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Floating Collapsible Dropdown -->
+        <div class="search-dropdown" id="search-dropdown" hidden aria-hidden="true">
+          <div class="search-dropdown-inner">
+            <div class="search-header-row">
+              <span class="search-status-text" id="search-status-text">0 items found</span>
+              <span class="search-hint">Press Esc to exit &bull; / to focus</span>
+            </div>
+            <ol class="search-grid" id="search-grid"></ol>
+          </div>
+        </div>
+      </div>
 
       <!-- Right Floating Controls -->
       <div class="control-pill">
@@ -261,7 +312,7 @@
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=14.0"></script>
+  <script src="/static/app.js?v=15.0"></script>
 </body>
 </html>
 

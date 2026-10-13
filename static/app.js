@@ -11,6 +11,9 @@
     uploadOpen: false,
     lightboxIndex: -1,
     token: sessionStorage.getItem('admin_token') || '',
+    searchQuery: '',
+    searchOpen: false,
+    searchExpanded: false,
   };
 
   const dom = {
@@ -19,6 +22,17 @@
     themeToggle: document.getElementById('theme-toggle'),
     uploadToggle: document.getElementById('upload-toggle'),
     authIndicator: document.getElementById('auth-indicator'),
+
+    webSearch: document.getElementById('web-search'),
+    searchTrigger: document.getElementById('web-search-trigger'),
+    searchGlobeTile: document.getElementById('search-globe-tile'),
+    searchRingFill: document.getElementById('search-ring-fill'),
+    searchInput: document.getElementById('search-input'),
+    searchBadgeStack: document.getElementById('search-badge-stack'),
+    searchChevron: document.getElementById('search-chevron'),
+    searchDropdown: document.getElementById('search-dropdown'),
+    searchStatusText: document.getElementById('search-status-text'),
+    searchGrid: document.getElementById('search-grid'),
 
     bentoStage: document.getElementById('bento-stage'),
     slotPrimary: document.getElementById('slot-primary'),
@@ -450,17 +464,242 @@
     return info;
   }
 
+  /* ========================================================================
+     WEB SEARCH ENGINE (21st.dev inspired with Progress Ring & Match Stack)
+     ======================================================================== */
+  const CIRCLE_CIRCUMFERENCE = 81.68; // 2 * PI * 13
+
+  function setRingProgress(progress) {
+    if (!dom.searchRingFill) return;
+    const p = Math.max(0, Math.min(1, progress));
+    const offset = CIRCLE_CIRCUMFERENCE * (1 - p);
+    dom.searchRingFill.style.strokeDashoffset = `${offset.toFixed(2)}`;
+  }
+
+  function getMatchingItems(query) {
+    const q = (query || '').toLowerCase().trim();
+    if (!q) {
+      return {
+        videos: state.videos,
+        photos: state.photos,
+        poems: state.poems,
+        total: state.videos.length + state.photos.length + state.poems.length,
+      };
+    }
+
+    const videos = state.videos.filter(v =>
+      (v.title || '').toLowerCase().includes(q) || (v.description || '').toLowerCase().includes(q)
+    );
+    const photos = state.photos.filter(p =>
+      (p.title || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)
+    );
+    const poems = state.poems.filter(p =>
+      (p.title || '').toLowerCase().includes(q) || (p.content || '').toLowerCase().includes(q)
+    );
+
+    return { videos, photos, poems, total: videos.length + photos.length + poems.length };
+  }
+
+  function updateSearchUI() {
+    const q = state.searchQuery.trim();
+    const hasQuery = q.length > 0;
+    const totalAll = state.videos.length + state.photos.length + state.poems.length;
+    const matches = getMatchingItems(q);
+
+    // Update progress ring
+    if (!hasQuery) {
+      setRingProgress(0);
+      dom.webSearch.classList.remove('is-searching');
+    } else {
+      dom.webSearch.classList.add('is-searching');
+      const ratio = totalAll > 0 ? matches.total / totalAll : 0;
+      const prog = Math.min(1, Math.max(0.25, ratio));
+      setRingProgress(prog);
+    }
+
+    // Update Badge Stack (FaviconStack fanning out on hover)
+    dom.searchBadgeStack.replaceChildren();
+    if (hasQuery && matches.total > 0) {
+      const badges = [];
+      if (matches.videos.length > 0) badges.push({ type: 'video', label: 'V', count: matches.videos.length });
+      if (matches.photos.length > 0) badges.push({ type: 'photo', label: 'P', count: matches.photos.length });
+      if (matches.poems.length > 0) badges.push({ type: 'poem', label: 'W', count: matches.poems.length });
+
+      badges.forEach((b) => {
+        const span = document.createElement('span');
+        span.className = `stack-badge stack-badge--${b.type}`;
+        span.title = `${b.count} ${b.type}s`;
+        span.textContent = b.label;
+        dom.searchBadgeStack.appendChild(span);
+      });
+    }
+
+    // Update Dropdown Grid
+    if (state.searchOpen && hasQuery) {
+      dom.searchDropdown.hidden = false;
+      dom.searchDropdown.setAttribute('aria-hidden', 'false');
+      dom.webSearch.classList.add('is-open');
+      dom.searchTrigger.setAttribute('aria-expanded', 'true');
+
+      dom.searchStatusText.textContent = `${matches.total} ${matches.total === 1 ? 'item' : 'items'} found`;
+
+      dom.searchGrid.replaceChildren();
+
+      if (matches.total === 0) {
+        const emptyLi = document.createElement('li');
+        emptyLi.style.gridColumn = '1 / -1';
+        emptyLi.appendChild(createEmptyState('NO MATCHES', `No items matching "${q}"`));
+        dom.searchGrid.appendChild(emptyLi);
+      } else {
+        const allMatches = [
+          ...matches.videos.map((v) => ({ ...v, type: 'video', label: 'Video', sub: v.description || 'Video track' })),
+          ...matches.photos.map((p) => ({ ...p, type: 'photo', label: 'Photo', sub: p.description || 'Photo capture' })),
+          ...matches.poems.map((pm) => ({ ...pm, type: 'poem', label: 'Poem', sub: pm.content ? pm.content.slice(0, 45) + '...' : 'Poem' })),
+        ];
+
+        const COLUMNS = 4;
+        const limit = state.searchExpanded ? allMatches.length : COLUMNS;
+        const shown = allMatches.slice(0, limit);
+        const overflow = allMatches.length > COLUMNS && !state.searchExpanded;
+
+        shown.forEach((item, idx) => {
+          const li = document.createElement('li');
+          const card = document.createElement('div');
+          card.className = 'source-card';
+          card.tabIndex = 0;
+
+          const title = document.createElement('div');
+          title.className = 'source-card-title';
+          title.textContent = item.title;
+          card.appendChild(title);
+
+          const footer = document.createElement('div');
+          footer.className = 'source-card-footer';
+
+          const typePill = document.createElement('span');
+          typePill.className = `source-type-pill stack-badge--${item.type}`;
+          typePill.textContent = item.label;
+          footer.appendChild(typePill);
+
+          const sub = document.createElement('span');
+          sub.className = 'source-card-sub';
+          sub.textContent = item.sub;
+          footer.appendChild(sub);
+
+          const idxSpan = document.createElement('span');
+          idxSpan.className = 'source-card-idx';
+          idxSpan.textContent = `${idx + 1}`;
+          footer.appendChild(idxSpan);
+
+          card.appendChild(footer);
+
+          // Card click navigation
+          card.addEventListener('click', () => {
+            selectSearchResult(item);
+          });
+          card.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') selectSearchResult(item);
+          });
+
+          li.appendChild(card);
+          dom.searchGrid.appendChild(li);
+        });
+
+        if (overflow) {
+          const moreLi = document.createElement('li');
+          const moreBtn = document.createElement('button');
+          moreBtn.type = 'button';
+          moreBtn.className = 'more-card';
+          moreBtn.innerHTML = `
+            <span class="more-card-text">+${allMatches.length - COLUMNS} more items</span>
+            <span class="source-card-sub">Click to expand all</span>
+          `;
+          moreBtn.addEventListener('click', () => {
+            state.searchExpanded = true;
+            updateSearchUI();
+          });
+          moreLi.appendChild(moreBtn);
+          dom.searchGrid.appendChild(moreLi);
+        } else if (state.searchExpanded && allMatches.length > COLUMNS) {
+          const lessLi = document.createElement('li');
+          lessLi.style.gridColumn = '1 / -1';
+          const lessBtn = document.createElement('button');
+          lessBtn.type = 'button';
+          lessBtn.className = 'pill-btn';
+          lessBtn.style.margin = '4px auto 0';
+          lessBtn.textContent = 'Show less';
+          lessBtn.addEventListener('click', () => {
+            state.searchExpanded = false;
+            updateSearchUI();
+          });
+          lessLi.appendChild(lessBtn);
+          dom.searchGrid.appendChild(lessLi);
+        }
+      }
+    } else {
+      closeSearchDropdown();
+    }
+
+    renderPanels();
+  }
+
+  function selectSearchResult(item) {
+    closeSearchDropdown();
+    if (item.type === 'photo') {
+      const idx = state.photos.findIndex(p => p.id === item.id);
+      if (idx !== -1) openLightbox(idx);
+    } else if (item.type === 'video') {
+      applyFilter('all');
+      const vCard = dom.bodyVideos.querySelector(`[data-id="${item.id}"]`) || dom.bodyVideos.firstElementChild;
+      if (vCard) {
+        vCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        vCard.style.outline = '2px solid var(--fg)';
+        setTimeout(() => { vCard.style.outline = ''; }, 1800);
+      }
+    } else if (item.type === 'poem') {
+      applyFilter('all');
+      const pCard = dom.bodyPoems.querySelector(`[data-id="${item.id}"]`) || dom.bodyPoems.firstElementChild;
+      if (pCard) {
+        pCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        pCard.style.outline = '2px solid var(--fg)';
+        setTimeout(() => { pCard.style.outline = ''; }, 1800);
+      }
+    }
+  }
+
+  function closeSearchDropdown() {
+    state.searchOpen = false;
+    dom.searchDropdown.hidden = true;
+    dom.searchDropdown.setAttribute('aria-hidden', 'true');
+    dom.webSearch.classList.remove('is-open');
+    dom.searchTrigger.setAttribute('aria-expanded', 'false');
+  }
+
   function renderPanels() {
+    const q = state.searchQuery.toLowerCase().trim();
+    const hasQuery = q.length > 0;
+
+    const vList = hasQuery
+      ? state.videos.filter(v => (v.title || '').toLowerCase().includes(q) || (v.description || '').toLowerCase().includes(q))
+      : state.videos;
+    const pList = hasQuery
+      ? state.photos.filter(p => (p.title || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q))
+      : state.photos;
+    const pmList = hasQuery
+      ? state.poems.filter(pm => (pm.title || '').toLowerCase().includes(q) || (pm.content || '').toLowerCase().includes(q))
+      : state.poems;
+
     // Videos
     dom.bodyVideos.replaceChildren();
-    if (state.videos.length === 0) {
+    if (vList.length === 0) {
       dom.bodyVideos.appendChild(
-        createEmptyState('NO MEDIA', 'No videos yet')
+        createEmptyState('NO MEDIA', hasQuery ? `No videos matching "${state.searchQuery}"` : 'No videos yet')
       );
     } else {
-      state.videos.forEach((v) => {
+      vList.forEach((v) => {
         const fig = document.createElement('figure');
         fig.className = 'media-card';
+        if (v.id !== undefined) fig.dataset.id = v.id;
 
         const visual = document.createElement('div');
         visual.className = 'media-visual';
@@ -480,18 +719,20 @@
 
     // Photos
     dom.bodyPhotos.replaceChildren();
-    if (state.photos.length === 0) {
+    if (pList.length === 0) {
       dom.bodyPhotos.appendChild(
-        createEmptyState('NO MEDIA', 'No photos yet')
+        createEmptyState('NO MEDIA', hasQuery ? `No photos matching "${state.searchQuery}"` : 'No photos yet')
       );
     } else {
-      state.photos.forEach((p, idx) => {
+      pList.forEach((p) => {
         const fig = document.createElement('figure');
         fig.className = 'media-card';
+        if (p.id !== undefined) fig.dataset.id = p.id;
 
         const visual = document.createElement('div');
         visual.className = 'media-visual';
-        visual.addEventListener('click', () => openLightbox(idx));
+        const originalIdx = state.photos.findIndex(item => item.id === p.id);
+        visual.addEventListener('click', () => openLightbox(originalIdx !== -1 ? originalIdx : 0));
 
         const img = document.createElement('img');
         img.src = p.url;
@@ -507,14 +748,15 @@
 
     // Poems
     dom.bodyPoems.replaceChildren();
-    if (state.poems.length === 0) {
+    if (pmList.length === 0) {
       dom.bodyPoems.appendChild(
-        createEmptyState('NO POEMS', 'No poems yet')
+        createEmptyState('NO POEMS', hasQuery ? `No poems matching "${state.searchQuery}"` : 'No poems yet')
       );
     } else {
-      state.poems.forEach((poem) => {
+      pmList.forEach((poem) => {
         const article = document.createElement('article');
         article.className = 'poem-card';
+        if (poem.id !== undefined) article.dataset.id = poem.id;
 
         const head = document.createElement('div');
         head.className = 'poem-head';
@@ -797,13 +1039,61 @@
     dom.lbPrev.addEventListener('click', () => stepLightbox(-1));
     dom.lbNext.addEventListener('click', () => stepLightbox(1));
 
+    // WebSearch Events
+    if (dom.searchInput) {
+      dom.searchInput.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value;
+        state.searchOpen = state.searchQuery.trim().length > 0;
+        updateSearchUI();
+      });
+
+      dom.searchInput.addEventListener('focus', () => {
+        if (state.searchQuery.trim().length > 0) {
+          state.searchOpen = true;
+          updateSearchUI();
+        }
+      });
+    }
+
+    if (dom.searchChevron) {
+      dom.searchChevron.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.searchOpen = !state.searchOpen;
+        updateSearchUI();
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (dom.webSearch && !dom.webSearch.contains(e.target)) {
+        closeSearchDropdown();
+      }
+    });
+
     document.addEventListener('keydown', (e) => {
       if (!dom.lightbox.hidden) {
         if (e.key === 'Escape') closeLightbox();
         if (e.key === 'ArrowLeft') stepLightbox(-1);
         if (e.key === 'ArrowRight') stepLightbox(1);
+      } else if (state.searchOpen && e.key === 'Escape') {
+        closeSearchDropdown();
+      } else if (document.activeElement === dom.searchInput && e.key === 'Escape') {
+        dom.searchInput.value = '';
+        state.searchQuery = '';
+        closeSearchDropdown();
+        updateSearchUI();
+        dom.searchInput.blur();
       } else if (state.uploadOpen && e.key === 'Escape') {
         toggleUploadDock(false);
+      } else if (
+        e.key === '/' &&
+        dom.searchInput &&
+        document.activeElement !== dom.searchInput &&
+        document.activeElement.tagName !== 'INPUT' &&
+        document.activeElement.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        dom.searchInput.focus();
+        dom.searchInput.select();
       }
     });
 
