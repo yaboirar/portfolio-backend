@@ -10,51 +10,46 @@
     filter: 'all',
     activePoemIndex: 0,
     lightboxIndex: -1,
+    selectedSpan: 6,
+    spans: JSON.parse(localStorage.getItem('portfolio_spans') || '{}'),
     token: sessionStorage.getItem('admin_token') || '',
   };
 
   const dom = {
     themeSwitch: document.getElementById('theme-switch'),
-    adminTrigger: document.getElementById('admin-trigger'),
-    tokenDot: document.getElementById('token-dot'),
+    uploadTrigger: document.getElementById('upload-trigger'),
+    authDot: document.getElementById('auth-dot'),
+    navBtns: document.querySelectorAll('.nav-roll-btn'),
 
-    navBtns: document.querySelectorAll('.kinetic-nav-btn'),
-    countAll: document.getElementById('count-all'),
-    countVideos: document.getElementById('count-videos'),
-    countPhotos: document.getElementById('count-photos'),
-    countPoems: document.getElementById('count-poems'),
+    blockVideos: document.getElementById('block-videos'),
+    blockPhotos: document.getElementById('block-photos'),
+    blockPoems: document.getElementById('block-poems'),
+    gridVideos: document.getElementById('grid-videos'),
+    gridPhotos: document.getElementById('grid-photos'),
+    poemsNav: document.getElementById('poems-nav'),
+    poemStage: document.getElementById('poem-stage'),
 
-    chapterVideos: document.getElementById('chapter-videos'),
-    chapterPhotos: document.getElementById('chapter-photos'),
-    chapterPoems: document.getElementById('chapter-poems'),
-    reelVideos: document.getElementById('reel-videos'),
-    galleryPhotos: document.getElementById('gallery-photos'),
-    verseIndex: document.getElementById('verse-index'),
-    verseReader: document.getElementById('verse-reader'),
+    drawerBackdrop: document.getElementById('drawer-backdrop'),
+    uploadDrawer: document.getElementById('upload-drawer'),
+    drawerResizer: document.getElementById('drawer-resizer'),
+    drawerClose: document.getElementById('drawer-close'),
+    drawerTabs: document.querySelectorAll('.drawer-tab'),
 
-    lightbox: document.getElementById('lightbox'),
-    lbCounter: document.getElementById('lb-counter'),
-    lbTitle: document.getElementById('lb-title'),
-    lbDesc: document.getElementById('lb-desc'),
-    lbCanvas: document.getElementById('lb-canvas'),
-    lbPrev: document.getElementById('lb-prev'),
-    lbNext: document.getElementById('lb-next'),
-    lbClose: document.getElementById('lb-close'),
-
-    studioModal: document.getElementById('studio-modal'),
-    studioClose: document.getElementById('studio-close'),
     adminToken: document.getElementById('admin-token'),
     saveToken: document.getElementById('save-token'),
-    authIndicator: document.getElementById('auth-indicator'),
-    modeTabs: document.querySelectorAll('.mode-tab'),
 
     uploadForm: document.getElementById('upload-form'),
-    dropzone: document.getElementById('dropzone'),
+    filePicker: document.getElementById('file-picker'),
     uploadFile: document.getElementById('upload-file'),
-    dropzonePreview: document.getElementById('dropzone-preview'),
-    dropzonePrompt: document.getElementById('dropzone-prompt'),
-    dropzoneFilename: document.getElementById('dropzone-filename'),
-    dropzoneFilesize: document.getElementById('dropzone-filesize'),
+    fileName: document.getElementById('file-name'),
+    fileMeta: document.getElementById('file-meta'),
+    filePreviewWrap: document.getElementById('file-preview-wrap'),
+    filePreviewStage: document.getElementById('file-preview-stage'),
+    previewHeightSlider: document.getElementById('preview-height-slider'),
+
+    spaceBtns: document.querySelectorAll('.space-btn'),
+    spaceValue: document.getElementById('space-value'),
+
     uploadTitle: document.getElementById('upload-title'),
     uploadDesc: document.getElementById('upload-desc'),
     uploadMeter: document.getElementById('upload-meter'),
@@ -67,10 +62,18 @@
     poemContent: document.getElementById('poem-content'),
     poemFeedback: document.getElementById('poem-feedback'),
     poemSubmit: document.getElementById('poem-submit'),
+
+    lightbox: document.getElementById('lightbox'),
+    lbTitle: document.getElementById('lb-title'),
+    lbDesc: document.getElementById('lb-desc'),
+    lbCanvas: document.getElementById('lb-canvas'),
+    lbPrev: document.getElementById('lb-prev'),
+    lbNext: document.getElementById('lb-next'),
+    lbClose: document.getElementById('lb-close'),
   };
 
   /* ========================================================================
-     TEXT-ROLL BUILDER (Direct Vanilla DOM port of TextRoll component)
+     TEXT-ROLL ENGINE
      ======================================================================== */
   function createTextRollNode(text, center = false, extraClass = '') {
     const root = document.createElement('span');
@@ -102,25 +105,20 @@
     return root;
   }
 
-  function hydrateStaticTextRolls() {
-    document.querySelectorAll('.js-text-roll').forEach((el) => {
-      const text = el.dataset.text || el.textContent.trim();
-      const center = el.dataset.center === 'true';
-      const extraClass = Array.from(el.classList)
+  function hydrateTextRolls() {
+    document.querySelectorAll('.js-text-roll').forEach((node) => {
+      const text = node.dataset.text || node.textContent.trim();
+      const center = node.dataset.center === 'true';
+      const extraClass = Array.from(node.classList)
         .filter((c) => c !== 'js-text-roll')
         .join(' ');
-      const rollNode = createTextRollNode(text, center, extraClass);
-      el.replaceWith(rollNode);
+      node.replaceWith(createTextRollNode(text, center, extraClass));
     });
   }
 
   /* ========================================================================
-     DATA & API HELPERS
+     DATA HELPERS
      ======================================================================== */
-  function pad2(n) {
-    return String(n).padStart(2, '0');
-  }
-
   function unwrapArray(payload, keys) {
     if (Array.isArray(payload)) return payload;
     if (payload && typeof payload === 'object') {
@@ -136,12 +134,21 @@
     return u.startsWith('/') || u.startsWith('http') ? u : '/' + u;
   }
 
-  function detectVideo(item) {
+  function isVideoItem(item) {
     const t = String(item.media_type || item.type || item.file_type || item.mime_type || '').toLowerCase();
     if (t.includes('video')) return true;
     if (t.includes('image') || t.includes('photo')) return false;
     const u = String(item.relative_url || item.url || item.filename || '').toLowerCase();
     return u.includes('/videos/') || /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u);
+  }
+
+  function getSpanForItem(id) {
+    return state.spans[String(id)] || 6;
+  }
+
+  function setSpanForItem(id, span) {
+    state.spans[String(id)] = Number(span);
+    localStorage.setItem('portfolio_spans', JSON.stringify(state.spans));
   }
 
   async function fetchPortfolio() {
@@ -161,14 +168,14 @@
       state.photos = [];
 
       mediaItems.forEach((m) => {
-        const normalized = {
+        const entry = {
           id: m.id,
           title: m.title || 'Untitled',
           description: m.description || '',
           url: resolvePath(m.relative_url || m.url || m.file_path),
         };
-        if (detectVideo(m)) state.videos.push(normalized);
-        else state.photos.push(normalized);
+        if (isVideoItem(m)) state.videos.push(entry);
+        else state.photos.push(entry);
       });
 
       state.poems = poemItems.map((p) => ({
@@ -181,120 +188,136 @@
         state.activePoemIndex = 0;
       }
 
-      renderExhibition();
+      renderCanvas();
     } catch (err) {
-      console.error('Portfolio fetch error:', err);
+      console.error('Failed to load portfolio:', err);
     }
   }
 
   /* ========================================================================
      RENDERING
      ======================================================================== */
-  function buildPieceCaption(item, index, endpoint) {
+  function buildMediaBar(item, figureEl) {
     const bar = document.createElement('figcaption');
-    bar.className = 'piece-bar';
+    bar.className = 'media-bar';
 
-    const info = document.createElement('div');
-    info.className = 'piece-info';
-
-    const idx = document.createElement('span');
-    idx.className = 'piece-index';
-    idx.textContent = pad2(index + 1);
+    const meta = document.createElement('div');
+    meta.className = 'media-meta';
 
     const title = document.createElement('span');
-    title.className = 'piece-title';
+    title.className = 'media-title';
     title.textContent = item.title;
-
-    info.appendChild(idx);
-    info.appendChild(title);
+    meta.appendChild(title);
 
     if (item.description) {
       const desc = document.createElement('span');
-      desc.className = 'piece-desc';
+      desc.className = 'media-desc';
       desc.textContent = item.description;
-      info.appendChild(desc);
+      meta.appendChild(desc);
     }
 
-    bar.appendChild(info);
+    bar.appendChild(meta);
 
     if (state.token && item.id !== undefined) {
+      const controls = document.createElement('div');
+      controls.className = 'media-controls';
+
+      const currentSpan = getSpanForItem(item.id);
+      const sizes = [
+        { span: 3, label: '25%' },
+        { span: 6, label: '50%' },
+        { span: 9, label: '75%' },
+        { span: 12, label: '100%' },
+      ];
+
+      sizes.forEach(({ span, label }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'span-pill' + (currentSpan === span ? ' is-active' : '');
+        btn.textContent = label;
+        btn.title = `Set width to ${label}`;
+        btn.addEventListener('click', () => {
+          setSpanForItem(item.id, span);
+          figureEl.dataset.span = String(span);
+          controls.querySelectorAll('.span-pill').forEach((p) => p.classList.remove('is-active'));
+          btn.classList.add('is-active');
+        });
+        controls.appendChild(btn);
+      });
+
       const del = document.createElement('button');
       del.type = 'button';
-      del.className = 'piece-delete';
+      del.className = 'delete-link';
       del.textContent = 'Delete';
-      del.addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteEntry(endpoint, item.id);
-      });
-      bar.appendChild(del);
+      del.addEventListener('click', () => deleteEntry('media', item.id));
+      controls.appendChild(del);
+
+      bar.appendChild(controls);
     }
 
     return bar;
   }
 
-  function renderEmptyState(container, label) {
+  function makeEmptyNotice(text) {
     const div = document.createElement('div');
-    div.className = 'empty-canvas';
-    div.textContent = `00 — NO ${label} IN ARCHIVE`;
-    container.appendChild(div);
+    div.className = 'empty-notice';
+    div.textContent = text;
+    return div;
   }
 
-  function renderVerseReader() {
-    dom.verseReader.replaceChildren();
+  function renderPoemReader() {
+    dom.poemStage.replaceChildren();
     const poem = state.poems[state.activePoemIndex];
-    if (!poem) return;
+    if (!poem) {
+      dom.poemStage.hidden = true;
+      return;
+    }
+
+    dom.poemStage.hidden = false;
 
     const head = document.createElement('div');
-    head.className = 'verse-reader-head';
+    head.className = 'poem-stage-head';
 
     const title = document.createElement('h3');
-    title.className = 'verse-reader-title';
+    title.className = 'poem-stage-title';
     title.textContent = poem.title;
     head.appendChild(title);
 
     if (state.token && poem.id !== undefined) {
       const del = document.createElement('button');
       del.type = 'button';
-      del.className = 'piece-delete';
+      del.className = 'delete-link';
       del.textContent = 'Delete';
       del.addEventListener('click', () => deleteEntry('poems', poem.id));
       head.appendChild(del);
     }
 
     const body = document.createElement('div');
-    body.className = 'verse-reader-body';
+    body.className = 'poem-stage-body';
     body.textContent = poem.content;
 
-    dom.verseReader.appendChild(head);
-    dom.verseReader.appendChild(body);
+    dom.poemStage.appendChild(head);
+    dom.poemStage.appendChild(body);
   }
 
-  function renderExhibition() {
-    const vLen = state.videos.length;
-    const phLen = state.photos.length;
-    const poLen = state.poems.length;
-
-    dom.countAll.textContent = pad2(vLen + phLen + poLen);
-    dom.countVideos.textContent = pad2(vLen);
-    dom.countPhotos.textContent = pad2(phLen);
-    dom.countPoems.textContent = pad2(poLen);
-
+  function renderCanvas() {
     const f = state.filter;
-    dom.chapterVideos.hidden = f !== 'all' && f !== 'videos';
-    dom.chapterPhotos.hidden = f !== 'all' && f !== 'photos';
-    dom.chapterPoems.hidden = f !== 'all' && f !== 'poems';
+    dom.blockVideos.hidden = f !== 'all' && f !== 'videos';
+    dom.blockPhotos.hidden = f !== 'all' && f !== 'photos';
+    dom.blockPoems.hidden = f !== 'all' && f !== 'poems';
 
-    // 01 / Videos
-    dom.reelVideos.replaceChildren();
-    if (vLen === 0) {
-      renderEmptyState(dom.reelVideos, 'MOTION');
+    // Videos
+    dom.gridVideos.replaceChildren();
+    if (state.videos.length === 0) {
+      dom.gridVideos.appendChild(makeEmptyNotice('No videos uploaded yet.'));
     } else {
-      state.videos.forEach((v, idx) => {
+      state.videos.forEach((v) => {
         const fig = document.createElement('figure');
-        fig.className = 'motion-card';
+        fig.className = 'media-item';
+        fig.dataset.span = String(getSpanForItem(v.id));
 
         const stage = document.createElement('div');
-        stage.className = 'motion-stage';
+        stage.className = 'media-stage';
 
         const video = document.createElement('video');
         video.src = v.url;
@@ -304,135 +327,130 @@
 
         stage.appendChild(video);
         fig.appendChild(stage);
-        fig.appendChild(buildPieceCaption(v, idx, 'media'));
-        dom.reelVideos.appendChild(fig);
+        fig.appendChild(buildMediaBar(v, fig));
+        dom.gridVideos.appendChild(fig);
       });
     }
 
-    // 02 / Photos
-    dom.galleryPhotos.replaceChildren();
-    if (phLen === 0) {
-      renderEmptyState(dom.galleryPhotos, 'STILLS');
+    // Photos
+    dom.gridPhotos.replaceChildren();
+    if (state.photos.length === 0) {
+      dom.gridPhotos.appendChild(makeEmptyNotice('No photos uploaded yet.'));
     } else {
       state.photos.forEach((p, idx) => {
         const fig = document.createElement('figure');
-        fig.className = 'still-item';
+        fig.className = 'media-item';
+        fig.dataset.span = String(getSpanForItem(p.id));
 
-        const frame = document.createElement('div');
-        frame.className = 'still-frame';
-        frame.addEventListener('click', () => openLightbox(idx));
+        const stage = document.createElement('div');
+        stage.className = 'media-stage';
+        stage.addEventListener('click', () => openLightbox(idx));
 
         const img = document.createElement('img');
         img.src = p.url;
         img.alt = p.title;
         img.loading = 'lazy';
 
-        frame.appendChild(img);
-        fig.appendChild(frame);
-        fig.appendChild(buildPieceCaption(p, idx, 'media'));
-        dom.galleryPhotos.appendChild(fig);
+        stage.appendChild(img);
+        fig.appendChild(stage);
+        fig.appendChild(buildMediaBar(p, fig));
+        dom.gridPhotos.appendChild(fig);
       });
     }
 
-    // 03 / Poems (Interactive TextRoll Index + Reader Stage)
-    dom.verseIndex.replaceChildren();
-    dom.verseReader.replaceChildren();
+    // Poems
+    dom.poemsNav.replaceChildren();
+    dom.poemStage.replaceChildren();
 
-    if (poLen === 0) {
-      dom.verseReader.hidden = true;
-      renderEmptyState(dom.verseIndex, 'VERSE');
+    if (state.poems.length === 0) {
+      dom.poemStage.hidden = true;
+      dom.poemsNav.appendChild(makeEmptyNotice('No poems published yet.'));
     } else {
-      dom.verseReader.hidden = false;
       state.poems.forEach((poem, idx) => {
         const li = document.createElement('li');
-        li.className = 'verse-index-item';
+        li.className = 'poem-nav-item';
 
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'verse-index-btn' + (idx === state.activePoemIndex ? ' is-active' : '');
+        btn.className = 'poem-nav-btn' + (idx === state.activePoemIndex ? ' is-active' : '');
 
-        const left = document.createElement('div');
-        left.className = 'verse-index-left';
-
-        const num = document.createElement('span');
-        num.className = 'piece-index';
-        num.textContent = pad2(idx + 1);
-
-        const rollTitle = createTextRollNode(poem.title.toUpperCase(), false, 'verse-roll-title');
-
-        left.appendChild(num);
-        left.appendChild(rollTitle);
-        btn.appendChild(left);
+        const rollTitle = createTextRollNode(poem.title.toUpperCase(), false, 'poem-roll-title');
+        btn.appendChild(rollTitle);
 
         btn.addEventListener('click', () => {
           state.activePoemIndex = idx;
-          dom.verseIndex.querySelectorAll('.verse-index-btn').forEach((b, bIdx) => {
+          dom.poemsNav.querySelectorAll('.poem-nav-btn').forEach((b, bIdx) => {
             b.classList.toggle('is-active', bIdx === idx);
           });
-          renderVerseReader();
+          renderPoemReader();
         });
 
         li.appendChild(btn);
-        dom.verseIndex.appendChild(li);
+        dom.poemsNav.appendChild(li);
       });
 
-      renderVerseReader();
+      renderPoemReader();
     }
   }
 
   /* ========================================================================
-     LIGHTBOX
+     SLIDE-LEFT DRAWER & RESIZER
      ======================================================================== */
-  function openLightbox(index) {
-    state.lightboxIndex = index;
-    updateLightboxStage();
-    dom.lightbox.hidden = false;
-    dom.lightbox.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+  function openDrawer() {
+    dom.drawerBackdrop.hidden = false;
+    requestAnimationFrame(() => {
+      dom.drawerBackdrop.classList.add('is-open');
+      dom.uploadDrawer.classList.add('is-open');
+      dom.uploadDrawer.setAttribute('aria-hidden', 'false');
+    });
   }
 
-  function closeLightbox() {
-    dom.lbCanvas.replaceChildren();
-    dom.lightbox.hidden = true;
-    dom.lightbox.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
+  function closeDrawer() {
+    dom.drawerBackdrop.classList.remove('is-open');
+    dom.uploadDrawer.classList.remove('is-open');
+    dom.uploadDrawer.setAttribute('aria-hidden', 'true');
+    setTimeout(() => {
+      if (!dom.uploadDrawer.classList.contains('is-open')) {
+        dom.drawerBackdrop.hidden = true;
+      }
+    }, 450);
   }
 
-  function stepLightbox(delta) {
-    const len = state.photos.length;
-    if (!len) return;
-    state.lightboxIndex = (state.lightboxIndex + delta + len) % len;
-    updateLightboxStage();
-  }
+  function initDrawerResize() {
+    let dragging = false;
 
-  function updateLightboxStage() {
-    const item = state.photos[state.lightboxIndex];
-    if (!item) return;
+    dom.drawerResizer.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dragging = true;
+      dom.drawerResizer.classList.add('is-dragging');
+      document.body.style.userSelect = 'none';
+    });
 
-    dom.lbCanvas.replaceChildren();
-    dom.lbCounter.textContent = `${pad2(state.lightboxIndex + 1)} / ${pad2(state.photos.length)}`;
-    dom.lbTitle.textContent = item.title;
-    dom.lbDesc.textContent = item.description || '';
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const newWidth = Math.min(Math.max(window.innerWidth - e.clientX, 340), 780);
+      document.documentElement.style.setProperty('--drawer-width', `${newWidth}px`);
+    });
 
-    const img = document.createElement('img');
-    img.src = item.url;
-    img.alt = item.title;
-    dom.lbCanvas.appendChild(img);
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      dom.drawerResizer.classList.remove('is-dragging');
+      document.body.style.userSelect = '';
+    });
   }
 
   /* ========================================================================
-     STUDIO / ADMIN ACTIONS
+     UPLOAD & DELETE HANDLERS
      ======================================================================== */
-  function syncTokenState() {
+  function syncTokenUI() {
     dom.adminToken.value = state.token;
-    const unlocked = Boolean(state.token);
-    dom.authIndicator.textContent = unlocked ? 'Active' : 'Locked';
-    dom.tokenDot.hidden = !unlocked;
+    dom.authDot.hidden = !state.token;
   }
 
   async function deleteEntry(endpoint, id) {
     if (!state.token) return;
-    if (!window.confirm('Remove this work permanently?')) return;
+    if (!window.confirm('Delete this item?')) return;
 
     const res = await fetch(`/api/${endpoint}/${encodeURIComponent(id)}`, {
       method: 'DELETE',
@@ -446,37 +464,35 @@
     }
   }
 
-  function updateDropzonePreview() {
+  function updateFilePreview() {
     const file = dom.uploadFile.files[0];
-    dom.dropzonePreview.replaceChildren();
+    dom.filePreviewStage.replaceChildren();
 
     if (!file) {
-      dom.dropzonePreview.hidden = true;
-      dom.dropzonePrompt.hidden = false;
-      dom.dropzoneFilename.textContent = 'Drop video or image here';
-      dom.dropzoneFilesize.textContent = 'or click to browse local files';
+      dom.filePreviewWrap.hidden = true;
+      dom.fileName.textContent = 'Select video or photo';
+      dom.fileMeta.textContent = 'MP4, WebM, MOV, JPG, PNG, WebP';
       return;
     }
 
     const mb = (file.size / (1024 * 1024)).toFixed(2);
-    dom.dropzoneFilename.textContent = file.name;
-    dom.dropzoneFilesize.textContent = `${mb} MB`;
+    dom.fileName.textContent = file.name;
+    dom.fileMeta.textContent = `${mb} MB`;
 
     const blobUrl = URL.createObjectURL(file);
     if (file.type.startsWith('video/')) {
       const vid = document.createElement('video');
       vid.src = blobUrl;
+      vid.controls = true;
       vid.muted = true;
-      vid.autoplay = true;
-      vid.loop = true;
       vid.playsInline = true;
-      dom.dropzonePreview.appendChild(vid);
-      dom.dropzonePreview.hidden = false;
+      dom.filePreviewStage.appendChild(vid);
+      dom.filePreviewWrap.hidden = false;
     } else if (file.type.startsWith('image/')) {
       const img = document.createElement('img');
       img.src = blobUrl;
-      dom.dropzonePreview.appendChild(img);
-      dom.dropzonePreview.hidden = false;
+      dom.filePreviewStage.appendChild(img);
+      dom.filePreviewWrap.hidden = false;
     }
   }
 
@@ -486,17 +502,17 @@
     const file = dom.uploadFile.files[0];
 
     if (!token) {
-      dom.uploadFeedback.textContent = 'Token required';
+      dom.uploadFeedback.textContent = 'Enter admin token first';
       return;
     }
     if (!file) {
-      dom.uploadFeedback.textContent = 'Select a file';
+      dom.uploadFeedback.textContent = 'Select a file first';
       return;
     }
 
     state.token = token;
     sessionStorage.setItem('admin_token', token);
-    syncTokenState();
+    syncTokenUI();
 
     const fd = new FormData();
     fd.append('file', file);
@@ -520,16 +536,24 @@
       }
     };
 
-    xhr.onload = () => {
+    xhr.onload = async () => {
       dom.uploadSubmit.disabled = false;
       if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const created = JSON.parse(xhr.responseText);
+          const newId = created.id || (created.media && created.media.id);
+          if (newId !== undefined) {
+            setSpanForItem(newId, state.selectedSpan);
+          }
+        } catch (_) {}
+
         dom.uploadForm.reset();
-        updateDropzonePreview();
-        dom.uploadFeedback.textContent = 'Published';
+        updateFilePreview();
+        dom.uploadFeedback.textContent = 'Uploaded';
         setTimeout(() => {
           dom.uploadMeter.hidden = true;
-        }, 700);
-        fetchPortfolio();
+        }, 600);
+        await fetchPortfolio();
       } else {
         dom.uploadFeedback.textContent = `Error ${xhr.status}`;
       }
@@ -547,13 +571,13 @@
     e.preventDefault();
     const token = dom.adminToken.value.trim() || state.token;
     if (!token) {
-      dom.poemFeedback.textContent = 'Token required';
+      dom.poemFeedback.textContent = 'Enter admin token first';
       return;
     }
 
     state.token = token;
     sessionStorage.setItem('admin_token', token);
-    syncTokenState();
+    syncTokenUI();
 
     dom.poemSubmit.disabled = true;
     dom.poemFeedback.textContent = 'Publishing...';
@@ -574,7 +598,7 @@
       if (!res.ok) throw new Error(res.status);
       dom.poemForm.reset();
       dom.poemFeedback.textContent = 'Published';
-      fetchPortfolio();
+      await fetchPortfolio();
     } catch (err) {
       dom.poemFeedback.textContent = `Error ${err.message}`;
     } finally {
@@ -583,14 +607,54 @@
   }
 
   /* ========================================================================
-     INITIALIZATION
+     LIGHTBOX
+     ======================================================================== */
+  function openLightbox(index) {
+    state.lightboxIndex = index;
+    updateLightbox();
+    dom.lightbox.hidden = false;
+    dom.lightbox.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    dom.lbCanvas.replaceChildren();
+    dom.lightbox.hidden = true;
+    dom.lightbox.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function stepLightbox(delta) {
+    const len = state.photos.length;
+    if (!len) return;
+    state.lightboxIndex = (state.lightboxIndex + delta + len) % len;
+    updateLightbox();
+  }
+
+  function updateLightbox() {
+    const item = state.photos[state.lightboxIndex];
+    if (!item) return;
+
+    dom.lbCanvas.replaceChildren();
+    dom.lbTitle.textContent = item.title;
+    dom.lbDesc.textContent = item.description || '';
+
+    const img = document.createElement('img');
+    img.src = item.url;
+    img.alt = item.title;
+    dom.lbCanvas.appendChild(img);
+  }
+
+  /* ========================================================================
+     INIT
      ======================================================================== */
   function init() {
     const savedTheme = localStorage.getItem('portfolio_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
 
-    hydrateStaticTextRolls();
-    syncTokenState();
+    hydrateTextRolls();
+    syncTokenUI();
+    initDrawerResize();
 
     dom.themeSwitch.addEventListener('click', () => {
       const current = document.documentElement.getAttribute('data-theme');
@@ -602,52 +666,44 @@
     dom.navBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         state.filter = btn.dataset.filter;
-        dom.navBtns.forEach((b) => {
-          const active = b === btn;
-          b.classList.toggle('is-active', active);
-          b.setAttribute('aria-selected', String(active));
-        });
-        renderExhibition();
+        dom.navBtns.forEach((b) => b.classList.toggle('is-active', b === btn));
+        renderCanvas();
       });
     });
 
-    dom.adminTrigger.addEventListener('click', () => {
-      dom.studioModal.hidden = false;
-      dom.studioModal.setAttribute('aria-hidden', 'false');
-    });
-
-    dom.studioClose.addEventListener('click', () => {
-      dom.studioModal.hidden = true;
-      dom.studioModal.setAttribute('aria-hidden', 'true');
-    });
-
-    dom.studioModal.addEventListener('click', (e) => {
-      if (e.target === dom.studioModal) {
-        dom.studioModal.hidden = true;
-        dom.studioModal.setAttribute('aria-hidden', 'true');
-      }
-    });
+    dom.uploadTrigger.addEventListener('click', openDrawer);
+    dom.drawerClose.addEventListener('click', closeDrawer);
+    dom.drawerBackdrop.addEventListener('click', closeDrawer);
 
     dom.saveToken.addEventListener('click', () => {
       state.token = dom.adminToken.value.trim();
       sessionStorage.setItem('admin_token', state.token);
-      syncTokenState();
-      renderExhibition();
+      syncTokenUI();
+      renderCanvas();
     });
 
-    dom.modeTabs.forEach((tab) => {
+    dom.drawerTabs.forEach((tab) => {
       tab.addEventListener('click', () => {
-        dom.modeTabs.forEach((t) => t.classList.toggle('is-active', t === tab));
+        dom.drawerTabs.forEach((t) => t.classList.toggle('is-active', t === tab));
         const isMedia = tab.dataset.tab === 'media';
         dom.uploadForm.hidden = !isMedia;
         dom.poemForm.hidden = isMedia;
       });
     });
 
-    dom.uploadFile.addEventListener('change', updateDropzonePreview);
-    dom.dropzone.addEventListener('dragover', () => dom.dropzone.classList.add('is-dragover'));
-    dom.dropzone.addEventListener('dragleave', () => dom.dropzone.classList.remove('is-dragover'));
-    dom.dropzone.addEventListener('drop', () => dom.dropzone.classList.remove('is-dragover'));
+    dom.uploadFile.addEventListener('change', updateFilePreview);
+    dom.previewHeightSlider.addEventListener('input', (e) => {
+      dom.filePreviewStage.style.height = `${e.target.value}px`;
+    });
+
+    const spanLabels = { 3: '25% width', 6: '50% width', 9: '75% width', 12: '100% width' };
+    dom.spaceBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.selectedSpan = Number(btn.dataset.span);
+        dom.spaceBtns.forEach((b) => b.classList.toggle('is-active', b === btn));
+        dom.spaceValue.textContent = spanLabels[state.selectedSpan];
+      });
+    });
 
     dom.uploadForm.addEventListener('submit', handleMediaUpload);
     dom.poemForm.addEventListener('submit', handlePoemPublish);
@@ -660,19 +716,12 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.shiftKey && (e.key === 'A' || e.key === 'a')) {
-        const tag = document.activeElement ? document.activeElement.tagName : '';
-        if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
-          e.preventDefault();
-          dom.studioModal.hidden = !dom.studioModal.hidden;
-        }
-      }
       if (!dom.lightbox.hidden) {
         if (e.key === 'Escape') closeLightbox();
         if (e.key === 'ArrowLeft') stepLightbox(-1);
         if (e.key === 'ArrowRight') stepLightbox(1);
-      } else if (!dom.studioModal.hidden && e.key === 'Escape') {
-        dom.studioModal.hidden = true;
+      } else if (dom.uploadDrawer.classList.contains('is-open') && e.key === 'Escape') {
+        closeDrawer();
       }
     });
 
