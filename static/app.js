@@ -10,6 +10,133 @@
     poems: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>`,
   };
 
+  const TRANSLATIONS = {
+    en: {
+      all: 'All',
+      allHome: 'All (Home)',
+      videos: 'Videos',
+      photos: 'Photos',
+      poems: 'Poems',
+      searchPlaceholder: 'Search...',
+      searchPrompt: 'Search files, titles, poems...',
+      searchAria: 'Search uploaded items',
+      clearSearch: 'Clear search',
+      toggleTheme: 'Toggle theme',
+      uploadMediaPoems: 'Upload media & poems',
+      closeUpload: 'Close upload panel',
+      searchVideos: 'Search videos',
+      searchPhotos: 'Search photos',
+      searchPoems: 'Search poems',
+      filterVideos: 'Filter videos',
+      filterPhotos: 'Filter photos',
+      filterPoems: 'Filter poems',
+      sortVideos: 'Sort videos',
+      sortPhotos: 'Sort photos',
+      sortPoems: 'Sort poems',
+      expandVideos: 'Expand Videos',
+      expandPhotos: 'Expand Photos',
+      expandPoems: 'Expand Poems',
+      exitFullscreenVideos: 'Exit fullscreen Videos',
+      exitFullscreenPhotos: 'Exit fullscreen Photos',
+      exitFullscreenPoems: 'Exit fullscreen Poems',
+      filter: 'Filter',
+      sortBy: 'Sort By',
+      allVideos: 'All Videos',
+      allPhotos: 'All Photos',
+      allPoems: 'All Poems',
+      recentUploads: 'Recent Uploads',
+      withDescription: 'With Description',
+      shortPoems: 'Short (< 6 lines)',
+      longPoems: 'Long (6+ lines)',
+      sortNewest: 'Newest First',
+      sortOldest: 'Oldest First',
+      sortAZ: 'Title (A–Z)',
+      sortZA: 'Title (Z–A)',
+      emptyState: 'theres nothing here',
+      media: 'Media',
+      adminToken: 'Admin token',
+      save: 'Save',
+      saved: 'Saved',
+      dropTitle: 'Drop or select a video or photo',
+      dropHint: 'Drag bottom handle below to resize',
+      title: 'Title',
+      description: 'Description (optional)',
+      writePoem: 'Write poem...',
+      upload: 'Upload',
+      uploading: 'Uploading...',
+      uploaded: 'Uploaded',
+      enterTokenAbove: 'Enter token above',
+      selectFile: 'Select a file',
+      networkError: 'Network error',
+      delete: 'Delete',
+      prev: 'Prev',
+      next: 'Next',
+      close: 'Close',
+    },
+    id: {
+      all: 'Semua',
+      allHome: 'Semua (Beranda)',
+      videos: 'Video',
+      photos: 'Foto',
+      poems: 'Puisi',
+      searchPlaceholder: 'Cari...',
+      searchPrompt: 'Cari berkas, judul, puisi...',
+      searchAria: 'Cari item yang diunggah',
+      clearSearch: 'Hapus pencarian',
+      toggleTheme: 'Ganti tema',
+      uploadMediaPoems: 'Unggah media & puisi',
+      closeUpload: 'Tutup panel unggah',
+      searchVideos: 'Cari video',
+      searchPhotos: 'Cari foto',
+      searchPoems: 'Cari puisi',
+      filterVideos: 'Saring video',
+      filterPhotos: 'Saring foto',
+      filterPoems: 'Saring puisi',
+      sortVideos: 'Urutkan video',
+      sortPhotos: 'Urutkan foto',
+      sortPoems: 'Urutkan puisi',
+      expandVideos: 'Perbesar Video',
+      expandPhotos: 'Perbesar Foto',
+      expandPoems: 'Perbesar Puisi',
+      exitFullscreenVideos: 'Keluar layar penuh Video',
+      exitFullscreenPhotos: 'Keluar layar penuh Foto',
+      exitFullscreenPoems: 'Keluar layar penuh Puisi',
+      filter: 'Saring',
+      sortBy: 'Urutkan',
+      allVideos: 'Semua Video',
+      allPhotos: 'Semua Foto',
+      allPoems: 'Semua Puisi',
+      recentUploads: 'Unggahan Terbaru',
+      withDescription: 'Dengan Deskripsi',
+      shortPoems: 'Pendek (< 6 baris)',
+      longPoems: 'Panjang (6+ baris)',
+      sortNewest: 'Terbaru',
+      sortOldest: 'Terlama',
+      sortAZ: 'Judul (A–Z)',
+      sortZA: 'Judul (Z–A)',
+      emptyState: 'tidak ada apa-apa di sini',
+      media: 'Media',
+      adminToken: 'Token admin',
+      save: 'Simpan',
+      saved: 'Tersimpan',
+      dropTitle: 'Tarik atau pilih video atau foto',
+      dropHint: 'Tarik pegangan di bawah untuk mengubah ukuran',
+      title: 'Judul',
+      description: 'Deskripsi (opsional)',
+      writePoem: 'Tulis puisi...',
+      upload: 'Unggah',
+      uploading: 'Mengunggah...',
+      uploaded: 'Terunggah',
+      enterTokenAbove: 'Masukkan token di atas',
+      selectFile: 'Pilih berkas',
+      networkError: 'Kesalahan jaringan',
+      delete: 'Hapus',
+      prev: 'Sebelumnya',
+      next: 'Selanjutnya',
+      close: 'Tutup',
+    },
+  };
+
   const CATEGORIES = [
     { key: 'all', label: 'All', title: 'All (Home)', icon: NAV_ICONS.all },
     { key: 'videos', label: 'Videos', title: 'Videos', icon: NAV_ICONS.videos },
@@ -26,6 +153,7 @@
     uploadOpen: false,
     lightboxIndex: -1,
     token: sessionStorage.getItem('admin_token') || '',
+    lang: localStorage.getItem('portfolio_lang') || 'en',
     // Saved split ratios for 'all' view so single-category view can go 100% fullscreen cleanly
     split: {
       primaryPct: 54,
@@ -34,6 +162,13 @@
       bottomPct: 48,
     },
   };
+
+  function t(key) {
+    const lang = state.lang || 'en';
+    return (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) || (TRANSLATIONS.en && TRANSLATIONS.en[key]) || key;
+  }
+
+  const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
 
   const panelState = {
     videos: { search: '', filter: 'all', sort: 'newest', searchOpen: false },
@@ -155,6 +290,22 @@
         .join(' ');
       node.replaceWith(createTextRollNode(text, center, extraClass));
     });
+  }
+
+  function setTextRoll(containerIdOrElement, text, center = false) {
+    const el = typeof containerIdOrElement === 'string'
+      ? document.getElementById(containerIdOrElement)
+      : containerIdOrElement;
+    if (!el) return;
+    const existingRoll = el.classList.contains('text-roll') ? el : el.querySelector('.text-roll');
+    if (existingRoll) {
+      const extraClass = Array.from(existingRoll.classList).filter((c) => c !== 'text-roll').join(' ');
+      const newRoll = createTextRollNode(text, center, extraClass);
+      existingRoll.replaceWith(newRoll);
+    } else {
+      const extraClass = Array.from(el.classList).filter((c) => c !== 'js-text-roll').join(' ');
+      el.replaceWith(createTextRollNode(text, center, extraClass));
+    }
   }
 
   /* ========================================================================
@@ -453,13 +604,19 @@
     state.filter = nextFilter;
     renderNavPill(nextFilter, shrinkNav);
 
+    const isFullscreenSwitch = prevFilter !== 'all' && nextFilter !== 'all' && prevFilter !== nextFilter;
+
+    if (isFullscreenSwitch) {
+      dom.bentoStage.classList.add('is-switching-fullscreen');
+    }
+
     dom.expandBtns.forEach((btn) => {
       const isExpanded = nextFilter !== 'all' && btn.dataset.expand === nextFilter;
       btn.classList.toggle('is-expanded', isExpanded);
-      btn.setAttribute(
-        'aria-label',
-        isExpanded ? `Exit fullscreen ${btn.dataset.expand}` : `Expand ${btn.dataset.expand}`
-      );
+      const expandText = isExpanded
+        ? (state.lang === 'id' ? `Keluar layar penuh ${t(btn.dataset.expand)}` : `Exit fullscreen ${btn.dataset.expand}`)
+        : (state.lang === 'id' ? `Perbesar ${t(btn.dataset.expand)}` : `Expand ${btn.dataset.expand}`);
+      btn.setAttribute('aria-label', expandText);
       if (btn.dataset.expand === nextFilter || btn.dataset.expand === prevFilter) {
         btn.classList.remove('is-animating');
         void btn.offsetWidth;
@@ -469,6 +626,21 @@
     });
 
     syncSlotFlexSizing();
+
+    if (isFullscreenSwitch) {
+      const targetPanel = document.getElementById(`panel-${nextFilter}`);
+      if (targetPanel) {
+        targetPanel.classList.remove('panel-crossfade');
+        void targetPanel.offsetWidth;
+        targetPanel.classList.add('panel-crossfade');
+        setTimeout(() => targetPanel.classList.remove('panel-crossfade'), 360);
+      }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          dom.bentoStage.classList.remove('is-switching-fullscreen');
+        });
+      });
+    }
   }
 
   /* ========================================================================
@@ -815,7 +987,7 @@
     }
   }
 
-  function createEmptyState(text = "theres nothing here") {
+  function createEmptyState(text) {
     const box = document.createElement('div');
     box.className = 'empty-state';
 
@@ -831,7 +1003,7 @@
 
     const label = document.createElement('span');
     label.className = 'empty-state-label';
-    label.textContent = text;
+    label.textContent = text || t('emptyState');
     box.appendChild(label);
 
     return box;
@@ -909,7 +1081,7 @@
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'delete-btn';
-      del.textContent = 'Delete';
+      del.textContent = t('delete');
       del.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteEntry(endpoint, item.id);
@@ -928,7 +1100,7 @@
     // Videos
     dom.bodyVideos.replaceChildren();
     if (vRes.list.length === 0) {
-      dom.bodyVideos.appendChild(createEmptyState("theres nothing here"));
+      dom.bodyVideos.appendChild(createEmptyState());
     } else {
       vRes.list.forEach((v) => {
         const fig = document.createElement('figure');
@@ -954,7 +1126,7 @@
     // Photos
     dom.bodyPhotos.replaceChildren();
     if (pRes.list.length === 0) {
-      dom.bodyPhotos.appendChild(createEmptyState("theres nothing here"));
+      dom.bodyPhotos.appendChild(createEmptyState());
     } else {
       pRes.list.forEach((p) => {
         const fullIdx = state.photos.indexOf(p);
@@ -981,7 +1153,7 @@
     // Poems
     dom.bodyPoems.replaceChildren();
     if (pmRes.list.length === 0) {
-      dom.bodyPoems.appendChild(createEmptyState("theres nothing here"));
+      dom.bodyPoems.appendChild(createEmptyState());
     } else {
       pmRes.list.forEach((poem) => {
         const article = document.createElement('article');
@@ -1000,7 +1172,7 @@
           const del = document.createElement('button');
           del.type = 'button';
           del.className = 'delete-btn';
-          del.textContent = 'Delete';
+          del.textContent = t('delete');
           del.addEventListener('click', () => deleteEntry('poems', poem.id));
           head.appendChild(del);
         }
@@ -1047,8 +1219,8 @@
     if (!file) {
       dom.dropPreview.hidden = true;
       dom.dropEmpty.hidden = false;
-      dom.dropTitle.textContent = 'Drop or select a video or photo';
-      dom.dropHint.textContent = 'Drag bottom handle below to resize';
+      dom.dropTitle.textContent = t('dropTitle');
+      dom.dropHint.textContent = t('dropHint');
       return;
     }
 
@@ -1066,6 +1238,7 @@
     } else if (file.type.startsWith('image/')) {
       const img = document.createElement('img');
       img.src = blobUrl;
+      img.alt = '';
       dom.dropPreview.appendChild(img);
     }
   }
@@ -1076,11 +1249,11 @@
     const file = dom.uploadFile.files[0];
 
     if (!token) {
-      dom.uploadStatus.textContent = 'Enter token above';
+      dom.uploadStatus.textContent = t('enterTokenAbove');
       return;
     }
     if (!file) {
-      dom.uploadStatus.textContent = 'Select a file';
+      dom.uploadStatus.textContent = t('selectFile');
       return;
     }
 
@@ -1115,7 +1288,7 @@
       if (xhr.status >= 200 && xhr.status < 300) {
         dom.uploadForm.reset();
         updateDropPreview();
-        dom.uploadStatus.textContent = 'Uploaded';
+        dom.uploadStatus.textContent = t('uploaded');
         setTimeout(() => {
           dom.uploadMeter.hidden = true;
         }, 600);
@@ -1127,7 +1300,7 @@
 
     xhr.onerror = () => {
       dom.uploadSubmit.disabled = false;
-      dom.uploadStatus.textContent = 'Network error';
+      dom.uploadStatus.textContent = t('networkError');
     };
 
     xhr.send(fd);
@@ -1137,7 +1310,7 @@
     e.preventDefault();
     const token = dom.adminToken.value.trim() || state.token;
     if (!token) {
-      dom.poemStatus.textContent = 'Enter token above';
+      dom.poemStatus.textContent = t('enterTokenAbove');
       return;
     }
 
@@ -1146,7 +1319,7 @@
     syncTokenUI();
 
     dom.poemSubmit.disabled = true;
-    dom.poemStatus.textContent = 'Uploading...';
+    dom.poemStatus.textContent = t('uploading');
 
     try {
       const res = await fetch('/api/poems', {
@@ -1163,7 +1336,7 @@
 
       if (!res.ok) throw new Error(res.status);
       dom.poemForm.reset();
-      dom.poemStatus.textContent = 'Uploaded';
+      dom.poemStatus.textContent = t('uploaded');
       await fetchPortfolio();
     } catch (err) {
       dom.poemStatus.textContent = `Error ${err.message}`;
@@ -1394,6 +1567,150 @@
     });
   }
 
+  function updatePopoversText() {
+    document.querySelectorAll('.panel-popover').forEach((pop) => {
+      const header = pop.querySelector('.popover-header');
+      if (header) {
+        header.textContent = pop.classList.contains('filter-popover') ? t('filter') : t('sortBy');
+      }
+    });
+
+    document.querySelectorAll('.filter-popover .popover-item').forEach((item) => {
+      const panelKey = item.dataset.panel;
+      const val = item.dataset.val;
+      const label = item.querySelector('span:not(.popover-check)');
+      if (!label) return;
+
+      if (val === 'all') {
+        label.textContent = t(`all${capitalize(panelKey)}`);
+      } else if (val === 'recent') {
+        label.textContent = t('recentUploads');
+      } else if (val === 'has_desc') {
+        label.textContent = t('withDescription');
+      } else if (val === 'short') {
+        label.textContent = t('shortPoems');
+      } else if (val === 'long') {
+        label.textContent = t('longPoems');
+      }
+    });
+
+    document.querySelectorAll('.sort-popover .popover-item').forEach((item) => {
+      const val = item.dataset.val;
+      const label = item.querySelector('span:not(.popover-check)');
+      if (!label) return;
+
+      if (val === 'newest') label.textContent = t('sortNewest');
+      else if (val === 'oldest') label.textContent = t('sortOldest');
+      else if (val === 'az') label.textContent = t('sortAZ');
+      else if (val === 'za') label.textContent = t('sortZA');
+    });
+  }
+
+  function applyLanguage(lang) {
+    const activeLang = lang === 'id' ? 'id' : 'en';
+    state.lang = activeLang;
+    localStorage.setItem('portfolio_lang', activeLang);
+    document.documentElement.setAttribute('lang', activeLang);
+
+    // 1. Language switcher buttons
+    document.querySelectorAll('.lang-btn').forEach((btn) => {
+      const isActive = btn.dataset.lang === activeLang;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-pressed', String(isActive));
+    });
+
+    // 2. Translatable text nodes
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.dataset.i18n;
+      const translated = t(key);
+      if (el.classList.contains('text-roll') || el.querySelector('.text-roll') || el.classList.contains('js-text-roll')) {
+        setTextRoll(el, translated, el.dataset.center === 'true');
+      } else {
+        el.textContent = translated;
+      }
+    });
+
+    // 3. Placeholders
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      el.placeholder = t(el.dataset.i18nPlaceholder);
+    });
+
+    // 4. Titles & Aria labels
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      el.title = t(el.dataset.i18nTitle);
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+      el.setAttribute('aria-label', t(el.dataset.i18nAria));
+    });
+
+    // 5. Update category drawer titles & re-render nav pill
+    CATEGORIES.forEach((cat) => {
+      cat.label = t(cat.key);
+      cat.title = cat.key === 'all' ? t('allHome') : t(cat.key);
+    });
+    renderNavPill(state.filter, false);
+
+    // 6. Update universal search placeholder
+    if (dom.searchInput) {
+      dom.searchInput.placeholder = dom.searchHub.classList.contains('is-focused')
+        ? t('searchPrompt')
+        : t('searchPlaceholder');
+    }
+
+    // 7. Update panel tools tooltips & aria labels
+    ['videos', 'photos', 'poems'].forEach((key) => {
+      const searchBtn = document.querySelector(`.panel-search-icon-btn[data-panel="${key}"]`);
+      const searchInput = document.getElementById(`search-input-${key}`);
+      const clearBtn = document.getElementById(`search-clear-${key}`);
+      const filterBtn = document.querySelector(`.panel-filter-btn[data-panel="${key}"]`);
+      const sortBtn = document.querySelector(`.panel-sort-btn[data-panel="${key}"]`);
+      const expandBtn = document.querySelector(`.panel-expand-btn[data-expand="${key}"]`);
+
+      if (searchBtn) {
+        searchBtn.title = t(`search${capitalize(key)}`);
+        searchBtn.setAttribute('aria-label', t(`search${capitalize(key)}`));
+      }
+      if (searchInput) {
+        searchInput.placeholder = t('searchPlaceholder');
+        searchInput.setAttribute('aria-label', t(`search${capitalize(key)}`));
+      }
+      if (clearBtn) {
+        clearBtn.title = t('clearSearch');
+        clearBtn.setAttribute('aria-label', t('clearSearch'));
+      }
+      if (filterBtn) {
+        filterBtn.title = t(`filter${capitalize(key)}`);
+        filterBtn.setAttribute('aria-label', t(`filter${capitalize(key)}`));
+      }
+      if (sortBtn) {
+        sortBtn.title = t(`sort${capitalize(key)}`);
+        sortBtn.setAttribute('aria-label', t(`sort${capitalize(key)}`));
+      }
+      if (expandBtn) {
+        const isExp = expandBtn.classList.contains('is-expanded');
+        expandBtn.setAttribute('aria-label', isExp ? (state.lang === 'id' ? `Keluar layar penuh ${t(key)}` : `Exit fullscreen ${key}`) : (state.lang === 'id' ? `Perbesar ${t(key)}` : `Expand ${key}`));
+      }
+    });
+
+    // 8. Re-render popovers
+    updatePopoversText();
+
+    // 9. Re-render panels (updates empty states and delete buttons)
+    renderPanels();
+  }
+
+  function initLanguageSwitcher() {
+    document.querySelectorAll('.lang-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const selected = btn.dataset.lang;
+        if (selected && selected !== state.lang) {
+          applyLanguage(selected);
+        }
+      });
+    });
+  }
+
   /* ========================================================================
      INIT
      ======================================================================== */
@@ -1401,11 +1718,15 @@
     const savedTheme = localStorage.getItem('portfolio_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
 
+    const savedLang = localStorage.getItem('portfolio_lang') || 'en';
+
     hydrateTextRolls();
+    applyLanguage(savedLang);
     applyFilter('all', false);
     syncTokenUI();
     initWorkspaceInteractions();
     initPanelTools();
+    initLanguageSwitcher();
 
     dom.navCurrent.addEventListener('click', (e) => {
       if (e.detail !== 0 && !navHovered && e.pointerType === 'touch') {
@@ -1426,12 +1747,12 @@
 
     dom.searchInput.addEventListener('focus', () => {
       dom.searchHub.classList.add('is-focused');
-      dom.searchInput.placeholder = 'Search files, titles, poems...';
+      dom.searchInput.placeholder = t('searchPrompt');
     });
 
     dom.searchInput.addEventListener('blur', () => {
       if (!state.searchQuery.trim()) {
-        dom.searchInput.placeholder = 'Search...';
+        dom.searchInput.placeholder = t('searchPlaceholder');
       }
     });
 
@@ -1477,6 +1798,10 @@
       sessionStorage.setItem('admin_token', state.token);
       syncTokenUI();
       renderPanels();
+      setTextRoll(dom.saveToken, t('saved'));
+      setTimeout(() => {
+        setTextRoll(dom.saveToken, t('save'));
+      }, 1500);
     });
 
     dom.uploadTabs.forEach((tab) => {

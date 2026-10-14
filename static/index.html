@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=search-pop-1">
+  <link rel="stylesheet" href="/static/style.css?v=footer-lang-1">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -79,6 +79,8 @@
             autocomplete="off"
             spellcheck="false"
             aria-label="Search uploaded items"
+            data-i18n-placeholder="searchPlaceholder"
+            data-i18n-aria="searchAria"
           >
 
           <!-- Stacked Match Badges -->
@@ -88,7 +90,7 @@
           <span class="search-count" id="search-count" hidden>0</span>
 
           <!-- Clear Button (Only visible when text is typed) -->
-          <button type="button" class="search-clear" id="search-clear" hidden aria-label="Clear search">
+          <button type="button" class="search-clear" id="search-clear" hidden aria-label="Clear search" data-i18n-aria="clearSearch">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
@@ -156,7 +158,7 @@
             <header class="panel-header" title="Drag header to swap panel position">
               <div class="panel-title-wrap">
                 <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                <span class="js-text-roll panel-heading" data-text="Videos">Videos</span>
+                <span class="js-text-roll panel-heading" id="heading-videos" data-i18n="videos" data-text="Videos">Videos</span>
               </div>
               <div class="panel-header-actions">
                 <div class="panel-toolbar" role="toolbar" aria-label="Videos controls">
@@ -255,7 +257,7 @@
               <header class="panel-header" title="Drag header to swap panel position">
                 <div class="panel-title-wrap">
                   <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                  <span class="js-text-roll panel-heading" data-text="Photos">Photos</span>
+                  <span class="js-text-roll panel-heading" id="heading-photos" data-i18n="photos" data-text="Photos">Photos</span>
                 </div>
                 <div class="panel-header-actions">
                   <div class="panel-toolbar" role="toolbar" aria-label="Photos controls">
@@ -352,7 +354,7 @@
               <header class="panel-header" title="Drag header to swap panel position">
                 <div class="panel-title-wrap">
                   <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                  <span class="js-text-roll panel-heading" data-text="Poems">Poems</span>
+                  <span class="js-text-roll panel-heading" id="heading-poems" data-i18n="poems" data-text="Poems">Poems</span>
                 </div>
                 <div class="panel-header-actions">
                   <div class="panel-toolbar" role="toolbar" aria-label="Poems controls">
@@ -450,23 +452,23 @@
         <div class="bento-panel upload-panel-surface">
           <header class="panel-header upload-header">
             <div class="upload-tabs" role="tablist">
-              <button type="button" class="upload-tab is-active" data-mode="media">
-                <span class="js-text-roll" data-text="Media">Media</span>
+              <button type="button" class="upload-tab is-active" id="tab-media" data-mode="media">
+                <span class="js-text-roll" id="text-tab-media" data-i18n="media" data-text="Media">Media</span>
               </button>
-              <button type="button" class="upload-tab" data-mode="poem">
-                <span class="js-text-roll" data-text="Poems">Poems</span>
+              <button type="button" class="upload-tab" id="tab-poem" data-mode="poem">
+                <span class="js-text-roll" id="text-tab-poem" data-i18n="poems" data-text="Poems">Poems</span>
               </button>
             </div>
-            <button type="button" class="panel-expand-btn" id="upload-close" aria-label="Close upload panel">
+            <button type="button" class="panel-expand-btn" id="upload-close" aria-label="Close upload panel" data-i18n-aria="closeUpload">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
           </header>
 
           <div class="upload-scroll">
             <div class="token-pill">
-              <input type="password" id="admin-token" placeholder="Admin token" autocomplete="off">
+              <input type="password" id="admin-token" placeholder="Admin token" data-i18n-placeholder="adminToken" autocomplete="off">
               <button type="button" class="pill-btn" id="save-token">
-                <span class="js-text-roll" data-text="Save">Save</span>
+                <span class="js-text-roll" id="text-save-token" data-i18n="save" data-text="Save">Save</span>
               </button>
             </div>
 
@@ -481,8 +483,8 @@
                       <polyline points="5 12 12 5 19 12" />
                     </svg>
                   </div>
-                  <span class="drop-title" id="drop-title">Drop or select a video or photo</span>
-                  <span class="drop-hint" id="drop-hint">Drag bottom handle below to resize</span>
+                  <span class="drop-title" id="drop-title" data-i18n="dropTitle">Drop or select a video or photo</span>
+                  <span class="drop-hint" id="drop-hint" data-i18n="dropHint">Drag bottom handle below to resize</span>
                 </div>
               </div>
 
@@ -491,8 +493,8 @@
               </div>
 
               <div class="form-fields">
-                <input type="text" class="sleek-input" id="upload-title" name="title" placeholder="Title" required>
-                <textarea class="sleek-input" id="upload-desc" name="description" rows="3" placeholder="Description (optional)"></textarea>
+                <input type="text" class="sleek-input" id="upload-title" name="title" placeholder="Title" data-i18n-placeholder="title" required>
+                <textarea class="sleek-input" id="upload-desc" name="description" rows="3" placeholder="Description (optional)" data-i18n-placeholder="description"></textarea>
 
                 <div class="progress-track" id="upload-meter" hidden>
                   <div class="progress-bar" id="upload-meter-fill"></div>
@@ -501,7 +503,7 @@
                 <div class="submit-row">
                   <span class="feedback-label" id="upload-status"></span>
                   <button type="submit" class="primary-action-btn" id="upload-submit">
-                    <span class="js-text-roll" data-text="Upload" data-center="true">Upload</span>
+                    <span class="js-text-roll" id="text-upload-submit" data-i18n="upload" data-text="Upload" data-center="true">Upload</span>
                   </button>
                 </div>
               </div>
@@ -509,13 +511,13 @@
 
             <form id="poem-form" class="upload-form" hidden>
               <div class="form-fields">
-                <input type="text" class="sleek-input" id="poem-title" name="title" placeholder="Title" required>
-                <textarea class="sleek-input poem-textarea" id="poem-content" name="content" rows="10" placeholder="Write poem..." required></textarea>
+                <input type="text" class="sleek-input" id="poem-title" name="title" placeholder="Title" data-i18n-placeholder="title" required>
+                <textarea class="sleek-input poem-textarea" id="poem-content" name="content" rows="10" placeholder="Write poem..." data-i18n-placeholder="writePoem" required></textarea>
 
                 <div class="submit-row">
                   <span class="feedback-label" id="poem-status"></span>
                   <button type="submit" class="primary-action-btn" id="poem-submit">
-                    <span class="js-text-roll" data-text="Upload" data-center="true">Upload</span>
+                    <span class="js-text-roll" id="text-poem-submit" data-i18n="upload" data-text="Upload" data-center="true">Upload</span>
                   </button>
                 </div>
               </div>
@@ -524,6 +526,22 @@
         </div>
       </aside>
     </div>
+
+    <!-- Bottom Footer: Language Switcher (EN priority, ID secondary) -->
+    <footer class="app-footer" id="app-footer">
+      <div class="lang-switch-pill" role="group" aria-label="Language switcher">
+        <span class="lang-globe-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        </span>
+        <button type="button" class="lang-btn is-active" data-lang="en" aria-pressed="true">EN</button>
+        <span class="lang-sep" aria-hidden="true"></span>
+        <button type="button" class="lang-btn" data-lang="id" aria-pressed="false">ID</button>
+      </div>
+    </footer>
   </div>
 
   <!-- Lightbox -->
@@ -535,20 +553,20 @@
       </div>
       <div class="lightbox-actions">
         <button type="button" class="pill-btn" id="lb-prev">
-          <span class="js-text-roll" data-text="Prev">Prev</span>
+          <span class="js-text-roll" id="text-lb-prev" data-i18n="prev" data-text="Prev">Prev</span>
         </button>
         <button type="button" class="pill-btn" id="lb-next">
-          <span class="js-text-roll" data-text="Next">Next</span>
+          <span class="js-text-roll" id="text-lb-next" data-i18n="next" data-text="Next">Next</span>
         </button>
         <button type="button" class="pill-btn" id="lb-close">
-          <span class="js-text-roll" data-text="Close">Close</span>
+          <span class="js-text-roll" id="text-lb-close" data-i18n="close" data-text="Close">Close</span>
         </button>
       </div>
     </header>
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=search-pop-1"></script>
+  <script src="/static/app.js?v=footer-lang-1"></script>
 </body>
 </html>
 
