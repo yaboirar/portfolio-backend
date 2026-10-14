@@ -797,6 +797,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   width: 100%;
   height: 100%;
   display: flex;
+  position: relative;
+  overflow: hidden;
 }
 
 .bento-slot {
@@ -811,23 +813,6 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   flex-direction: column;
   min-width: calc(240 * var(--ui-unit));
   height: 100%;
-}
-
-/* Force 100% fullscreen dimensions when a single category is active */
-.bento-stage.is-single-view > .bento-slot:not([hidden]),
-.bento-stage.is-single-view > .bento-stack:not([hidden]),
-.bento-stage.is-single-view > .bento-stack:not([hidden]) > .bento-slot:not([hidden]) {
-  flex: 1 1 100% !important;
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-}
-
-/* While expanding/collapsing via FLIP, prevent slot clipping and elevate panel */
-.bento-stage.is-transitioning .bento-slot,
-.bento-stage.is-transitioning .bento-stack {
-  overflow: visible !important;
 }
 
 .bento-panel {
@@ -846,9 +831,24 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   transition: border-color 0.2s ease, transform 0.2s var(--ease-spring);
 }
 
-.bento-panel.is-flipping {
-  z-index: 25 !important;
-  transition: none !important;
+.bento-panel.is-fullscreen {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 50 !important;
+  margin: 0 !important;
+  border-radius: calc(20 * var(--ui-unit)) !important;
+}
+
+.bento-panel.is-animating-fullscreen {
+  z-index: 50 !important;
+  will-change: top, left, width, height, box-shadow;
+}
+
+.bento-panel-placeholder {
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .bento-panel.is-drag-target {

@@ -340,116 +340,250 @@
     }
   }
 
-  function applyFilter(nextFilter, shrinkNav = false) {
-    const allPanels = Array.from(dom.bentoStage.querySelectorAll('.bento-panel'));
-    const firstRects = new Map();
-    allPanels.forEach((panel) => {
-      if (!panel.closest('[hidden]')) {
-        firstRects.set(panel, panel.getBoundingClientRect());
-      }
+  /* ========================================================================
+     FLUID CONTAINER EXPANSION FOR SEGMENTS (FULLSCREEN MORPH)
+     ======================================================================== */
+  let activeFullscreenPanel = null;
+  let activePlaceholder = null;
+  let isFullscreenAnimating = false;
+
+  function expandPanelToFullscreen(panelKey, onComplete) {
+    const panel = document.getElementById(`panel-${panelKey}`);
+    if (!panel) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+
+    const stage = dom.bentoStage;
+    const stageRect = stage.getBoundingClientRect();
+    const startRect = panel.getBoundingClientRect();
+
+    // Create placeholder inside original slot so underlying layout stays rock-solid
+    const placeholder = document.createElement('div');
+    placeholder.className = 'bento-panel-placeholder';
+    placeholder.style.flex = '1';
+    placeholder.style.width = '100%';
+    placeholder.style.height = '100%';
+    placeholder.style.visibility = 'hidden';
+    placeholder.style.pointerEvents = 'none';
+
+    panel.parentNode.insertBefore(placeholder, panel);
+    activePlaceholder = placeholder;
+    activeFullscreenPanel = panel;
+
+    // Compute exact start coordinates relative to stage
+    const startTop = startRect.top - stageRect.top;
+    const startLeft = startRect.left - stageRect.left;
+    const startWidth = startRect.width;
+    const startHeight = startRect.height;
+
+    // Attach panel directly to stage container at starting geometry
+    stage.appendChild(panel);
+    panel.classList.add('is-animating-fullscreen');
+    panel.style.position = 'absolute';
+    panel.style.zIndex = '50';
+    panel.style.top = `${startTop}px`;
+    panel.style.left = `${startLeft}px`;
+    panel.style.width = `${startWidth}px`;
+    panel.style.height = `${startHeight}px`;
+    panel.style.margin = '0';
+    panel.style.transition = 'none';
+
+    // Force browser reflow to register initial geometry
+    void panel.offsetWidth;
+
+    // Fluid container expansion over 440ms with spring curve
+    isFullscreenAnimating = true;
+    const duration = 440;
+    const ease = 'cubic-bezier(0.16, 1, 0.3, 1)';
+    panel.style.transition = `top ${duration}ms ${ease}, left ${duration}ms ${ease}, width ${duration}ms ${ease}, height ${duration}ms ${ease}, box-shadow ${duration}ms ${ease}`;
+
+    panel.style.top = '0px';
+    panel.style.left = '0px';
+    panel.style.width = `${stageRect.width}px`;
+    panel.style.height = `${stageRect.height}px`;
+    panel.style.boxShadow = 'var(--shadow-pop)';
+
+    // Softly dim background bento slots
+    stage.querySelectorAll('.bento-slot, .gutter-v, .gutter-h').forEach((el) => {
+      el.style.transition = `opacity ${duration * 0.7}ms ease`;
+      el.style.opacity = '0.35';
     });
+
+    setTimeout(() => {
+      panel.classList.remove('is-animating-fullscreen');
+      panel.classList.add('is-fullscreen');
+      panel.style.transition = '';
+      isFullscreenAnimating = false;
+      if (typeof onComplete === 'function') onComplete();
+    }, duration);
+  }
+
+  function collapseFullscreenToSlot(onComplete) {
+    if (!activeFullscreenPanel || !activePlaceholder) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+
+    const panel = activeFullscreenPanel;
+    const placeholder = activePlaceholder;
+    const stage = dom.bentoStage;
+
+    // Restore background elements
+    stage.querySelectorAll('.bento-slot, .gutter-v, .gutter-h').forEach((el) => {
+      el.style.opacity = '';
+      el.style.transition = 'opacity 0.35s ease';
+    });
+
+    const stageRect = stage.getBoundingClientRect();
+    const targetRect = placeholder.getBoundingClientRect();
+
+    const targetTop = targetRect.top - stageRect.top;
+    const targetLeft = targetRect.left - stageRect.left;
+    const targetWidth = targetRect.width;
+    const targetHeight = targetRect.height;
+
+    // Anchor to current pixel dimensions before starting transition
+    panel.style.width = `${stageRect.width}px`;
+    panel.style.height = `${stageRect.height}px`;
+    panel.classList.remove('is-fullscreen');
+    panel.classList.add('is-animating-fullscreen');
+
+    void panel.offsetWidth;
+
+    isFullscreenAnimating = true;
+    const duration = 400;
+    const ease = 'cubic-bezier(0.16, 1, 0.3, 1)';
+    panel.style.transition = `top ${duration}ms ${ease}, left ${duration}ms ${ease}, width ${duration}ms ${ease}, height ${duration}ms ${ease}, box-shadow ${duration}ms ${ease}`;
+
+    panel.style.top = `${targetTop}px`;
+    panel.style.left = `${targetLeft}px`;
+    panel.style.width = `${targetWidth}px`;
+    panel.style.height = `${targetHeight}px`;
+    panel.style.boxShadow = 'var(--shadow)';
+
+    setTimeout(() => {
+      if (placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(panel, placeholder);
+        placeholder.remove();
+      }
+      panel.classList.remove('is-animating-fullscreen');
+      panel.style.position = '';
+      panel.style.zIndex = '';
+      panel.style.top = '';
+      panel.style.left = '';
+      panel.style.width = '';
+      panel.style.height = '';
+      panel.style.margin = '';
+      panel.style.boxShadow = '';
+      panel.style.transition = '';
+
+      activeFullscreenPanel = null;
+      activePlaceholder = null;
+      isFullscreenAnimating = false;
+      if (typeof onComplete === 'function') onComplete();
+    }, duration);
+  }
+
+  function switchFullscreenPanel(nextKey, onComplete) {
+    if (!activeFullscreenPanel) {
+      expandPanelToFullscreen(nextKey, onComplete);
+      return;
+    }
+    const oldPanel = activeFullscreenPanel;
+    const oldPlaceholder = activePlaceholder;
+    const nextPanel = document.getElementById(`panel-${nextKey}`);
+    if (!nextPanel || oldPanel === nextPanel) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+
+    isFullscreenAnimating = true;
+    const nextPlaceholder = document.createElement('div');
+    nextPlaceholder.className = 'bento-panel-placeholder';
+    nextPlaceholder.style.flex = '1';
+    nextPlaceholder.style.width = '100%';
+    nextPlaceholder.style.height = '100%';
+    nextPlaceholder.style.visibility = 'hidden';
+    nextPlaceholder.style.pointerEvents = 'none';
+    nextPanel.parentNode.insertBefore(nextPlaceholder, nextPanel);
+
+    dom.bentoStage.appendChild(nextPanel);
+    nextPanel.style.position = 'absolute';
+    nextPanel.style.top = '0px';
+    nextPanel.style.left = '0px';
+    nextPanel.style.width = '100%';
+    nextPanel.style.height = '100%';
+    nextPanel.style.margin = '0';
+    nextPanel.style.zIndex = '51';
+    nextPanel.style.opacity = '0';
+    nextPanel.style.transform = 'scale(0.97)';
+    nextPanel.style.transition = 'opacity 0.28s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
+
+    void nextPanel.offsetWidth;
+
+    nextPanel.style.opacity = '1';
+    nextPanel.style.transform = 'scale(1)';
+
+    setTimeout(() => {
+      if (oldPlaceholder && oldPlaceholder.parentNode) {
+        oldPlaceholder.parentNode.insertBefore(oldPanel, oldPlaceholder);
+        oldPlaceholder.remove();
+      }
+      oldPanel.classList.remove('is-fullscreen', 'is-animating-fullscreen');
+      oldPanel.style.position = '';
+      oldPanel.style.zIndex = '';
+      oldPanel.style.top = '';
+      oldPanel.style.left = '';
+      oldPanel.style.width = '';
+      oldPanel.style.height = '';
+      oldPanel.style.boxShadow = '';
+      oldPanel.style.transition = '';
+
+      nextPanel.classList.add('is-fullscreen');
+      nextPanel.style.zIndex = '50';
+      nextPanel.style.transform = '';
+      nextPanel.style.transition = '';
+
+      activeFullscreenPanel = nextPanel;
+      activePlaceholder = nextPlaceholder;
+      isFullscreenAnimating = false;
+      if (typeof onComplete === 'function') onComplete();
+    }, 280);
+  }
+
+  function applyFilter(nextFilter, shrinkNav = false) {
+    if (isFullscreenAnimating) return;
+    const prevFilter = state.filter;
+    if (prevFilter === nextFilter && nextFilter === 'all') {
+      renderNavPill(nextFilter, shrinkNav);
+      return;
+    }
 
     state.filter = nextFilter;
     renderNavPill(nextFilter, shrinkNav);
 
-    const isAll = nextFilter === 'all';
-    dom.bentoStage.classList.toggle('is-single-view', !isAll);
-
-    const pPrimary = dom.slotPrimary.querySelector('.bento-panel');
-    const pTop = dom.slotTop.querySelector('.bento-panel');
-    const pBottom = dom.slotBottom.querySelector('.bento-panel');
-
-    const showPrimary = isAll || (pPrimary && pPrimary.dataset.panel === nextFilter);
-    const showTop = isAll || (pTop && pTop.dataset.panel === nextFilter);
-    const showBottom = isAll || (pBottom && pBottom.dataset.panel === nextFilter);
-
-    dom.slotPrimary.hidden = !showPrimary;
-    dom.slotTop.hidden = !showTop;
-    dom.slotBottom.hidden = !showBottom;
-    dom.slotStack.hidden = !showTop && !showBottom;
-
-    dom.gutterMainV.hidden = !(showPrimary && (showTop || showBottom));
-    dom.gutterStackH.hidden = !(showTop && showBottom);
-
-    syncSlotFlexSizing();
-
     dom.expandBtns.forEach((btn) => {
-      const isExpanded = !isAll && btn.dataset.expand === nextFilter;
+      const isExpanded = nextFilter !== 'all' && btn.dataset.expand === nextFilter;
       btn.classList.toggle('is-expanded', isExpanded);
       btn.setAttribute(
         'aria-label',
         isExpanded ? `Exit fullscreen ${btn.dataset.expand}` : `Expand ${btn.dataset.expand}`
       );
-      btn.classList.remove('is-animating');
-      void btn.offsetWidth;
-      btn.classList.add('is-animating');
-      setTimeout(() => btn.classList.remove('is-animating'), 500);
+      if (btn.dataset.expand === nextFilter || btn.dataset.expand === prevFilter) {
+        btn.classList.remove('is-animating');
+        void btn.offsetWidth;
+        btn.classList.add('is-animating');
+        setTimeout(() => btn.classList.remove('is-animating'), 500);
+      }
     });
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!prefersReducedMotion && typeof Element.prototype.animate === 'function') {
-      dom.bentoStage.classList.add('is-transitioning');
-
-      allPanels.forEach((panel) => {
-        if (panel._flipAnim) {
-          panel._flipAnim.cancel();
-          panel._flipAnim = null;
-        }
-        const isNowVisible = !panel.closest('[hidden]');
-        if (!isNowVisible) return;
-
-        const firstRect = firstRects.get(panel);
-        const lastRect = panel.getBoundingClientRect();
-
-        if (firstRect) {
-          const dx = firstRect.left - lastRect.left;
-          const dy = firstRect.top - lastRect.top;
-          const sw = firstRect.width / (lastRect.width || 1);
-          const sh = firstRect.height / (lastRect.height || 1);
-
-          if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5 || Math.abs(sw - 1) > 0.005 || Math.abs(sh - 1) > 0.005) {
-            panel.classList.add('is-flipping');
-            panel.style.transformOrigin = 'top left';
-            panel.style.willChange = 'transform';
-            const anim = panel.animate([
-              { transform: `translate(${dx}px, ${dy}px) scale(${sw}, ${sh})` },
-              { transform: 'translate(0px, 0px) scale(1, 1)' }
-            ], {
-              duration: 440,
-              easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
-            });
-            panel._flipAnim = anim;
-            anim.onfinish = () => {
-              panel.classList.remove('is-flipping');
-              panel.style.transformOrigin = '';
-              panel.style.willChange = '';
-              if (panel._flipAnim === anim) panel._flipAnim = null;
-            };
-          }
-        } else {
-          // Newly appearing panel when exiting fullscreen back to 'all'
-          panel.style.willChange = 'transform, opacity';
-          const anim = panel.animate([
-            { opacity: 0, transform: 'scale(0.96) translateY(8px)' },
-            { opacity: 1, transform: 'scale(1) translateY(0px)' }
-          ], {
-            duration: 380,
-            delay: 40,
-            easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-            fill: 'both'
-          });
-          panel._flipAnim = anim;
-          anim.onfinish = () => {
-            panel.style.willChange = '';
-            if (panel._flipAnim === anim) panel._flipAnim = null;
-          };
-        }
-      });
-
-      clearTimeout(dom.bentoStage._transTimer);
-      dom.bentoStage._transTimer = setTimeout(() => {
-        dom.bentoStage.classList.remove('is-transitioning');
-      }, 500);
+    if (nextFilter === 'all') {
+      collapseFullscreenToSlot();
+    } else if (prevFilter === 'all') {
+      expandPanelToFullscreen(nextFilter);
+    } else {
+      switchFullscreenPanel(nextFilter);
     }
   }
 
