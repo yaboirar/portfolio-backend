@@ -815,64 +815,24 @@
     }
   }
 
-  function createEmptyState(panelKey, labelText, subText) {
+  function createEmptyState(text = "theres nothing here") {
     const box = document.createElement('div');
     box.className = 'empty-state';
 
-    const badge = document.createElement('div');
-    badge.className = 'empty-state-badge';
-
-    let svgHtml = '';
-    const isSearchQuery = (labelText && labelText.toLowerCase().includes('matches')) ||
-                          (subText && subText.toLowerCase().includes('matching'));
-
-    if (isSearchQuery) {
-      svgHtml = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="7.5"></circle>
-        <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-      </svg>`;
-    } else if (panelKey === 'videos') {
-      svgHtml = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196"></path>
-        <path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"></path>
-        <line x1="2" y1="2" x2="22" y2="22"></line>
-        <path d="M8.5 11a1.5 1.5 0 0 1 2.9.5c0 1-1.5 1.5-1.5 1.5"></path>
-        <line x1="10" y1="15" x2="10.01" y2="15"></line>
-      </svg>`;
-    } else if (panelKey === 'photos') {
-      svgHtml = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="2" y1="2" x2="22" y2="22"></line>
-        <path d="M10.41 10.41a2 2 0 1 1-2.83-2.83"></path>
-        <line x1="13.5" y1="13.5" x2="6" y2="21"></line>
-        <line x1="18" y1="12" x2="21" y2="15"></line>
-        <path d="M3.59 3.59A1.99 1.99 0 0 0 3 5v14a2 2 0 0 0 2 2h14c.55 0 1.052-.22 1.41-.59"></path>
-        <path d="M21 15V5a2 2 0 0 0-2-2H9"></path>
-      </svg>`;
-    } else {
-      svgHtml = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-        <polyline points="14 2 14 8 20 8"></polyline>
-        <path d="M9.09 11.5a2.5 2.5 0 0 1 4.91.8c0 1.5-2.5 2.2-2.5 2.2"></path>
-        <line x1="12" y1="17.5" x2="12.01" y2="17.5"></line>
-      </svg>`;
-    }
-
-    badge.innerHTML = svgHtml;
-    box.appendChild(badge);
+    const icon = document.createElement('div');
+    icon.className = 'empty-state-icon';
+    icon.innerHTML = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 9v1a3 3 0 0 0 3 3h1"></path>
+      <path d="M18 8v1a3 3 0 0 1-3 3h-1"></path>
+      <path d="M10 21V5a2 2 0 1 1 4 0v16"></path>
+      <path d="M3 21c3.5-1 7.5-1 11 0c2.5.7 4.5.7 7 0"></path>
+    </svg>`;
+    box.appendChild(icon);
 
     const label = document.createElement('span');
     label.className = 'empty-state-label';
-    label.textContent = labelText;
+    label.textContent = text;
     box.appendChild(label);
-
-    if (subText) {
-      const sub = document.createElement('span');
-      sub.className = 'empty-state-sub';
-      sub.textContent = subText;
-      box.appendChild(sub);
-    }
 
     return box;
   }
@@ -968,10 +928,7 @@
     // Videos
     dom.bodyVideos.replaceChildren();
     if (vRes.list.length === 0) {
-      const q = vRes.localQ || vRes.globalQ;
-      const label = q ? 'No matches found' : vRes.filterVal !== 'all' ? 'No filtered results' : 'No media yet';
-      const sub = q ? `No videos matching "${q}"` : vRes.filterVal !== 'all' ? 'Try switching filter back to "All"' : 'Uploaded videos will appear here';
-      dom.bodyVideos.appendChild(createEmptyState('videos', label, sub));
+      dom.bodyVideos.appendChild(createEmptyState("theres nothing here"));
     } else {
       vRes.list.forEach((v) => {
         const fig = document.createElement('figure');
@@ -997,10 +954,7 @@
     // Photos
     dom.bodyPhotos.replaceChildren();
     if (pRes.list.length === 0) {
-      const q = pRes.localQ || pRes.globalQ;
-      const label = q ? 'No matches found' : pRes.filterVal !== 'all' ? 'No filtered results' : 'No media yet';
-      const sub = q ? `No photos matching "${q}"` : pRes.filterVal !== 'all' ? 'Try switching filter back to "All"' : 'Uploaded photos will appear here';
-      dom.bodyPhotos.appendChild(createEmptyState('photos', label, sub));
+      dom.bodyPhotos.appendChild(createEmptyState("theres nothing here"));
     } else {
       pRes.list.forEach((p) => {
         const fullIdx = state.photos.indexOf(p);
@@ -1027,10 +981,7 @@
     // Poems
     dom.bodyPoems.replaceChildren();
     if (pmRes.list.length === 0) {
-      const q = pmRes.localQ || pmRes.globalQ;
-      const label = q ? 'No matches found' : pmRes.filterVal !== 'all' ? 'No filtered results' : 'No poems yet';
-      const sub = q ? `No poems matching "${q}"` : pmRes.filterVal !== 'all' ? 'Try switching filter back to "All"' : 'Uploaded poems will appear here';
-      dom.bodyPoems.appendChild(createEmptyState('poems', label, sub));
+      dom.bodyPoems.appendChild(createEmptyState("theres nothing here"));
     } else {
       pmRes.list.forEach((poem) => {
         const article = document.createElement('article');

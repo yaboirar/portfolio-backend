@@ -1268,64 +1268,41 @@ body.is-resizing .gutter-h {
 .empty-state {
   grid-column: 1 / -1;
   min-height: calc(180 * var(--ui-unit));
-  border-radius: calc(16 * var(--ui-unit));
-  background: var(--card);
-  border: 1.5px dashed var(--border-strong);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: calc(5 * var(--ui-unit));
-  padding: calc(28 * var(--ui-unit)) calc(20 * var(--ui-unit));
+  gap: calc(10 * var(--ui-unit));
+  padding: calc(36 * var(--ui-unit)) calc(16 * var(--ui-unit));
   color: var(--fg-mute);
   user-select: none;
   text-align: center;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
-.empty-state:hover {
-  border-color: var(--fg-dim);
-}
-
-.empty-state-badge {
-  width: calc(48 * var(--ui-unit));
-  height: calc(48 * var(--ui-unit));
-  border-radius: calc(14 * var(--ui-unit));
-  background: var(--tile-bg);
-  border: 1px solid var(--border);
+.empty-state-icon {
+  width: calc(38 * var(--ui-unit));
+  height: calc(38 * var(--ui-unit));
+  color: var(--fg-dim);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--fg-dim);
-  margin-bottom: calc(4 * var(--ui-unit));
-  transition: transform 0.22s var(--ease-spring), color 0.2s ease, border-color 0.2s ease;
-}
-
-.empty-state:hover .empty-state-badge {
-  transform: scale(1.08) rotate(-3deg);
-  color: var(--fg);
-  border-color: var(--border-strong);
+  opacity: 0.6;
 }
 
 .empty-state-svg {
-  width: calc(24 * var(--ui-unit));
-  height: calc(24 * var(--ui-unit));
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
 .empty-state-label {
-  font-size: calc(14.5 * var(--ui-unit));
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--fg);
-}
-
-.empty-state-sub {
-  font-size: calc(12.5 * var(--ui-unit));
-  color: var(--fg-dim);
+  font-size: calc(14 * var(--ui-unit));
   font-weight: 500;
-  max-width: calc(260 * var(--ui-unit));
-  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--fg-dim);
 }
 
 .media-card {
