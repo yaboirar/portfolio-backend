@@ -803,16 +803,36 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 
 .bento-slot {
   display: flex;
-  min-width: calc(220 * var(--ui-unit));
-  min-height: calc(140 * var(--ui-unit));
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
+  transition: flex 0.44s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.36s ease,
+              visibility 0.44s ease;
 }
 
 .bento-stack {
   display: flex;
   flex-direction: column;
-  min-width: calc(240 * var(--ui-unit));
+  min-width: 0;
+  min-height: 0;
   height: 100%;
+  flex: 46 1 0px;
+  transition: flex 0.44s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.36s ease,
+              visibility 0.44s ease;
+}
+
+.slot-primary {
+  flex: 54 1 0px;
+}
+
+.slot-top {
+  flex: 52 1 0px;
+}
+
+.slot-bottom {
+  flex: 48 1 0px;
 }
 
 .bento-panel {
@@ -828,27 +848,7 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: border-color 0.2s ease, transform 0.2s var(--ease-spring);
-}
-
-.bento-panel.is-fullscreen {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  z-index: 50 !important;
-  margin: 0 !important;
-  border-radius: calc(20 * var(--ui-unit)) !important;
-}
-
-.bento-panel.is-animating-fullscreen {
-  z-index: 50 !important;
-  will-change: top, left, width, height, box-shadow;
-}
-
-.bento-panel-placeholder {
-  pointer-events: none;
-  visibility: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.25s ease;
 }
 
 .bento-panel.is-drag-target {
@@ -978,6 +978,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+  transition: opacity 0.32s ease, width 0.44s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .gutter-h {
@@ -987,6 +989,15 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+  transition: opacity 0.32s ease, height 0.44s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.is-resizing .bento-slot,
+body.is-resizing .bento-stack,
+body.is-resizing .gutter-v,
+body.is-resizing .gutter-h {
+  transition: none !important;
 }
 
 .gutter-pill {
