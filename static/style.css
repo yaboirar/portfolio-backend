@@ -1514,22 +1514,52 @@ body.is-resizing .gutter-h {
   overflow: hidden;
 }
 
-.media-visual img,
-.media-visual video {
+.media-visual img {
   display: block;
   width: 100%;
   height: auto;
   max-height: calc(440 * var(--ui-unit));
   object-fit: cover;
-}
-
-.media-visual img {
   cursor: zoom-in;
   transition: transform 0.45s var(--ease-spring);
 }
 
 .media-visual:hover img {
   transform: scale(1.03);
+}
+
+.media-visual video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(440 * var(--ui-unit));
+  object-fit: contain;
+  background-color: #000000;
+}
+
+/* Fullscreen aspect ratio protection: keep 1:1, 4:3, 9:16 intact without stretching/cropping to 16:9 */
+video:fullscreen,
+video:-webkit-full-screen,
+video:-moz-full-screen,
+video:-ms-fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  object-fit: contain !important;
+  background-color: #000000 !important;
+}
+
+:fullscreen video,
+:-webkit-full-screen video,
+:-moz-full-screen video,
+:-ms-fullscreen video {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  background-color: #000000 !important;
 }
 
 .media-info {
