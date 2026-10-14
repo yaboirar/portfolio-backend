@@ -62,9 +62,9 @@ ALLOWED_VIDEO_EXTS = {".mp4", ".webm", ".mov"}
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_EXTS = ALLOWED_VIDEO_EXTS | ALLOWED_IMAGE_EXTS
 
-MAX_VIDEO_SIZE = 50 * 1024 * 1024       # 50 MB
-MAX_IMAGE_SIZE = 10 * 1024 * 1024       # 10 MB
-MAX_GLOBAL_UPLOAD = 60 * 1024 * 1024    # 60 MB
+MAX_VIDEO_SIZE = 500 * 1024 * 1024     # 500 MB
+MAX_IMAGE_SIZE = 25 * 1024 * 1024       # 25 MB
+MAX_GLOBAL_UPLOAD = 550 * 1024 * 1024   # 550 MB
 MAX_FIELD_LEN = 10 * 1024               # 10 KB per text field
 MAX_PARTS = 10                          # Max multipart form fields
 MAX_PART_HEADER_LEN = 4096              # Max header bytes per part
@@ -185,7 +185,7 @@ def transcode_video_to_hls(input_path: Path, hls_dir: Path) -> Optional[Tuple[st
             "-f", "hls",
             str(playlist)
         ]
-        res_copy = subprocess.run(cmd_copy, capture_output=True, timeout=60, check=False)
+        res_copy = subprocess.run(cmd_copy, capture_output=True, timeout=120, check=False)
 
         # If copy fails or stream isn't playable across all browsers, transcode to standard h264/aac
         if res_copy.returncode != 0 or not playlist.is_file():
@@ -199,7 +199,7 @@ def transcode_video_to_hls(input_path: Path, hls_dir: Path) -> Optional[Tuple[st
                 "-f", "hls",
                 str(playlist)
             ]
-            res_trans = subprocess.run(cmd_transcode, capture_output=True, timeout=180, check=False)
+            res_trans = subprocess.run(cmd_transcode, capture_output=True, timeout=300, check=False)
             if res_trans.returncode != 0 or not playlist.is_file():
                 return None
 
