@@ -35,6 +35,12 @@
     },
   };
 
+  const panelState = {
+    videos: { search: '', filter: 'all', sort: 'newest', searchOpen: false },
+    photos: { search: '', filter: 'all', sort: 'newest', searchOpen: false },
+    poems:  { search: '', filter: 'all', sort: 'newest', searchOpen: false },
+  };
+
   const dom = {
     navPill: document.getElementById('nav-pill'),
     navCurrent: document.getElementById('nav-current'),
@@ -809,9 +815,52 @@
     }
   }
 
-  function createEmptyState(labelText, subText) {
+  function createEmptyState(panelKey, labelText, subText) {
     const box = document.createElement('div');
     box.className = 'empty-state';
+
+    const badge = document.createElement('div');
+    badge.className = 'empty-state-badge';
+
+    let svgHtml = '';
+    const isSearchQuery = (labelText && labelText.toLowerCase().includes('matches')) ||
+                          (subText && subText.toLowerCase().includes('matching'));
+
+    if (isSearchQuery) {
+      svgHtml = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7.5"></circle>
+        <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>`;
+    } else if (panelKey === 'videos') {
+      svgHtml = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196"></path>
+        <path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"></path>
+        <line x1="2" y1="2" x2="22" y2="22"></line>
+        <path d="M8.5 11a1.5 1.5 0 0 1 2.9.5c0 1-1.5 1.5-1.5 1.5"></path>
+        <line x1="10" y1="15" x2="10.01" y2="15"></line>
+      </svg>`;
+    } else if (panelKey === 'photos') {
+      svgHtml = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="2" y1="2" x2="22" y2="22"></line>
+        <path d="M10.41 10.41a2 2 0 1 1-2.83-2.83"></path>
+        <line x1="13.5" y1="13.5" x2="6" y2="21"></line>
+        <line x1="18" y1="12" x2="21" y2="15"></line>
+        <path d="M3.59 3.59A1.99 1.99 0 0 0 3 5v14a2 2 0 0 0 2 2h14c.55 0 1.052-.22 1.41-.59"></path>
+        <path d="M21 15V5a2 2 0 0 0-2-2H9"></path>
+      </svg>`;
+    } else {
+      svgHtml = `<svg class="empty-state-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <path d="M9.09 11.5a2.5 2.5 0 0 1 4.91.8c0 1.5-2.5 2.2-2.5 2.2"></path>
+        <line x1="12" y1="17.5" x2="12.01" y2="17.5"></line>
+      </svg>`;
+    }
+
+    badge.innerHTML = svgHtml;
+    box.appendChild(badge);
 
     const label = document.createElement('span');
     label.className = 'empty-state-label';
@@ -826,6 +875,53 @@
     }
 
     return box;
+  }
+
+  function processCategory(rawItems, kind, key) {
+    const globalQ = state.searchQuery.trim().toLowerCase();
+    const p = panelState[key];
+    const localQ = p.search.trim().toLowerCase();
+
+    // 1. Filter by global search query
+    let list = rawItems.filter((it) => matchesQuery(it, kind, globalQ));
+
+    // 2. Filter by local search query
+    if (localQ) {
+      list = list.filter((it) => {
+        const hay = [it.title || '', it.description || '', it.content || '', it.url || ''].join(' ').toLowerCase();
+        return hay.includes(localQ);
+      });
+    }
+
+    // 3. Filter by category filter selection
+    if (p.filter === 'recent') {
+      list = [...list].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 5);
+    } else if (p.filter === 'has_desc') {
+      list = list.filter((it) => Boolean(it.description && it.description.trim()));
+    } else if (p.filter === 'short') {
+      list = list.filter((it) => (it.content || '').trim().split('\n').filter(Boolean).length < 6);
+    } else if (p.filter === 'long') {
+      list = list.filter((it) => (it.content || '').trim().split('\n').filter(Boolean).length >= 6);
+    }
+
+    // 4. Sort
+    list = [...list].sort((a, b) => {
+      if (p.sort === 'newest') {
+        return (b.id || 0) - (a.id || 0);
+      }
+      if (p.sort === 'oldest') {
+        return (a.id || 0) - (b.id || 0);
+      }
+      if (p.sort === 'az') {
+        return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base', numeric: true });
+      }
+      if (p.sort === 'za') {
+        return (b.title || '').localeCompare(a.title || '', undefined, { sensitivity: 'base', numeric: true });
+      }
+      return 0;
+    });
+
+    return { list, localQ, globalQ, filterVal: p.filter, sortVal: p.sort };
   }
 
   function buildMediaInfo(item, endpoint) {
@@ -865,21 +961,22 @@
   }
 
   function renderPanels() {
-    const { videos, photos, poems, q } = getFilteredItems();
+    const vRes = processCategory(state.videos, 'video videos', 'videos');
+    const pRes = processCategory(state.photos, 'photo photos image', 'photos');
+    const pmRes = processCategory(state.poems, 'poem poems text', 'poems');
 
     // Videos
     dom.bodyVideos.replaceChildren();
-    if (videos.length === 0) {
-      dom.bodyVideos.appendChild(
-        createEmptyState(
-          q ? 'No matches' : 'No media',
-          q ? `No videos matching "${state.searchQuery}"` : 'No videos yet'
-        )
-      );
+    if (vRes.list.length === 0) {
+      const q = vRes.localQ || vRes.globalQ;
+      const label = q ? 'No matches found' : vRes.filterVal !== 'all' ? 'No filtered results' : 'No media yet';
+      const sub = q ? `No videos matching "${q}"` : vRes.filterVal !== 'all' ? 'Try switching filter back to "All"' : 'Uploaded videos will appear here';
+      dom.bodyVideos.appendChild(createEmptyState('videos', label, sub));
     } else {
-      videos.forEach((v) => {
+      vRes.list.forEach((v) => {
         const fig = document.createElement('figure');
-        fig.className = `media-card ${q ? 'is-highlighted' : ''}`.trim();
+        const isHighlight = Boolean(vRes.globalQ || vRes.localQ);
+        fig.className = `media-card ${isHighlight ? 'is-highlighted' : ''}`.trim();
 
         const visual = document.createElement('div');
         visual.className = 'media-visual';
@@ -899,18 +996,17 @@
 
     // Photos
     dom.bodyPhotos.replaceChildren();
-    if (photos.length === 0) {
-      dom.bodyPhotos.appendChild(
-        createEmptyState(
-          q ? 'No matches' : 'No media',
-          q ? `No photos matching "${state.searchQuery}"` : 'No photos yet'
-        )
-      );
+    if (pRes.list.length === 0) {
+      const q = pRes.localQ || pRes.globalQ;
+      const label = q ? 'No matches found' : pRes.filterVal !== 'all' ? 'No filtered results' : 'No media yet';
+      const sub = q ? `No photos matching "${q}"` : pRes.filterVal !== 'all' ? 'Try switching filter back to "All"' : 'Uploaded photos will appear here';
+      dom.bodyPhotos.appendChild(createEmptyState('photos', label, sub));
     } else {
-      photos.forEach((p) => {
+      pRes.list.forEach((p) => {
         const fullIdx = state.photos.indexOf(p);
         const fig = document.createElement('figure');
-        fig.className = `media-card ${q ? 'is-highlighted' : ''}`.trim();
+        const isHighlight = Boolean(pRes.globalQ || pRes.localQ);
+        fig.className = `media-card ${isHighlight ? 'is-highlighted' : ''}`.trim();
 
         const visual = document.createElement('div');
         visual.className = 'media-visual';
@@ -930,17 +1026,16 @@
 
     // Poems
     dom.bodyPoems.replaceChildren();
-    if (poems.length === 0) {
-      dom.bodyPoems.appendChild(
-        createEmptyState(
-          q ? 'No matches' : 'No poems',
-          q ? `No poems matching "${state.searchQuery}"` : 'No poems yet'
-        )
-      );
+    if (pmRes.list.length === 0) {
+      const q = pmRes.localQ || pmRes.globalQ;
+      const label = q ? 'No matches found' : pmRes.filterVal !== 'all' ? 'No filtered results' : 'No poems yet';
+      const sub = q ? `No poems matching "${q}"` : pmRes.filterVal !== 'all' ? 'Try switching filter back to "All"' : 'Uploaded poems will appear here';
+      dom.bodyPoems.appendChild(createEmptyState('poems', label, sub));
     } else {
-      poems.forEach((poem) => {
+      pmRes.list.forEach((poem) => {
         const article = document.createElement('article');
-        article.className = `poem-card ${q ? 'is-highlighted' : ''}`.trim();
+        const isHighlight = Boolean(pmRes.globalQ || pmRes.localQ);
+        article.className = `poem-card ${isHighlight ? 'is-highlighted' : ''}`.trim();
 
         const head = document.createElement('div');
         head.className = 'poem-head';
@@ -1164,6 +1259,158 @@
   }
 
   /* ========================================================================
+     CATEGORY PANEL TOOLS: SEARCH, FILTER & SORT
+     ======================================================================== */
+  function closeAllPanelPopovers() {
+    document.querySelectorAll('.panel-popover').forEach((p) => {
+      p.hidden = true;
+    });
+    document.querySelectorAll('.panel-filter-btn, .panel-sort-btn').forEach((btn) => {
+      btn.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function syncToolBadges(panelKey) {
+    const p = panelState[panelKey];
+    const searchBtn = document.querySelector(`.panel-search-btn[data-panel="${panelKey}"]`);
+    const filterBtn = document.querySelector(`.panel-filter-btn[data-panel="${panelKey}"]`);
+    const sortBtn = document.querySelector(`.panel-sort-btn[data-panel="${panelKey}"]`);
+
+    if (searchBtn) searchBtn.classList.toggle('has-active', Boolean(p.search));
+    if (filterBtn) filterBtn.classList.toggle('has-active', p.filter !== 'all');
+    if (sortBtn) sortBtn.classList.toggle('has-active', p.sort !== 'newest');
+  }
+
+  function togglePanelSearch(panelKey, force) {
+    const p = panelState[panelKey];
+    const searchBar = document.getElementById(`search-bar-${panelKey}`);
+    const searchInput = document.getElementById(`search-input-${panelKey}`);
+    const searchBtn = document.querySelector(`.panel-search-btn[data-panel="${panelKey}"]`);
+
+    const next = typeof force === 'boolean' ? force : !p.searchOpen;
+    p.searchOpen = next;
+    if (searchBar) searchBar.hidden = !next;
+    if (searchBtn) searchBtn.classList.toggle('is-open', next);
+
+    if (next) {
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    } else {
+      if (p.search) {
+        p.search = '';
+        if (searchInput) searchInput.value = '';
+        syncToolBadges(panelKey);
+        renderPanels();
+      }
+    }
+  }
+
+  function initPanelTools() {
+    // 1. Search buttons & inputs
+    document.querySelectorAll('.panel-search-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllPanelPopovers();
+        togglePanelSearch(btn.dataset.panel);
+      });
+    });
+
+    document.querySelectorAll('.panel-search-input').forEach((input) => {
+      const panelKey = input.dataset.panel;
+      input.addEventListener('input', (e) => {
+        panelState[panelKey].search = e.target.value.trim();
+        syncToolBadges(panelKey);
+        renderPanels();
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          togglePanelSearch(panelKey, false);
+        }
+      });
+    });
+
+    document.querySelectorAll('.panel-search-clear').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePanelSearch(btn.dataset.panel, false);
+      });
+    });
+
+    // 2. Filter buttons
+    document.querySelectorAll('.panel-filter-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const panelKey = btn.dataset.panel;
+        const popover = document.getElementById(`filter-popover-${panelKey}`);
+        const wasHidden = popover ? popover.hidden : true;
+        closeAllPanelPopovers();
+        if (popover && wasHidden) {
+          popover.hidden = false;
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+
+    // 3. Sort buttons
+    document.querySelectorAll('.panel-sort-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const panelKey = btn.dataset.panel;
+        const popover = document.getElementById(`sort-popover-${panelKey}`);
+        const wasHidden = popover ? popover.hidden : true;
+        closeAllPanelPopovers();
+        if (popover && wasHidden) {
+          popover.hidden = false;
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+
+    // 4. Popover menu items (Filter & Sort)
+    document.querySelectorAll('.popover-item').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const panelKey = item.dataset.panel;
+        const type = item.dataset.type;
+        const val = item.dataset.val;
+
+        if (type === 'filter') {
+          panelState[panelKey].filter = val;
+          const popover = document.getElementById(`filter-popover-${panelKey}`);
+          if (popover) {
+            popover.querySelectorAll('.popover-item').forEach((el) => {
+              el.classList.toggle('is-active', el.dataset.val === val);
+            });
+          }
+        } else if (type === 'sort') {
+          panelState[panelKey].sort = val;
+          const popover = document.getElementById(`sort-popover-${panelKey}`);
+          if (popover) {
+            popover.querySelectorAll('.popover-item').forEach((el) => {
+              el.classList.toggle('is-active', el.dataset.val === val);
+            });
+          }
+        }
+
+        syncToolBadges(panelKey);
+        closeAllPanelPopovers();
+        renderPanels();
+      });
+    });
+
+    // 5. Global click outside popovers
+    document.addEventListener('pointerdown', (e) => {
+      if (!e.target.closest('.panel-header-actions')) {
+        closeAllPanelPopovers();
+      }
+    });
+  }
+
+  /* ========================================================================
      INIT
      ======================================================================== */
   function init() {
@@ -1174,6 +1421,7 @@
     applyFilter('all', false);
     syncTokenUI();
     initWorkspaceInteractions();
+    initPanelTools();
 
     dom.navCurrent.addEventListener('click', (e) => {
       if (e.detail !== 0 && !navHovered && e.pointerType === 'touch') {
@@ -1269,6 +1517,7 @@
     dom.lbNext.addEventListener('click', () => stepLightbox(1));
 
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAllPanelPopovers();
       if (!dom.lightbox.hidden) {
         if (e.key === 'Escape') closeLightbox();
         if (e.key === 'ArrowLeft') stepLightbox(-1);
