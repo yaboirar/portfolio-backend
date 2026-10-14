@@ -753,7 +753,6 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                     return
                 tmp_path.replace(save_path)
                 tmp_path = None
-                sanitize_video_metadata(save_path)
                 final_size = save_path.stat().st_size
 
             mime_type, _ = mimetypes.guess_type(str(save_path))
@@ -871,7 +870,6 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                     return
                 tmp_path.replace(save_path)
                 tmp_path = None
-                sanitize_video_metadata(save_path)
                 final_size = save_path.stat().st_size
 
             mime_type, _ = mimetypes.guess_type(str(save_path))
