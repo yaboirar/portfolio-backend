@@ -952,7 +952,7 @@
     if (t.includes('video')) return true;
     if (t.includes('image') || t.includes('photo')) return false;
     const u = String(item.relative_url || item.url || item.filename || '').toLowerCase();
-    return u.includes('/videos/') || /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u);
+    return u.includes('/videos/') || /\.(mp4|webm|mov|m4v|ogg|m3u8)(\?|$)/i.test(u);
   }
 
   async function fetchPortfolio() {
@@ -1118,10 +1118,26 @@
         visual.className = 'media-visual';
 
         const video = document.createElement('video');
-        video.src = v.url;
         video.controls = true;
         video.preload = 'metadata';
         video.playsInline = true;
+        video.setAttribute('controlsList', 'nodownload');
+        video.setAttribute('disablePictureInPicture', '');
+        video.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        if (v.url && v.url.includes('.m3u8')) {
+          if (window.Hls && Hls.isSupported()) {
+            const hls = new Hls({ enableWorker: false });
+            hls.loadSource(v.url);
+            hls.attachMedia(video);
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = v.url;
+          } else {
+            video.src = v.url;
+          }
+        } else {
+          video.src = v.url;
+        }
 
         visual.appendChild(video);
         fig.appendChild(visual);

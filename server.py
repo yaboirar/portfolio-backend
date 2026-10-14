@@ -17,6 +17,7 @@ import secrets
 import subprocess
 import math
 import tempfile
+import shutil
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Optional, Tuple, Dict, Any
@@ -38,6 +39,9 @@ TMP_DIR = BASE_DIR / ".tmp_uploads"
 
 for d in (UPLOADS_DIR, VIDEOS_DIR, IMAGES_DIR, STATIC_DIR, TMP_DIR):
     d.mkdir(parents=True, exist_ok=True)
+
+mimetypes.add_type("application/vnd.apple.mpegurl", ".m3u8")
+mimetypes.add_type("video/mp2t", ".ts")
 
 TOKEN_FILE = BASE_DIR / ".admin_token"
 _ENV_TOKEN = os.environ.get("PORTFOLIO_ADMIN_TOKEN")
@@ -161,6 +165,49 @@ def validate_video_file(file_path: Path, ext: str) -> float:
         return seconds
     except (TypeError, KeyError, json.JSONDecodeError) as exc:
         raise ValueError("Invalid video inspection result") from exc
+
+
+def transcode_video_to_hls(input_path: Path, hls_dir: Path) -> Optional[Tuple[str, int]]:
+    """Convert uploaded video to HLS (.m3u8 + .ts segments) to prevent single-file downloads.
+    Returns (relative_url, total_bytes) on success, or None on failure.
+    """
+    try:
+        hls_dir.mkdir(parents=True, exist_ok=True)
+        playlist = hls_dir / "index.m3u8"
+
+        # Attempt 1: Fast stream copy (instant, lossless)
+        cmd_copy = [
+            "ffmpeg", "-y", "-i", str(input_path),
+            "-codec:", "copy",
+            "-start_number", "0",
+            "-hls_time", "3",
+            "-hls_list_size", "0",
+            "-f", "hls",
+            str(playlist)
+        ]
+        res_copy = subprocess.run(cmd_copy, capture_output=True, timeout=60, check=False)
+
+        # If copy fails or stream isn't playable across all browsers, transcode to standard h264/aac
+        if res_copy.returncode != 0 or not playlist.is_file():
+            cmd_transcode = [
+                "ffmpeg", "-y", "-i", str(input_path),
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+                "-c:a", "aac", "-b:a", "128k",
+                "-start_number", "0",
+                "-hls_time", "3",
+                "-hls_list_size", "0",
+                "-f", "hls",
+                str(playlist)
+            ]
+            res_trans = subprocess.run(cmd_transcode, capture_output=True, timeout=180, check=False)
+            if res_trans.returncode != 0 or not playlist.is_file():
+                return None
+
+        total_bytes = sum(f.stat().st_size for f in hls_dir.iterdir() if f.is_file())
+        rel_url = f"/uploads/videos/{hls_dir.name}/index.m3u8"
+        return rel_url, total_bytes
+    except Exception:
+        return None
 
 
 # --- Path Resolution & Containment Helper ---
@@ -569,14 +616,17 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 self.send_error_json(404, "Media not found")
                 return
 
-            # Step 2: Unlink physical file
+            # Step 2: Unlink physical file or HLS directory
             rel_url = marked_item.get("relative_url", "")
             if rel_url.startswith("/uploads/"):
                 rel_disk_path = rel_url[len("/uploads/"):].lstrip("/")
                 safe_target = resolve_safe_path(UPLOADS_DIR, rel_disk_path)
-                if safe_target and safe_target.is_file():
+                if safe_target:
                     try:
-                        safe_target.unlink()
+                        if safe_target.name == "index.m3u8" and safe_target.parent.is_relative_to(VIDEOS_DIR):
+                            shutil.rmtree(safe_target.parent, ignore_errors=False)
+                        elif safe_target.is_file():
+                            safe_target.unlink()
                     except OSError as e:
                         # Unlink failed: item remains marked pending_delete (visitors cannot see it),
                         # but API returns 500 indicating unlinking retry needed
@@ -668,7 +718,20 @@ class PortfolioHandler(BaseHTTPRequestHandler):
             if not mime_type:
                 mime_type = "video/mp4" if is_video else "image/jpeg"
 
-            rel_url = f"/uploads/{subfolder}/{anonymous_filename}"
+            if is_video:
+                hls_dir = VIDEOS_DIR / Path(anonymous_filename).stem
+                hls_info = transcode_video_to_hls(save_path, hls_dir)
+                if hls_info:
+                    rel_url, final_size = hls_info
+                    mime_type = "application/vnd.apple.mpegurl"
+                    try:
+                        save_path.unlink()
+                    except OSError:
+                        pass
+                else:
+                    rel_url = f"/uploads/{subfolder}/{anonymous_filename}"
+            else:
+                rel_url = f"/uploads/{subfolder}/{anonymous_filename}"
 
             try:
                 record = database.create_media(
@@ -778,7 +841,21 @@ class PortfolioHandler(BaseHTTPRequestHandler):
 
             title = fields.get("title") or "Untitled Project"
             desc = fields.get("description", "")
-            rel_url = f"/uploads/{subfolder}/{anonymous_filename}"
+
+            if is_video:
+                hls_dir = VIDEOS_DIR / Path(anonymous_filename).stem
+                hls_info = transcode_video_to_hls(save_path, hls_dir)
+                if hls_info:
+                    rel_url, final_size = hls_info
+                    mime_type = "application/vnd.apple.mpegurl"
+                    try:
+                        save_path.unlink()
+                    except OSError:
+                        pass
+                else:
+                    rel_url = f"/uploads/{subfolder}/{anonymous_filename}"
+            else:
+                rel_url = f"/uploads/{subfolder}/{anonymous_filename}"
 
             try:
                 record = database.create_media(
