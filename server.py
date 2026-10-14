@@ -343,6 +343,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         return json.loads(raw.decode("utf-8"))
 
     def serve_file_with_range(self, filepath: Path, head_only: bool = False):
+        total_size = filepath.stat().st_size
         ext = filepath.suffix.lower()
         if ext == ".ts":
             mime_type = "video/mp2t"
