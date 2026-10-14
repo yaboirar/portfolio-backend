@@ -253,7 +253,6 @@
     footerProgressPercent: document.getElementById('footer-progress-percent'),
     footerProgressFill: document.getElementById('footer-progress-fill'),
     footerProgressScan: document.getElementById('footer-progress-scan'),
-    footerFileInput: document.getElementById('footer-file-input'),
   };
 
   /* ========================================================================
@@ -1283,31 +1282,15 @@
     dom.uploadMeterFill.style.width = '0%';
     dom.uploadStatus.textContent = '0%';
 
-    activeRealUpload = true;
-    if (demoTimer) {
-      clearTimeout(demoTimer);
-      demoTimer = null;
-    }
-
-    updateFooterProgress({
-      file,
-      value: null,
-      pendingLabel: 'Sizing',
-      completeLabel: 'Upload complete',
-    });
+    // Pop up the footer loading bar for this upload!
+    showFooterProgress(file, null, 'Sizing');
 
     xhr.upload.onprogress = (ev) => {
       if (ev.lengthComputable) {
         const pct = Math.round((ev.loaded / ev.total) * 100);
         dom.uploadMeterFill.style.width = `${pct}%`;
         dom.uploadStatus.textContent = `${pct}%`;
-        updateFooterProgress({
-          file,
-          value: pct,
-          max: 100,
-          pendingLabel: 'Working',
-          completeLabel: 'Upload complete',
-        });
+        updateFooterProgress(pct, 'Working');
       }
     };
 
@@ -1317,46 +1300,21 @@
         dom.uploadForm.reset();
         updateDropPreview();
         dom.uploadStatus.textContent = t('uploaded');
-        updateFooterProgress({
-          file,
-          value: 100,
-          max: 100,
-          completeLabel: 'Upload complete',
-        });
+        completeFooterProgress('Upload complete');
         setTimeout(() => {
           dom.uploadMeter.hidden = true;
         }, 600);
         await fetchPortfolio();
       } else {
         dom.uploadStatus.textContent = `Error ${xhr.status}`;
-        updateFooterProgress({
-          file,
-          value: 100,
-          max: 100,
-          completeLabel: `Error ${xhr.status}`,
-        });
+        completeFooterProgress(`Error ${xhr.status}`);
       }
-      setTimeout(() => {
-        activeRealUpload = false;
-        demoValue = null;
-        stepDemoLoop();
-      }, 3000);
     };
 
     xhr.onerror = () => {
       dom.uploadSubmit.disabled = false;
       dom.uploadStatus.textContent = t('networkError');
-      updateFooterProgress({
-        file,
-        value: 100,
-        max: 100,
-        completeLabel: t('networkError'),
-      });
-      setTimeout(() => {
-        activeRealUpload = false;
-        demoValue = null;
-        stepDemoLoop();
-      }, 3000);
+      completeFooterProgress(t('networkError'));
     };
 
     xhr.send(fd);
@@ -1749,31 +1707,35 @@
   }
 
   /* ========================================================================
-     CORRELATED FOOTER UPLOAD & PROGRESS BAR (ProgressBar component)
+     CORRELATED FOOTER POPUP PROGRESS BAR (ProgressBar component)
      ======================================================================== */
-  let activeRealUpload = false;
-  let demoTimer = null;
-  let demoValue = null;
+  let footerHideTimer = null;
 
-  function updateFooterProgress({
-    file,
-    value,
-    max = 100,
-    label,
-    pendingLabel = 'Working',
-    completeLabel = 'Complete',
-  }) {
+  function showFooterProgress(file, initialVal = null, pendingLabel = 'Sizing') {
     if (!dom.footerProgressWidget) return;
-
-    const resolvedLabel = label || (file ? (typeof file === 'string' ? file : file.name) : 'roadmap.pdf');
-    if (dom.footerProgressTitle) {
-      dom.footerProgressTitle.textContent = resolvedLabel;
+    if (footerHideTimer) {
+      clearTimeout(footerHideTimer);
+      footerHideTimer = null;
     }
 
+    const name = typeof file === 'string' ? file : (file ? file.name : 'Uploading file');
+    if (dom.footerProgressTitle) {
+      dom.footerProgressTitle.textContent = name;
+    }
+
+    // Pop up the loading bar!
+    dom.footerProgressWidget.classList.add('is-visible');
+    dom.footerProgressWidget.setAttribute('aria-hidden', 'false');
+
+    updateFooterProgress(initialVal, pendingLabel);
+  }
+
+  function updateFooterProgress(value, pendingLabel = 'Working') {
+    if (!dom.footerProgressWidget) return;
+
     const isIndeterminate = value === null || value === undefined;
-    const fraction = isIndeterminate || max <= 0 ? 0 : Math.min(1, Math.max(0, value / max));
+    const fraction = isIndeterminate ? 0 : Math.min(1, Math.max(0, value / 100));
     const percent = Math.round(fraction * 100);
-    const isComplete = !isIndeterminate && fraction >= 1;
 
     if (isIndeterminate) {
       dom.footerProgressWidget.classList.remove('is-measured');
@@ -1787,195 +1749,34 @@
       if (dom.footerProgressPercent) dom.footerProgressPercent.textContent = `${percent}%`;
     }
 
-    if (isComplete) {
-      if (dom.footerProgressPending) dom.footerProgressPending.textContent = completeLabel;
-      if (dom.footerProgressPercent) dom.footerProgressPercent.textContent = `${percent}%`;
-    }
-
     dom.footerProgressWidget.setAttribute('aria-valuenow', isIndeterminate ? '' : String(percent));
     dom.footerProgressWidget.setAttribute('aria-valuetext', isIndeterminate ? pendingLabel : `${percent}%`);
   }
 
-  function stepDemoLoop() {
-    if (activeRealUpload) return;
+  function completeFooterProgress(completeLabel = 'Upload complete') {
+    if (!dom.footerProgressWidget) return;
 
-    if (demoValue === null) {
-      updateFooterProgress({
-        file: 'roadmap.pdf',
-        value: null,
-        pendingLabel: 'Sizing',
-        completeLabel: 'Upload complete',
-      });
-      demoTimer = setTimeout(() => {
-        if (activeRealUpload) return;
-        demoValue = 8;
-        updateFooterProgress({
-          file: 'roadmap.pdf',
-          value: demoValue,
-          pendingLabel: 'Sizing',
-          completeLabel: 'Upload complete',
-        });
-        stepDemoLoop();
-      }, 1300);
-      return;
-    }
+    dom.footerProgressWidget.classList.add('is-measured');
+    if (dom.footerProgressScan) dom.footerProgressScan.style.display = 'none';
+    if (dom.footerProgressFill) dom.footerProgressFill.style.transform = 'scaleX(1)';
+    if (dom.footerProgressPercent) dom.footerProgressPercent.textContent = '100%';
+    if (dom.footerProgressPending) dom.footerProgressPending.textContent = completeLabel;
 
-    if (demoValue < 100) {
-      demoTimer = setTimeout(() => {
-        if (activeRealUpload) return;
-        demoValue = Math.min(100, demoValue + 14);
-        updateFooterProgress({
-          file: 'roadmap.pdf',
-          value: demoValue,
-          pendingLabel: 'Sizing',
-          completeLabel: 'Upload complete',
-        });
-        stepDemoLoop();
-      }, 520);
-      return;
-    }
-
-    // demoValue >= 100
-    demoTimer = setTimeout(() => {
-      if (activeRealUpload) return;
-      demoValue = null;
-      stepDemoLoop();
+    // After 1.8s, smoothly pop down / hide
+    footerHideTimer = setTimeout(() => {
+      dom.footerProgressWidget.classList.remove('is-visible');
+      dom.footerProgressWidget.setAttribute('aria-hidden', 'true');
+      setTimeout(() => {
+        dom.footerProgressWidget.classList.remove('is-measured');
+        if (dom.footerProgressFill) dom.footerProgressFill.style.transform = 'scaleX(0)';
+      }, 400);
     }, 1800);
   }
 
-  function startFooterFileUpload(file) {
-    if (!file) return;
-
-    activeRealUpload = true;
-    if (demoTimer) {
-      clearTimeout(demoTimer);
-      demoTimer = null;
-    }
-
-    const token = state.token || dom.adminToken.value.trim() || sessionStorage.getItem('admin_token') || '';
-
-    updateFooterProgress({
-      file: file.name,
-      value: null,
-      pendingLabel: 'Sizing',
-      completeLabel: 'Upload complete',
-    });
-
-    if (!token) {
-      // Sizing & upload simulation for real file, then prompt for token
-      let simVal = 8;
-      const simInterval = setInterval(() => {
-        simVal = Math.min(100, simVal + 18);
-        updateFooterProgress({
-          file: file.name,
-          value: simVal,
-          pendingLabel: 'Working',
-          completeLabel: 'Upload complete',
-        });
-        if (simVal >= 100) {
-          clearInterval(simInterval);
-          toggleUpload(true);
-          dom.uploadStatus.textContent = t('enterTokenAbove');
-          setTimeout(() => {
-            activeRealUpload = false;
-            demoValue = null;
-            stepDemoLoop();
-          }, 3000);
-        }
-      }, 350);
-      return;
-    }
-
-    // Correlate with drawer preview if open
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    dom.uploadFile.files = dt.files;
-    updateDropPreview();
-
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('title', file.name.replace(/\.[^/.]+$/, ''));
-    fd.append('description', '');
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload', true);
-    xhr.setRequestHeader('X-Admin-Token', token);
-
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) {
-        const pct = Math.round((ev.loaded / ev.total) * 100);
-        updateFooterProgress({
-          file: file.name,
-          value: pct,
-          max: 100,
-          pendingLabel: 'Working',
-          completeLabel: 'Upload complete',
-        });
-      }
-    };
-
-    xhr.onload = async () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        updateFooterProgress({
-          file: file.name,
-          value: 100,
-          max: 100,
-          completeLabel: 'Upload complete',
-        });
-        dom.uploadForm.reset();
-        updateDropPreview();
-        dom.uploadStatus.textContent = t('uploaded');
-        await fetchPortfolio();
-      } else {
-        updateFooterProgress({
-          file: file.name,
-          value: 100,
-          max: 100,
-          completeLabel: `Error ${xhr.status}`,
-        });
-      }
-      setTimeout(() => {
-        activeRealUpload = false;
-        demoValue = null;
-        stepDemoLoop();
-      }, 3000);
-    };
-
-    xhr.onerror = () => {
-      updateFooterProgress({
-        file: file.name,
-        value: 100,
-        max: 100,
-        completeLabel: t('networkError'),
-      });
-      setTimeout(() => {
-        activeRealUpload = false;
-        demoValue = null;
-        stepDemoLoop();
-      }, 3000);
-    };
-
-    xhr.send(fd);
-  }
-
-  function initFooterUpload() {
-    if (!dom.footerProgressWidget || !dom.footerFileInput) return;
-
-    dom.footerProgressWidget.addEventListener('click', (e) => {
-      e.stopPropagation();
-      dom.footerFileInput.click();
-    });
-
-    dom.footerFileInput.addEventListener('change', () => {
-      const file = dom.footerFileInput.files[0];
-      if (file) {
-        startFooterFileUpload(file);
-      }
-      dom.footerFileInput.value = '';
-    });
-
-    // Start demo loop so the loading bar is active right away
-    stepDemoLoop();
+  function dismissFooterProgress() {
+    if (!dom.footerProgressWidget) return;
+    dom.footerProgressWidget.classList.remove('is-visible');
+    dom.footerProgressWidget.setAttribute('aria-hidden', 'true');
   }
 
   /* ========================================================================
@@ -1993,7 +1794,6 @@
     syncTokenUI();
     initWorkspaceInteractions();
     initPanelTools();
-    initFooterUpload();
 
     dom.navCurrent.addEventListener('click', (e) => {
       if (e.detail !== 0 && !navHovered && e.pointerType === 'touch') {

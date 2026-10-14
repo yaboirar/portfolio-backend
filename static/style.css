@@ -1940,17 +1940,18 @@ body.is-resizing .gutter-h {
 }
 
 /* ==========================================================================
-   APP FOOTER & UPLOAD / LOAD PROGRESS BAR BUTTON (ProgressBar component)
+   APP FOOTER & POP-UP UPLOAD PROGRESS BAR (ProgressBar component)
    ========================================================================== */
 .app-footer {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  min-height: calc(46 * var(--ui-unit));
+  min-height: calc(36 * var(--ui-unit));
   padding-bottom: calc(2 * var(--ui-unit));
   position: relative;
   z-index: 20;
+  pointer-events: none;
 }
 
 .footer-upload-hub {
@@ -1961,38 +1962,43 @@ body.is-resizing .gutter-h {
   width: 100%;
 }
 
-/* The loading bar button: exact replica of ProgressBar.tsx in demo.tsx (max-w-[360px]) */
+/* Pops up when an upload starts, disappears when complete */
 .footer-progress-widget {
   width: min(92vw, calc(340 * var(--ui-unit)));
   padding: calc(9 * var(--ui-unit)) calc(13 * var(--ui-unit));
   border-radius: calc(12 * var(--ui-unit));
-  background: var(--glass-pill);
+  background: var(--glass-pill-active);
   backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
   -webkit-backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  cursor: pointer;
+  box-shadow: 0 calc(10 * var(--ui-unit)) calc(30 * var(--ui-unit)) rgba(0, 0, 0, 0.45),
+              0 0 0 1px rgba(255, 255, 255, 0.08);
   outline: none !important;
   text-align: left;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(calc(24 * var(--ui-unit))) scale(0.94);
   transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.22s var(--ease-spring),
+    transform 0.42s var(--ease-pop),
+    opacity 0.28s ease,
+    visibility 0.28s ease,
     box-shadow 0.25s ease;
 }
 
-.footer-progress-widget:hover {
-  background: var(--glass-pill-active);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-  box-shadow: 0 calc(4 * var(--ui-unit)) calc(16 * var(--ui-unit)) rgba(0, 0, 0, 0.25);
+[data-theme="light"] .footer-progress-widget {
+  box-shadow: 0 calc(10 * var(--ui-unit)) calc(28 * var(--ui-unit)) rgba(0, 0, 0, 0.14),
+              0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
-.footer-progress-widget:active {
-  transform: translateY(0) scale(0.985);
+.footer-progress-widget.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
 .footer-progress-top {

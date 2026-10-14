@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=loading-bar-v1">
+  <link rel="stylesheet" href="/static/style.css?v=popup-progress-v2">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -527,18 +527,17 @@
       </aside>
     </div>
 
-    <!-- Bottom Footer: Upload / Load Progress Bar (ProgressBar component) -->
+    <!-- Bottom Footer: Pop-up Upload Progress Bar (ProgressBar component) -->
     <footer class="app-footer" id="app-footer">
       <div class="footer-upload-hub" id="footer-upload-hub">
-        <button
-          type="button"
+        <div
           class="footer-progress-widget"
           id="footer-progress-widget"
           role="progressbar"
           aria-valuemin="0"
           aria-valuemax="100"
-          aria-label="Upload file or view current loading progress"
-          title="Click to upload / load a file"
+          aria-label="Upload progress"
+          aria-hidden="true"
         >
           <div class="footer-progress-top">
             <span class="footer-progress-label-wrap">
@@ -547,11 +546,11 @@
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
-              <span class="footer-progress-title truncate" id="footer-progress-title">roadmap.pdf</span>
+              <span class="footer-progress-title truncate" id="footer-progress-title"></span>
             </span>
 
             <span class="footer-progress-status-grid" aria-hidden="true">
-              <span class="footer-progress-pending" id="footer-progress-pending">Sizing</span>
+              <span class="footer-progress-pending" id="footer-progress-pending">Working</span>
               <span class="footer-progress-percent" id="footer-progress-percent">0%</span>
             </span>
           </div>
@@ -562,9 +561,7 @@
               <span class="footer-progress-scan" id="footer-progress-scan"></span>
             </div>
           </div>
-        </button>
-
-        <input type="file" id="footer-file-input" hidden accept="image/*,video/*">
+        </div>
       </div>
     </footer>
   </div>
@@ -591,7 +588,7 @@
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=loading-bar-v1"></script>
+  <script src="/static/app.js?v=popup-progress-v2"></script>
 </body>
 </html>
 
