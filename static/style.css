@@ -811,33 +811,16 @@ button:hover .text-roll-layer--bottom .text-roll-char,
               visibility 0.44s ease;
 }
 
-.bento-stack {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  flex: 46 1 0px;
-  transition: flex 0.44s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.36s ease,
-              visibility 0.44s ease;
-}
-
 .slot-primary {
-  flex: 54 1 0px;
+  flex: 50 1 0px;
 }
 
-.slot-top {
-  flex: 52 1 0px;
-}
-
-.slot-bottom {
-  flex: 48 1 0px;
+.slot-secondary {
+  flex: 50 1 0px;
 }
 
 /* Smooth category switch while in fullscreen (avoids awkward slot flex squish) */
-.bento-stage.is-switching-fullscreen .bento-slot,
-.bento-stage.is-switching-fullscreen .bento-stack {
+.bento-stage.is-switching-fullscreen .bento-slot {
   transition: none !important;
 }
 
@@ -869,12 +852,40 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: border-color 0.2s ease, box-shadow 0.25s ease;
+  transition: border-color 0.25s ease,
+              box-shadow 0.25s ease,
+              transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s ease;
+  will-change: transform;
+}
+
+.bento-panel.is-dragging {
+  opacity: 0.65;
+  transform: scale(0.985);
+  box-shadow: 0 calc(12 * var(--ui-unit)) calc(32 * var(--ui-unit)) rgba(0, 0, 0, 0.4);
+  cursor: grabbing;
+}
+
+/* Hover swap preview on the opposite tile:
+   When dragging primary and hovering over secondary, secondary shifts slightly left towards primary.
+   When dragging secondary and hovering over primary, primary shifts slightly right towards secondary.
+   Both have a smooth spring slide transition. If canceled, removing is-swap-preview slides it right back! */
+.slot-secondary .bento-panel.is-swap-preview {
+  transform: translateX(calc(-20 * var(--ui-unit))) scale(0.985);
+  border-color: var(--fg);
+  box-shadow: 0 calc(8 * var(--ui-unit)) calc(24 * var(--ui-unit)) rgba(0, 0, 0, 0.3),
+              0 0 0 calc(2 * var(--ui-unit)) rgba(255, 255, 255, 0.15);
+}
+
+.slot-primary .bento-panel.is-swap-preview {
+  transform: translateX(calc(20 * var(--ui-unit))) scale(0.985);
+  border-color: var(--fg);
+  box-shadow: 0 calc(8 * var(--ui-unit)) calc(24 * var(--ui-unit)) rgba(0, 0, 0, 0.3),
+              0 0 0 calc(2 * var(--ui-unit)) rgba(255, 255, 255, 0.15);
 }
 
 .bento-panel.is-drag-target {
   border-color: var(--fg);
-  transform: scale(0.99);
 }
 
 .panel-header {
@@ -1412,9 +1423,7 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 }
 
 body.is-resizing .bento-slot,
-body.is-resizing .bento-stack,
-body.is-resizing .gutter-v,
-body.is-resizing .gutter-h {
+body.is-resizing .gutter-v {
   transition: none !important;
 }
 

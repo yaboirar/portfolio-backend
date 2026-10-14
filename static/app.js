@@ -5,8 +5,7 @@
   const RING_CIRCUMFERENCE = 2 * Math.PI * 12.5; // ~78.54
   const NAV_ICONS = {
     all: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.5z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-    videos: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="15" height="16" rx="2"/><polygon points="22 8 17 12 22 16 22 8"/></svg>`,
-    photos: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+    media: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><polygon points="10 8 16 11 10 14 10 8"/><line x1="2" y1="21" x2="22" y2="21"/></svg>`,
     poems: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>`,
   };
 
@@ -14,6 +13,7 @@
     en: {
       all: 'All',
       allHome: 'All (Home)',
+      media: 'Media',
       videos: 'Videos',
       photos: 'Photos',
       poems: 'Poems',
@@ -24,25 +24,21 @@
       toggleTheme: 'Toggle theme',
       uploadMediaPoems: 'Upload media & poems',
       closeUpload: 'Close upload panel',
-      searchVideos: 'Search videos',
-      searchPhotos: 'Search photos',
+      searchMedia: 'Search media',
       searchPoems: 'Search poems',
-      filterVideos: 'Filter videos',
-      filterPhotos: 'Filter photos',
+      filterMedia: 'Filter media',
       filterPoems: 'Filter poems',
-      sortVideos: 'Sort videos',
-      sortPhotos: 'Sort photos',
+      sortMedia: 'Sort media',
       sortPoems: 'Sort poems',
-      expandVideos: 'Expand Videos',
-      expandPhotos: 'Expand Photos',
+      expandMedia: 'Expand Media',
       expandPoems: 'Expand Poems',
-      exitFullscreenVideos: 'Exit fullscreen Videos',
-      exitFullscreenPhotos: 'Exit fullscreen Photos',
+      exitFullscreenMedia: 'Exit fullscreen Media',
       exitFullscreenPoems: 'Exit fullscreen Poems',
       filter: 'Filter',
       sortBy: 'Sort By',
-      allVideos: 'All Videos',
-      allPhotos: 'All Photos',
+      allMedia: 'All Media',
+      videosOnly: 'Videos Only',
+      photosOnly: 'Photos Only',
       allPoems: 'All Poems',
       recentUploads: 'Recent Uploads',
       withDescription: 'With Description',
@@ -53,7 +49,6 @@
       sortAZ: 'Title (A–Z)',
       sortZA: 'Title (Z–A)',
       emptyState: 'theres nothing here',
-      media: 'Media',
       adminToken: 'Admin token',
       save: 'Save',
       saved: 'Saved',
@@ -76,6 +71,7 @@
     id: {
       all: 'Semua',
       allHome: 'Semua (Beranda)',
+      media: 'Media',
       videos: 'Video',
       photos: 'Foto',
       poems: 'Puisi',
@@ -86,25 +82,21 @@
       toggleTheme: 'Ganti tema',
       uploadMediaPoems: 'Unggah media & puisi',
       closeUpload: 'Tutup panel unggah',
-      searchVideos: 'Cari video',
-      searchPhotos: 'Cari foto',
+      searchMedia: 'Cari media',
       searchPoems: 'Cari puisi',
-      filterVideos: 'Saring video',
-      filterPhotos: 'Saring foto',
+      filterMedia: 'Saring media',
       filterPoems: 'Saring puisi',
-      sortVideos: 'Urutkan video',
-      sortPhotos: 'Urutkan foto',
+      sortMedia: 'Urutkan media',
       sortPoems: 'Urutkan puisi',
-      expandVideos: 'Perbesar Video',
-      expandPhotos: 'Perbesar Foto',
+      expandMedia: 'Perbesar Media',
       expandPoems: 'Perbesar Puisi',
-      exitFullscreenVideos: 'Keluar layar penuh Video',
-      exitFullscreenPhotos: 'Keluar layar penuh Foto',
+      exitFullscreenMedia: 'Keluar layar penuh Media',
       exitFullscreenPoems: 'Keluar layar penuh Puisi',
       filter: 'Saring',
       sortBy: 'Urutkan',
-      allVideos: 'Semua Video',
-      allPhotos: 'Semua Foto',
+      allMedia: 'Semua Media',
+      videosOnly: 'Hanya Video',
+      photosOnly: 'Hanya Foto',
       allPoems: 'Semua Puisi',
       recentUploads: 'Unggahan Terbaru',
       withDescription: 'Dengan Deskripsi',
@@ -115,7 +107,6 @@
       sortAZ: 'Judul (A–Z)',
       sortZA: 'Judul (Z–A)',
       emptyState: 'tidak ada apa-apa di sini',
-      media: 'Media',
       adminToken: 'Token admin',
       save: 'Simpan',
       saved: 'Tersimpan',
@@ -139,14 +130,12 @@
 
   const CATEGORIES = [
     { key: 'all', label: 'All', title: 'All (Home)', icon: NAV_ICONS.all },
-    { key: 'videos', label: 'Videos', title: 'Videos', icon: NAV_ICONS.videos },
-    { key: 'photos', label: 'Photos', title: 'Photos', icon: NAV_ICONS.photos },
+    { key: 'media', label: 'Media', title: 'Media', icon: NAV_ICONS.media },
     { key: 'poems', label: 'Poems', title: 'Poems', icon: NAV_ICONS.poems },
   ];
 
   const state = {
-    videos: [],
-    photos: [],
+    media: [],
     poems: [],
     filter: 'all',
     searchQuery: '',
@@ -154,12 +143,9 @@
     lightboxIndex: -1,
     token: sessionStorage.getItem('admin_token') || '',
     lang: localStorage.getItem('portfolio_lang') || 'en',
-    // Saved split ratios for 'all' view so single-category view can go 100% fullscreen cleanly
     split: {
-      primaryPct: 54,
-      stackPct: 46,
-      topPct: 52,
-      bottomPct: 48,
+      primaryPct: 50,
+      secondaryPct: 50,
     },
   };
 
@@ -171,9 +157,8 @@
   const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
 
   const panelState = {
-    videos: { search: '', filter: 'all', sort: 'newest', searchOpen: false },
-    photos: { search: '', filter: 'all', sort: 'newest', searchOpen: false },
-    poems:  { search: '', filter: 'all', sort: 'newest', searchOpen: false },
+    media: { search: '', filter: 'all', sort: 'newest', searchOpen: false },
+    poems: { search: '', filter: 'all', sort: 'newest', searchOpen: false },
   };
 
   const dom = {
@@ -195,20 +180,16 @@
 
     bentoStage: document.getElementById('bento-stage'),
     slotPrimary: document.getElementById('slot-primary'),
-    slotStack: document.getElementById('slot-stack'),
-    slotTop: document.getElementById('slot-top'),
-    slotBottom: document.getElementById('slot-bottom'),
+    slotSecondary: document.getElementById('slot-secondary'),
 
     gutterMainV: document.getElementById('gutter-main-v'),
-    gutterStackH: document.getElementById('gutter-stack-h'),
     gutterUpload: document.getElementById('gutter-upload'),
     gutterDrop: document.getElementById('gutter-drop'),
 
     panels: document.querySelectorAll('.bento-stage .bento-panel'),
     expandBtns: document.querySelectorAll('[data-expand]'),
 
-    bodyVideos: document.getElementById('body-videos'),
-    bodyPhotos: document.getElementById('body-photos'),
+    bodyMedia: document.getElementById('body-media'),
     bodyPoems: document.getElementById('body-poems'),
 
     uploadDock: document.getElementById('upload-dock'),
@@ -491,117 +472,73 @@
      ======================================================================== */
   function syncSlotFlexSizing() {
     const isAll = state.filter === 'all';
-    const pPrimary = dom.slotPrimary.querySelector('.bento-panel');
-    const pTop = dom.slotTop.querySelector('.bento-panel');
-    const pBottom = dom.slotBottom.querySelector('.bento-panel');
+    const pPrimary = dom.slotPrimary ? dom.slotPrimary.querySelector('.bento-panel') : null;
+    const pSecondary = dom.slotSecondary ? dom.slotSecondary.querySelector('.bento-panel') : null;
 
     if (isAll) {
-      dom.slotPrimary.style.flex = `${state.split.primaryPct} 1 0px`;
-      dom.slotPrimary.style.opacity = '1';
-      dom.slotPrimary.style.visibility = 'visible';
-      dom.slotPrimary.style.pointerEvents = 'auto';
-
-      dom.slotStack.style.flex = `${state.split.stackPct} 1 0px`;
-      dom.slotStack.style.opacity = '1';
-      dom.slotStack.style.visibility = 'visible';
-      dom.slotStack.style.pointerEvents = 'auto';
-
-      dom.slotTop.style.flex = `${state.split.topPct} 1 0px`;
-      dom.slotTop.style.opacity = '1';
-      dom.slotTop.style.visibility = 'visible';
-      dom.slotTop.style.pointerEvents = 'auto';
-
-      dom.slotBottom.style.flex = `${state.split.bottomPct} 1 0px`;
-      dom.slotBottom.style.opacity = '1';
-      dom.slotBottom.style.visibility = 'visible';
-      dom.slotBottom.style.pointerEvents = 'auto';
-
-      dom.gutterMainV.style.opacity = '1';
-      dom.gutterMainV.style.pointerEvents = 'auto';
-      dom.gutterMainV.style.width = '';
-
-      dom.gutterStackH.style.opacity = '1';
-      dom.gutterStackH.style.pointerEvents = 'auto';
-      dom.gutterStackH.style.height = '';
-    } else {
-      const showPrimary = pPrimary && pPrimary.dataset.panel === state.filter;
-      const showTop = pTop && pTop.dataset.panel === state.filter;
-      const showBottom = pBottom && pBottom.dataset.panel === state.filter;
-
-      if (showPrimary) {
-        dom.slotPrimary.style.flex = '100 1 0px';
+      if (dom.slotPrimary) {
+        dom.slotPrimary.style.flex = `${state.split.primaryPct} 1 0px`;
         dom.slotPrimary.style.opacity = '1';
         dom.slotPrimary.style.visibility = 'visible';
         dom.slotPrimary.style.pointerEvents = 'auto';
+      }
 
-        dom.slotStack.style.flex = '0.0001 1 0px';
-        dom.slotStack.style.opacity = '0';
-        dom.slotStack.style.visibility = 'hidden';
-        dom.slotStack.style.pointerEvents = 'none';
+      if (dom.slotSecondary) {
+        dom.slotSecondary.style.flex = `${state.split.secondaryPct} 1 0px`;
+        dom.slotSecondary.style.opacity = '1';
+        dom.slotSecondary.style.visibility = 'visible';
+        dom.slotSecondary.style.pointerEvents = 'auto';
+      }
 
-        dom.gutterMainV.style.opacity = '0';
-        dom.gutterMainV.style.pointerEvents = 'none';
-        dom.gutterMainV.style.width = '0px';
+      if (dom.gutterMainV) {
+        dom.gutterMainV.style.opacity = '1';
+        dom.gutterMainV.style.pointerEvents = 'auto';
+        dom.gutterMainV.style.width = '';
+      }
+    } else {
+      const showPrimary = pPrimary && pPrimary.dataset.panel === state.filter;
+      const showSecondary = pSecondary && pSecondary.dataset.panel === state.filter;
 
-        dom.gutterStackH.style.opacity = '0';
-        dom.gutterStackH.style.pointerEvents = 'none';
-        dom.gutterStackH.style.height = '0px';
-      } else if (showTop) {
-        dom.slotPrimary.style.flex = '0.0001 1 0px';
-        dom.slotPrimary.style.opacity = '0';
-        dom.slotPrimary.style.visibility = 'hidden';
-        dom.slotPrimary.style.pointerEvents = 'none';
+      if (showPrimary) {
+        if (dom.slotPrimary) {
+          dom.slotPrimary.style.flex = '100 1 0px';
+          dom.slotPrimary.style.opacity = '1';
+          dom.slotPrimary.style.visibility = 'visible';
+          dom.slotPrimary.style.pointerEvents = 'auto';
+        }
 
-        dom.slotStack.style.flex = '100 1 0px';
-        dom.slotStack.style.opacity = '1';
-        dom.slotStack.style.visibility = 'visible';
-        dom.slotStack.style.pointerEvents = 'auto';
+        if (dom.slotSecondary) {
+          dom.slotSecondary.style.flex = '0.0001 1 0px';
+          dom.slotSecondary.style.opacity = '0';
+          dom.slotSecondary.style.visibility = 'hidden';
+          dom.slotSecondary.style.pointerEvents = 'none';
+        }
 
-        dom.slotTop.style.flex = '100 1 0px';
-        dom.slotTop.style.opacity = '1';
-        dom.slotTop.style.visibility = 'visible';
-        dom.slotTop.style.pointerEvents = 'auto';
+        if (dom.gutterMainV) {
+          dom.gutterMainV.style.opacity = '0';
+          dom.gutterMainV.style.pointerEvents = 'none';
+          dom.gutterMainV.style.width = '0px';
+        }
+      } else if (showSecondary) {
+        if (dom.slotPrimary) {
+          dom.slotPrimary.style.flex = '0.0001 1 0px';
+          dom.slotPrimary.style.opacity = '0';
+          dom.slotPrimary.style.visibility = 'hidden';
+          dom.slotPrimary.style.pointerEvents = 'none';
+        }
 
-        dom.slotBottom.style.flex = '0.0001 1 0px';
-        dom.slotBottom.style.opacity = '0';
-        dom.slotBottom.style.visibility = 'hidden';
-        dom.slotBottom.style.pointerEvents = 'none';
+        if (dom.slotSecondary) {
+          dom.slotSecondary.style.flex = '100 1 0px';
+          dom.slotSecondary.style.opacity = '1';
+          dom.slotSecondary.style.visibility = 'visible';
+          dom.slotSecondary.style.pointerEvents = 'auto';
+        }
 
-        dom.gutterMainV.style.opacity = '0';
-        dom.gutterMainV.style.pointerEvents = 'none';
-        dom.gutterMainV.style.width = '0px';
-
-        dom.gutterStackH.style.opacity = '0';
-        dom.gutterStackH.style.pointerEvents = 'none';
-        dom.gutterStackH.style.height = '0px';
-      } else if (showBottom) {
-        dom.slotPrimary.style.flex = '0.0001 1 0px';
-        dom.slotPrimary.style.opacity = '0';
-        dom.slotPrimary.style.visibility = 'hidden';
-        dom.slotPrimary.style.pointerEvents = 'none';
-
-        dom.slotStack.style.flex = '100 1 0px';
-        dom.slotStack.style.opacity = '1';
-        dom.slotStack.style.visibility = 'visible';
-        dom.slotStack.style.pointerEvents = 'auto';
-
-        dom.slotTop.style.flex = '0.0001 1 0px';
-        dom.slotTop.style.opacity = '0';
-        dom.slotTop.style.visibility = 'hidden';
-        dom.slotTop.style.pointerEvents = 'none';
-
-        dom.slotBottom.style.flex = '100 1 0px';
-        dom.slotBottom.style.opacity = '1';
-        dom.slotBottom.style.visibility = 'visible';
-        dom.slotBottom.style.pointerEvents = 'auto';
-
-        dom.gutterMainV.style.opacity = '0';
-        dom.gutterMainV.style.pointerEvents = 'none';
-        dom.gutterMainV.style.width = '0px';
-
-        dom.gutterStackH.style.opacity = '0';
-        dom.gutterStackH.style.pointerEvents = 'none';
-        dom.gutterStackH.style.height = '0px';
+        if (dom.gutterMainV) {
+          dom.gutterMainV.style.opacity = '0';
+          dom.gutterMainV.style.pointerEvents = 'none';
+          dom.gutterMainV.style.width = '0px';
+        }
       }
     }
   }
@@ -677,21 +614,19 @@
 
   function getFilteredItems() {
     const q = state.searchQuery.trim().toLowerCase();
-    const videos = state.videos.filter((v) => matchesQuery(v, 'video videos', q));
-    const photos = state.photos.filter((p) => matchesQuery(p, 'photo photos image', q));
+    const media = state.media.filter((m) => matchesQuery(m, m.kind === 'video' ? 'video videos' : 'photo photos image', q));
     const poems = state.poems.filter((pm) => matchesQuery(pm, 'poem poems text', q));
-    return { videos, photos, poems, q };
+    return { media, poems, q };
   }
 
   function updateSearchUI() {
-    const { videos, photos, poems, q } = getFilteredItems();
+    const { media, poems, q } = getFilteredItems();
     const hasQuery = q.length > 0;
     dom.searchHub.classList.toggle('has-query', hasQuery);
     dom.searchClear.hidden = !hasQuery;
 
     const allMatches = [
-      ...videos.map((v) => ({ ...v, kind: 'video' })),
-      ...photos.map((p) => ({ ...p, kind: 'photo' })),
+      ...media,
       ...poems.map((pm) => ({ ...pm, kind: 'poem' })),
     ];
 
@@ -746,72 +681,56 @@
      RESIZABLE GUTTERS & DRAG-TO-SWAP PANELS
      ======================================================================== */
   function initWorkspaceInteractions() {
-    // 1. Main Vertical Gutter (Primary Slot <-> Right Stack)
+    // 1. Main Vertical Gutter (Primary Slot <-> Secondary Slot)
     let vDrag = false;
     let vStartX = 0;
     let startLeftW = 0;
     let startRightW = 0;
 
-    dom.gutterMainV.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      vDrag = true;
-      vStartX = e.clientX;
-      startLeftW = dom.slotPrimary.getBoundingClientRect().width;
-      startRightW = dom.slotStack.getBoundingClientRect().width;
-      dom.gutterMainV.classList.add('is-active');
-      document.body.classList.add('is-resizing');
-    });
+    if (dom.gutterMainV) {
+      dom.gutterMainV.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        vDrag = true;
+        vStartX = e.clientX;
+        startLeftW = dom.slotPrimary.getBoundingClientRect().width;
+        startRightW = dom.slotSecondary.getBoundingClientRect().width;
+        dom.gutterMainV.classList.add('is-active');
+        document.body.classList.add('is-resizing');
+      });
 
-    dom.gutterMainV.addEventListener('dblclick', () => {
-      state.split.primaryPct = 54;
-      state.split.stackPct = 46;
-      syncSlotFlexSizing();
-    });
+      dom.gutterMainV.addEventListener('dblclick', () => {
+        state.split.primaryPct = 50;
+        state.split.secondaryPct = 50;
+        syncSlotFlexSizing();
+      });
+    }
 
-    // 2. Stack Horizontal Gutter (Top Slot <-> Bottom Slot)
-    let hDrag = false;
-    let hStartY = 0;
-    let startTopH = 0;
-    let startBotH = 0;
-
-    dom.gutterStackH.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      hDrag = true;
-      hStartY = e.clientY;
-      startTopH = dom.slotTop.getBoundingClientRect().height;
-      startBotH = dom.slotBottom.getBoundingClientRect().height;
-      dom.gutterStackH.classList.add('is-active');
-      document.body.classList.add('is-resizing');
-    });
-
-    dom.gutterStackH.addEventListener('dblclick', () => {
-      state.split.topPct = 52;
-      state.split.bottomPct = 48;
-      syncSlotFlexSizing();
-    });
-
-    // 3. Upload Dock Width Gutter
+    // 2. Upload Dock Width Gutter
     let upDrag = false;
-    dom.gutterUpload.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      upDrag = true;
-      dom.gutterUpload.classList.add('is-active');
-      document.body.classList.add('is-resizing');
-    });
+    if (dom.gutterUpload) {
+      dom.gutterUpload.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        upDrag = true;
+        dom.gutterUpload.classList.add('is-active');
+        document.body.classList.add('is-resizing');
+      });
+    }
 
-    // 4. File Dropzone Height Gutter
+    // 3. File Dropzone Height Gutter
     let dropDrag = false;
     let dropStartY = 0;
     let dropStartH = 0;
 
-    dom.gutterDrop.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      dropDrag = true;
-      dropStartY = e.clientY;
-      dropStartH = dom.dropSurface.getBoundingClientRect().height;
-      dom.gutterDrop.classList.add('is-active');
-      document.body.classList.add('is-resizing');
-    });
+    if (dom.gutterDrop) {
+      dom.gutterDrop.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dropDrag = true;
+        dropStartY = e.clientY;
+        dropStartH = dom.dropSurface.getBoundingClientRect().height;
+        dom.gutterDrop.classList.add('is-active');
+        document.body.classList.add('is-resizing');
+      });
+    }
 
     window.addEventListener('mousemove', (e) => {
       if (vDrag) {
@@ -821,18 +740,7 @@
         const nextLeft = Math.min(Math.max(startLeftW + delta, minW), total - minW);
         const nextRight = total - nextLeft;
         state.split.primaryPct = (nextLeft / total) * 100;
-        state.split.stackPct = (nextRight / total) * 100;
-        syncSlotFlexSizing();
-      }
-
-      if (hDrag) {
-        const total = startTopH + startBotH;
-        const delta = e.clientY - hStartY;
-        const minH = Math.min(140 * uiScale(), total / 2);
-        const nextTop = Math.min(Math.max(startTopH + delta, minH), total - minH);
-        const nextBot = total - nextTop;
-        state.split.topPct = (nextTop / total) * 100;
-        state.split.bottomPct = (nextBot / total) * 100;
+        state.split.secondaryPct = (nextRight / total) * 100;
         syncSlotFlexSizing();
       }
 
@@ -851,8 +759,9 @@
     });
 
     function stopWorkspaceResize() {
-      vDrag = hDrag = upDrag = dropDrag = false;
-      [dom.gutterMainV, dom.gutterStackH, dom.gutterUpload, dom.gutterDrop]
+      vDrag = upDrag = dropDrag = false;
+      [dom.gutterMainV, dom.gutterUpload, dom.gutterDrop]
+        .filter(Boolean)
         .forEach((gutter) => gutter.classList.remove('is-active'));
       document.body.classList.remove('is-resizing');
     }
@@ -860,38 +769,115 @@
     window.addEventListener('blur', stopWorkspaceResize);
     window.addEventListener('resize', stopWorkspaceResize);
 
-    // 5. Drag-and-Drop Panel Swapping
+    // 4. Drag-and-Drop Panel Swapping with Live Preview & Cancel Slide-Back
     let draggedPanel = null;
+    let dragHoverTarget = null;
 
-    dom.panels.forEach((panel) => {
+    const panels = document.querySelectorAll('.bento-stage .bento-panel');
+    panels.forEach((panel) => {
       panel.addEventListener('dragstart', (e) => {
+        if (e.target.closest('input, button, video, audio, .panel-body, .panel-toolbar, .panel-popover')) {
+          e.preventDefault();
+          return;
+        }
         draggedPanel = panel;
+        panel.classList.add('is-dragging');
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', panel.id);
       });
 
       panel.addEventListener('dragover', (e) => {
         if (!draggedPanel || draggedPanel === panel) return;
         e.preventDefault();
-        panel.classList.add('is-drag-target');
+        e.dataTransfer.dropEffect = 'move';
+        if (dragHoverTarget !== panel) {
+          if (dragHoverTarget) dragHoverTarget.classList.remove('is-swap-preview');
+          dragHoverTarget = panel;
+          panel.classList.add('is-swap-preview');
+        }
       });
 
-      panel.addEventListener('dragleave', () => {
-        panel.classList.remove('is-drag-target');
+      panel.addEventListener('dragleave', (e) => {
+        if (dragHoverTarget === panel && !panel.contains(e.relatedTarget)) {
+          panel.classList.remove('is-swap-preview');
+          dragHoverTarget = null;
+        }
+      });
+
+      panel.addEventListener('dragend', () => {
+        // Drag cancellation / termination: smoothly slides both panels back to home positions!
+        if (draggedPanel) {
+          draggedPanel.classList.remove('is-dragging');
+        }
+        if (dragHoverTarget) {
+          dragHoverTarget.classList.remove('is-swap-preview');
+          dragHoverTarget = null;
+        }
+        panels.forEach((p) => {
+          p.classList.remove('is-swap-preview', 'is-dragging', 'is-drag-target');
+        });
+        draggedPanel = null;
       });
 
       panel.addEventListener('drop', (e) => {
         e.preventDefault();
-        panel.classList.remove('is-drag-target');
         if (!draggedPanel || draggedPanel === panel) return;
 
-        const slotA = draggedPanel.parentElement;
-        const slotB = panel.parentElement;
-        if (slotA && slotB) {
-          slotA.appendChild(panel);
-          slotB.appendChild(draggedPanel);
-          applyFilter(state.filter, false);
+        const panelA = draggedPanel;
+        const panelB = panel;
+        const slotA = panelA.parentElement;
+        const slotB = panelB.parentElement;
+
+        if (slotA && slotB && slotA !== slotB) {
+          // Remove preview state classes prior to measuring
+          panelA.classList.remove('is-dragging', 'is-swap-preview');
+          panelB.classList.remove('is-dragging', 'is-swap-preview');
+
+          // 1. First (Measure original positions)
+          const rectA = panelA.getBoundingClientRect();
+          const rectB = panelB.getBoundingClientRect();
+
+          // 2. DOM Swap
+          slotA.appendChild(panelB);
+          slotB.appendChild(panelA);
+
+          // 3. Last (Measure new swapped positions)
+          const newRectA = panelA.getBoundingClientRect();
+          const newRectB = panelB.getBoundingClientRect();
+
+          // 4. Invert (Apply translate deltas without transition)
+          const dxA = rectA.left - newRectA.left;
+          const dyA = rectA.top - newRectA.top;
+          const dxB = rectB.left - newRectB.left;
+          const dyB = rectB.top - newRectB.top;
+
+          panelA.style.transition = 'none';
+          panelB.style.transition = 'none';
+          panelA.style.transform = `translate(${dxA}px, ${dyA}px)`;
+          panelB.style.transform = `translate(${dxB}px, ${dyB}px)`;
+
+          // 5. Play (Force reflow then animate to (0,0) with physics curve)
+          void panelA.offsetWidth;
+          void panelB.offsetWidth;
+
+          const slideTransition = 'transform 0.48s cubic-bezier(0.16, 1, 0.3, 1)';
+          panelA.style.transition = slideTransition;
+          panelB.style.transition = slideTransition;
+          panelA.style.transform = 'translate(0px, 0px)';
+          panelB.style.transform = 'translate(0px, 0px)';
+
+          const cleanUp = () => {
+            panelA.style.transition = '';
+            panelA.style.transform = '';
+            panelB.style.transition = '';
+            panelB.style.transform = '';
+            syncSlotFlexSizing();
+          };
+          setTimeout(cleanUp, 500);
         }
+
         draggedPanel = null;
+        dragHoverTarget = null;
       });
     });
   }
@@ -968,19 +954,13 @@
       const mediaItems = unwrapArray(mJson, ['media', 'items', 'data']);
       const poemItems = unwrapArray(pJson, ['poems', 'items', 'data']);
 
-      state.videos = [];
-      state.photos = [];
-
-      mediaItems.forEach((m) => {
-        const entry = {
-          id: m.id,
-          title: m.title || 'Untitled',
-          description: m.description || '',
-          url: resolvePath(m.relative_url || m.url || m.file_path),
-        };
-        if (isVideoItem(m)) state.videos.push(entry);
-        else state.photos.push(entry);
-      });
+      state.media = mediaItems.map((m) => ({
+        id: m.id,
+        title: m.title || 'Untitled',
+        description: m.description || '',
+        url: resolvePath(m.relative_url || m.url || m.file_path),
+        kind: isVideoItem(m) ? 'video' : 'photo',
+      }));
 
       state.poems = poemItems.map((p) => ({
         id: p.id,
@@ -1018,22 +998,26 @@
 
   function processCategory(rawItems, kind, key) {
     const globalQ = state.searchQuery.trim().toLowerCase();
-    const p = panelState[key];
+    const p = panelState[key] || { search: '', filter: 'all', sort: 'newest' };
     const localQ = p.search.trim().toLowerCase();
 
     // 1. Filter by global search query
-    let list = rawItems.filter((it) => matchesQuery(it, kind, globalQ));
+    let list = rawItems.filter((it) => matchesQuery(it, it.kind ? (it.kind === 'video' ? 'video videos' : 'photo photos image') : kind, globalQ));
 
     // 2. Filter by local search query
     if (localQ) {
       list = list.filter((it) => {
-        const hay = [it.title || '', it.description || '', it.content || '', it.url || ''].join(' ').toLowerCase();
+        const hay = [it.title || '', it.description || '', it.content || '', it.url || '', it.kind || ''].join(' ').toLowerCase();
         return hay.includes(localQ);
       });
     }
 
     // 3. Filter by category filter selection
-    if (p.filter === 'recent') {
+    if (p.filter === 'videos') {
+      list = list.filter((it) => it.kind === 'video');
+    } else if (p.filter === 'photos') {
+      list = list.filter((it) => it.kind === 'photo');
+    } else if (p.filter === 'recent') {
       list = [...list].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 5);
     } else if (p.filter === 'has_desc') {
       list = list.filter((it) => Boolean(it.description && it.description.trim()));
@@ -1100,133 +1084,125 @@
   }
 
   function renderPanels() {
-    const vRes = processCategory(state.videos, 'video videos', 'videos');
-    const pRes = processCategory(state.photos, 'photo photos image', 'photos');
+    const mRes = processCategory(state.media, 'media video photo image', 'media');
     const pmRes = processCategory(state.poems, 'poem poems text', 'poems');
 
-    // Videos
-    dom.bodyVideos.replaceChildren();
-    if (vRes.list.length === 0) {
-      dom.bodyVideos.appendChild(createEmptyState());
-    } else {
-      vRes.list.forEach((v) => {
-        const fig = document.createElement('figure');
-        const isHighlight = Boolean(vRes.globalQ || vRes.localQ);
-        fig.className = `media-card ${isHighlight ? 'is-highlighted' : ''}`.trim();
+    // Media (Videos and Photos)
+    if (dom.bodyMedia) {
+      dom.bodyMedia.replaceChildren();
+      if (mRes.list.length === 0) {
+        dom.bodyMedia.appendChild(createEmptyState());
+      } else {
+        mRes.list.forEach((item) => {
+          const fig = document.createElement('figure');
+          const isHighlight = Boolean(mRes.globalQ || mRes.localQ);
+          fig.className = `media-card ${isHighlight ? 'is-highlighted' : ''}`.trim();
 
-        const visual = document.createElement('div');
-        visual.className = 'media-visual';
+          const visual = document.createElement('div');
+          visual.className = 'media-visual';
 
-        const video = document.createElement('video');
-        video.controls = true;
-        video.preload = 'metadata';
-        video.playsInline = true;
-        video.setAttribute('controlsList', 'nodownload');
-        video.setAttribute('disablePictureInPicture', '');
-        video.addEventListener('contextmenu', (e) => e.preventDefault());
+          if (item.kind === 'video') {
+            const video = document.createElement('video');
+            video.controls = true;
+            video.preload = 'metadata';
+            video.playsInline = true;
+            video.setAttribute('controlsList', 'nodownload');
+            video.setAttribute('disablePictureInPicture', '');
+            video.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        if (v.url && v.url.includes('.m3u8')) {
-          if (window.Hls && Hls.isSupported()) {
-            const hls = new Hls({
-              enableWorker: false,
-              capLevelToPlayerSize: true,
-            });
-            hls.loadSource(v.url);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.ERROR, (event, data) => {
-              if (data.fatal) {
-                switch (data.type) {
-                  case Hls.ErrorTypes.NETWORK_ERROR:
-                    hls.startLoad();
-                    break;
-                  case Hls.ErrorTypes.MEDIA_ERROR:
-                    hls.recoverMediaError();
-                    break;
-                  default:
-                    hls.destroy();
-                    video.src = v.url;
-                    break;
-                }
+            if (item.url && item.url.includes('.m3u8')) {
+              if (window.Hls && Hls.isSupported()) {
+                const hls = new Hls({
+                  enableWorker: false,
+                  capLevelToPlayerSize: true,
+                });
+                hls.loadSource(item.url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                  if (data.fatal) {
+                    switch (data.type) {
+                      case Hls.ErrorTypes.NETWORK_ERROR:
+                        hls.startLoad();
+                        break;
+                      case Hls.ErrorTypes.MEDIA_ERROR:
+                        hls.recoverMediaError();
+                        break;
+                      default:
+                        hls.destroy();
+                        video.src = item.url;
+                        break;
+                    }
+                  }
+                });
+              } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = item.url;
+              } else {
+                video.src = item.url;
               }
-            });
-          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = v.url;
+            } else {
+              video.src = item.url;
+            }
+
+            visual.appendChild(video);
           } else {
-            video.src = v.url;
+            // Photo
+            visual.addEventListener('click', () => {
+              const photoList = state.media.filter((m) => m.kind === 'photo');
+              const idx = photoList.indexOf(item);
+              openLightbox(idx !== -1 ? idx : 0);
+            });
+
+            const img = document.createElement('img');
+            img.src = item.url;
+            img.alt = item.title;
+            img.loading = 'lazy';
+            visual.appendChild(img);
           }
-        } else {
-          video.src = v.url;
-        }
 
-        visual.appendChild(video);
-        fig.appendChild(visual);
-        fig.appendChild(buildMediaInfo(v, 'media'));
-        dom.bodyVideos.appendChild(fig);
-      });
-    }
-
-    // Photos
-    dom.bodyPhotos.replaceChildren();
-    if (pRes.list.length === 0) {
-      dom.bodyPhotos.appendChild(createEmptyState());
-    } else {
-      pRes.list.forEach((p) => {
-        const fullIdx = state.photos.indexOf(p);
-        const fig = document.createElement('figure');
-        const isHighlight = Boolean(pRes.globalQ || pRes.localQ);
-        fig.className = `media-card ${isHighlight ? 'is-highlighted' : ''}`.trim();
-
-        const visual = document.createElement('div');
-        visual.className = 'media-visual';
-        visual.addEventListener('click', () => openLightbox(fullIdx !== -1 ? fullIdx : 0));
-
-        const img = document.createElement('img');
-        img.src = p.url;
-        img.alt = p.title;
-        img.loading = 'lazy';
-
-        visual.appendChild(img);
-        fig.appendChild(visual);
-        fig.appendChild(buildMediaInfo(p, 'media'));
-        dom.bodyPhotos.appendChild(fig);
-      });
+          fig.appendChild(visual);
+          fig.appendChild(buildMediaInfo(item, 'media'));
+          dom.bodyMedia.appendChild(fig);
+        });
+      }
     }
 
     // Poems
-    dom.bodyPoems.replaceChildren();
-    if (pmRes.list.length === 0) {
-      dom.bodyPoems.appendChild(createEmptyState());
-    } else {
-      pmRes.list.forEach((poem) => {
-        const article = document.createElement('article');
-        const isHighlight = Boolean(pmRes.globalQ || pmRes.localQ);
-        article.className = `poem-card ${isHighlight ? 'is-highlighted' : ''}`.trim();
+    if (dom.bodyPoems) {
+      dom.bodyPoems.replaceChildren();
+      if (pmRes.list.length === 0) {
+        dom.bodyPoems.appendChild(createEmptyState());
+      } else {
+        pmRes.list.forEach((poem) => {
+          const article = document.createElement('article');
+          const isHighlight = Boolean(pmRes.globalQ || pmRes.localQ);
+          article.className = `poem-card ${isHighlight ? 'is-highlighted' : ''}`.trim();
 
-        const head = document.createElement('div');
-        head.className = 'poem-head';
+          const head = document.createElement('div');
+          head.className = 'poem-head';
 
-        const title = document.createElement('h3');
-        title.className = 'poem-title';
-        title.textContent = poem.title;
-        head.appendChild(title);
+          const title = document.createElement('h3');
+          title.className = 'poem-title';
+          title.textContent = poem.title;
+          head.appendChild(title);
 
-        if (state.token && poem.id !== undefined) {
-          const del = document.createElement('button');
-          del.type = 'button';
-          del.className = 'delete-btn';
-          del.textContent = t('delete');
-          del.addEventListener('click', () => deleteEntry('poems', poem.id));
-          head.appendChild(del);
-        }
+          if (state.token && poem.id !== undefined) {
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'delete-btn';
+            del.textContent = t('delete');
+            del.addEventListener('click', () => deleteEntry('poems', poem.id));
+            head.appendChild(del);
+          }
 
-        const body = document.createElement('div');
-        body.className = 'poem-body';
-        body.textContent = poem.content;
+          const body = document.createElement('div');
+          body.className = 'poem-body';
+          body.textContent = poem.content;
 
-        article.appendChild(head);
-        article.appendChild(body);
-        dom.bodyPoems.appendChild(article);
-      });
+          article.appendChild(head);
+          article.appendChild(body);
+          dom.bodyPoems.appendChild(article);
+        });
+      }
     }
   }
 
@@ -1410,15 +1386,21 @@
     dom.lightbox.setAttribute('aria-hidden', 'true');
   }
 
+  function getPhotosList() {
+    return state.media.filter((m) => m.kind === 'photo');
+  }
+
   function stepLightbox(delta) {
-    const len = state.photos.length;
+    const list = getPhotosList();
+    const len = list.length;
     if (!len) return;
     state.lightboxIndex = (state.lightboxIndex + delta + len) % len;
     updateLightbox();
   }
 
   function updateLightbox() {
-    const item = state.photos[state.lightboxIndex];
+    const list = getPhotosList();
+    const item = list[state.lightboxIndex];
     if (!item) return;
 
     dom.lbCanvas.replaceChildren();
@@ -1607,7 +1589,7 @@
       if (!e.target.closest('.panel-header-actions')) {
         closeAllPanelPopovers();
       }
-      ['videos', 'photos', 'poems'].forEach((key) => {
+      ['media', 'poems'].forEach((key) => {
         const hub = document.getElementById(`panel-search-hub-${key}`);
         if (hub && !hub.contains(e.target)) {
           hub.classList.remove('is-focused');
@@ -1632,6 +1614,10 @@
 
       if (val === 'all') {
         label.textContent = t(`all${capitalize(panelKey)}`);
+      } else if (val === 'videos') {
+        label.textContent = t('videosOnly');
+      } else if (val === 'photos') {
+        label.textContent = t('photosOnly');
       } else if (val === 'recent') {
         label.textContent = t('recentUploads');
       } else if (val === 'has_desc') {
@@ -1700,7 +1686,7 @@
     }
 
     // 6. Update panel tools tooltips & aria labels
-    ['videos', 'photos', 'poems'].forEach((key) => {
+    ['media', 'poems'].forEach((key) => {
       const searchBtn = document.querySelector(`.panel-search-icon-btn[data-panel="${key}"]`);
       const searchInput = document.getElementById(`search-input-${key}`);
       const clearBtn = document.getElementById(`search-clear-${key}`);

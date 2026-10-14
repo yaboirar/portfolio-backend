@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=aspect-ratio-fix-v4">
+  <link rel="stylesheet" href="/static/style.css?v=media-unified-v5">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -44,11 +44,8 @@
         <div class="nav-drawer" id="nav-drawer">
           <span class="nav-divider"></span>
           <div class="nav-drawer-list" id="nav-drawer-list">
-            <button type="button" class="nav-item" data-filter="videos" title="Videos" aria-label="Videos">
-              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="15" height="16" rx="2"/><polygon points="22 8 17 12 22 16 22 8"/></svg>
-            </button>
-            <button type="button" class="nav-item" data-filter="photos" title="Photos" aria-label="Photos">
-              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <button type="button" class="nav-item" data-filter="media" title="Media" aria-label="Media">
+              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><polygon points="10 8 16 11 10 14 10 8"/><line x1="2" y1="21" x2="22" y2="21"/></svg>
             </button>
             <button type="button" class="nav-item" data-filter="poems" title="Poems" aria-label="Poems">
               <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
@@ -154,17 +151,17 @@
       <main class="bento-stage" id="bento-stage">
         <!-- Left Primary Slot -->
         <div class="bento-slot slot-primary" id="slot-primary">
-          <section class="bento-panel" id="panel-videos" data-panel="videos" draggable="true">
+          <section class="bento-panel" id="panel-media" data-panel="media" draggable="true">
             <header class="panel-header" title="Drag header to swap panel position">
               <div class="panel-title-wrap">
                 <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                <span class="js-text-roll panel-heading" id="heading-videos" data-i18n="videos" data-text="Videos">Videos</span>
+                <span class="js-text-roll panel-heading" id="heading-media" data-i18n="media" data-text="Media">Media</span>
               </div>
               <div class="panel-header-actions">
-                <div class="panel-toolbar" role="toolbar" aria-label="Videos controls">
-                  <div class="panel-search-hub" id="panel-search-hub-videos">
-                    <div class="panel-search-pill" id="panel-search-pill-videos">
-                      <button type="button" class="panel-search-icon-btn" data-panel="videos" title="Search videos" aria-label="Search videos">
+                <div class="panel-toolbar" role="toolbar" aria-label="Media controls">
+                  <div class="panel-search-hub" id="panel-search-hub-media">
+                    <div class="panel-search-pill" id="panel-search-pill-media">
+                      <button type="button" class="panel-search-icon-btn" data-panel="media" title="Search media" aria-label="Search media">
                         <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                           <circle cx="11" cy="11" r="7.5"></circle>
                           <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
@@ -173,24 +170,24 @@
                       <input
                         type="search"
                         class="panel-search-input"
-                        id="search-input-videos"
-                        data-panel="videos"
+                        id="search-input-media"
+                        data-panel="media"
                         placeholder="Search..."
                         autocomplete="off"
                         spellcheck="false"
-                        aria-label="Search videos"
+                        aria-label="Search media"
                       >
-                      <button type="button" class="panel-search-clear" id="search-clear-videos" data-panel="videos" title="Clear search" aria-label="Clear search" hidden>
+                      <button type="button" class="panel-search-clear" id="search-clear-media" data-panel="media" title="Clear search" aria-label="Clear search" hidden>
                         <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                       </button>
                     </div>
                   </div>
-                  <button type="button" class="panel-tool-btn panel-filter-btn" data-panel="videos" title="Filter videos" aria-label="Filter videos" aria-haspopup="true" aria-expanded="false">
+                  <button type="button" class="panel-tool-btn panel-filter-btn" data-panel="media" title="Filter media" aria-label="Filter media" aria-haspopup="true" aria-expanded="false">
                     <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                     </svg>
                   </button>
-                  <button type="button" class="panel-tool-btn panel-sort-btn" data-panel="videos" title="Sort videos" aria-label="Sort videos" aria-haspopup="true" aria-expanded="false">
+                  <button type="button" class="panel-tool-btn panel-sort-btn" data-panel="media" title="Sort media" aria-label="Sort media" aria-haspopup="true" aria-expanded="false">
                     <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="m3 16 4 4 4-4"></path>
                       <path d="M7 20V4"></path>
@@ -200,47 +197,55 @@
                   </button>
                 </div>
                 <span class="panel-actions-divider" aria-hidden="true"></span>
-                <button type="button" class="panel-expand-btn" data-expand="videos" aria-label="Expand Videos">
+                <button type="button" class="panel-expand-btn" data-expand="media" aria-label="Expand Media">
                   <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                   <svg class="icon-collapse" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                 </button>
-                <div class="panel-popover filter-popover" id="filter-popover-videos" hidden role="menu" aria-label="Filter Videos">
+                <div class="panel-popover filter-popover" id="filter-popover-media" hidden role="menu" aria-label="Filter Media">
                   <div class="popover-header">Filter</div>
-                  <button type="button" class="popover-item is-active" data-panel="videos" data-type="filter" data-val="all" role="menuitem">
+                  <button type="button" class="popover-item is-active" data-panel="media" data-type="filter" data-val="all" role="menuitem">
                     <span class="popover-check" aria-hidden="true">✓</span>
-                    <span>All Videos</span>
+                    <span>All Media</span>
                   </button>
-                  <button type="button" class="popover-item" data-panel="videos" data-type="filter" data-val="recent" role="menuitem">
+                  <button type="button" class="popover-item" data-panel="media" data-type="filter" data-val="videos" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>Videos Only</span>
+                  </button>
+                  <button type="button" class="popover-item" data-panel="media" data-type="filter" data-val="photos" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>Photos Only</span>
+                  </button>
+                  <button type="button" class="popover-item" data-panel="media" data-type="filter" data-val="recent" role="menuitem">
                     <span class="popover-check" aria-hidden="true">✓</span>
                     <span>Recent Uploads</span>
                   </button>
-                  <button type="button" class="popover-item" data-panel="videos" data-type="filter" data-val="has_desc" role="menuitem">
+                  <button type="button" class="popover-item" data-panel="media" data-type="filter" data-val="has_desc" role="menuitem">
                     <span class="popover-check" aria-hidden="true">✓</span>
                     <span>With Description</span>
                   </button>
                 </div>
-                <div class="panel-popover sort-popover" id="sort-popover-videos" hidden role="menu" aria-label="Sort Videos">
+                <div class="panel-popover sort-popover" id="sort-popover-media" hidden role="menu" aria-label="Sort Media">
                   <div class="popover-header">Sort By</div>
-                  <button type="button" class="popover-item is-active" data-panel="videos" data-type="sort" data-val="newest" role="menuitem">
+                  <button type="button" class="popover-item is-active" data-panel="media" data-type="sort" data-val="newest" role="menuitem">
                     <span class="popover-check" aria-hidden="true">✓</span>
                     <span>Newest First</span>
                   </button>
-                  <button type="button" class="popover-item" data-panel="videos" data-type="sort" data-val="oldest" role="menuitem">
+                  <button type="button" class="popover-item" data-panel="media" data-type="sort" data-val="oldest" role="menuitem">
                     <span class="popover-check" aria-hidden="true">✓</span>
                     <span>Oldest First</span>
                   </button>
-                  <button type="button" class="popover-item" data-panel="videos" data-type="sort" data-val="az" role="menuitem">
+                  <button type="button" class="popover-item" data-panel="media" data-type="sort" data-val="az" role="menuitem">
                     <span class="popover-check" aria-hidden="true">✓</span>
                     <span>Title (A–Z)</span>
                   </button>
-                  <button type="button" class="popover-item" data-panel="videos" data-type="sort" data-val="za" role="menuitem">
+                  <button type="button" class="popover-item" data-panel="media" data-type="sort" data-val="za" role="menuitem">
                     <span class="popover-check" aria-hidden="true">✓</span>
                     <span>Title (Z–A)</span>
                   </button>
                 </div>
               </div>
             </header>
-            <div class="panel-body" id="body-videos"></div>
+            <div class="panel-body" id="body-media"></div>
           </section>
         </div>
 
@@ -249,196 +254,96 @@
           <span class="gutter-pill"></span>
         </div>
 
-        <!-- Right Secondary Stack -->
-        <div class="bento-stack" id="slot-stack">
-          <!-- Top Right Slot -->
-          <div class="bento-slot slot-top" id="slot-top">
-            <section class="bento-panel" id="panel-photos" data-panel="photos" draggable="true">
-              <header class="panel-header" title="Drag header to swap panel position">
-                <div class="panel-title-wrap">
-                  <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                  <span class="js-text-roll panel-heading" id="heading-photos" data-i18n="photos" data-text="Photos">Photos</span>
-                </div>
-                <div class="panel-header-actions">
-                  <div class="panel-toolbar" role="toolbar" aria-label="Photos controls">
-                    <div class="panel-search-hub" id="panel-search-hub-photos">
-                      <div class="panel-search-pill" id="panel-search-pill-photos">
-                        <button type="button" class="panel-search-icon-btn" data-panel="photos" title="Search photos" aria-label="Search photos">
-                          <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <circle cx="11" cy="11" r="7.5"></circle>
-                            <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-                          </svg>
-                        </button>
-                        <input
-                          type="search"
-                          class="panel-search-input"
-                          id="search-input-photos"
-                          data-panel="photos"
-                          placeholder="Search..."
-                          autocomplete="off"
-                          spellcheck="false"
-                          aria-label="Search photos"
-                        >
-                        <button type="button" class="panel-search-clear" id="search-clear-photos" data-panel="photos" title="Clear search" aria-label="Clear search" hidden>
-                          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        </button>
-                      </div>
+        <!-- Right Secondary Slot -->
+        <div class="bento-slot slot-secondary" id="slot-secondary">
+          <section class="bento-panel" id="panel-poems" data-panel="poems" draggable="true">
+            <header class="panel-header" title="Drag header to swap panel position">
+              <div class="panel-title-wrap">
+                <span class="drag-dots" aria-hidden="true">⋮⋮</span>
+                <span class="js-text-roll panel-heading" id="heading-poems" data-i18n="poems" data-text="Poems">Poems</span>
+              </div>
+              <div class="panel-header-actions">
+                <div class="panel-toolbar" role="toolbar" aria-label="Poems controls">
+                  <div class="panel-search-hub" id="panel-search-hub-poems">
+                    <div class="panel-search-pill" id="panel-search-pill-poems">
+                      <button type="button" class="panel-search-icon-btn" data-panel="poems" title="Search poems" aria-label="Search poems">
+                        <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <circle cx="11" cy="11" r="7.5"></circle>
+                          <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+                        </svg>
+                      </button>
+                      <input
+                        type="search"
+                        class="panel-search-input"
+                        id="search-input-poems"
+                        data-panel="poems"
+                        placeholder="Search..."
+                        autocomplete="off"
+                        spellcheck="false"
+                        aria-label="Search poems"
+                      >
+                      <button type="button" class="panel-search-clear" id="search-clear-poems" data-panel="poems" title="Clear search" aria-label="Clear search" hidden>
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      </button>
                     </div>
-                    <button type="button" class="panel-tool-btn panel-filter-btn" data-panel="photos" title="Filter photos" aria-label="Filter photos" aria-haspopup="true" aria-expanded="false">
-                      <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                      </svg>
-                    </button>
-                    <button type="button" class="panel-tool-btn panel-sort-btn" data-panel="photos" title="Sort photos" aria-label="Sort photos" aria-haspopup="true" aria-expanded="false">
-                      <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="m3 16 4 4 4-4"></path>
-                        <path d="M7 20V4"></path>
-                        <path d="m21 8-4-4-4 4"></path>
-                        <path d="M17 4v16"></path>
-                      </svg>
-                    </button>
                   </div>
-                  <span class="panel-actions-divider" aria-hidden="true"></span>
-                  <button type="button" class="panel-expand-btn" data-expand="photos" aria-label="Expand Photos">
-                    <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                    <svg class="icon-collapse" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  <button type="button" class="panel-tool-btn panel-filter-btn" data-panel="poems" title="Filter poems" aria-label="Filter poems" aria-haspopup="true" aria-expanded="false">
+                    <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                    </svg>
                   </button>
-                  <div class="panel-popover filter-popover" id="filter-popover-photos" hidden role="menu" aria-label="Filter Photos">
-                    <div class="popover-header">Filter</div>
-                    <button type="button" class="popover-item is-active" data-panel="photos" data-type="filter" data-val="all" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>All Photos</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="photos" data-type="filter" data-val="recent" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Recent Uploads</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="photos" data-type="filter" data-val="has_desc" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>With Description</span>
-                    </button>
-                  </div>
-                  <div class="panel-popover sort-popover" id="sort-popover-photos" hidden role="menu" aria-label="Sort Photos">
-                    <div class="popover-header">Sort By</div>
-                    <button type="button" class="popover-item is-active" data-panel="photos" data-type="sort" data-val="newest" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Newest First</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="photos" data-type="sort" data-val="oldest" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Oldest First</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="photos" data-type="sort" data-val="az" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Title (A–Z)</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="photos" data-type="sort" data-val="za" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Title (Z–A)</span>
-                    </button>
-                  </div>
-                </div>
-              </header>
-              <div class="panel-body" id="body-photos"></div>
-            </section>
-          </div>
-
-          <!-- Horizontal Resize Gutter (Top Right <-> Bottom Right) -->
-          <div class="gutter-h" id="gutter-stack-h" title="Drag to resize panels (Double-click to reset)">
-            <span class="gutter-pill"></span>
-          </div>
-
-          <!-- Bottom Right Slot -->
-          <div class="bento-slot slot-bottom" id="slot-bottom">
-            <section class="bento-panel" id="panel-poems" data-panel="poems" draggable="true">
-              <header class="panel-header" title="Drag header to swap panel position">
-                <div class="panel-title-wrap">
-                  <span class="drag-dots" aria-hidden="true">⋮⋮</span>
-                  <span class="js-text-roll panel-heading" id="heading-poems" data-i18n="poems" data-text="Poems">Poems</span>
-                </div>
-                <div class="panel-header-actions">
-                  <div class="panel-toolbar" role="toolbar" aria-label="Poems controls">
-                    <div class="panel-search-hub" id="panel-search-hub-poems">
-                      <div class="panel-search-pill" id="panel-search-pill-poems">
-                        <button type="button" class="panel-search-icon-btn" data-panel="poems" title="Search poems" aria-label="Search poems">
-                          <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <circle cx="11" cy="11" r="7.5"></circle>
-                            <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-                          </svg>
-                        </button>
-                        <input
-                          type="search"
-                          class="panel-search-input"
-                          id="search-input-poems"
-                          data-panel="poems"
-                          placeholder="Search..."
-                          autocomplete="off"
-                          spellcheck="false"
-                          aria-label="Search poems"
-                        >
-                        <button type="button" class="panel-search-clear" id="search-clear-poems" data-panel="poems" title="Clear search" aria-label="Clear search" hidden>
-                          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        </button>
-                      </div>
-                    </div>
-                    <button type="button" class="panel-tool-btn panel-filter-btn" data-panel="poems" title="Filter poems" aria-label="Filter poems" aria-haspopup="true" aria-expanded="false">
-                      <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                      </svg>
-                    </button>
-                    <button type="button" class="panel-tool-btn panel-sort-btn" data-panel="poems" title="Sort poems" aria-label="Sort poems" aria-haspopup="true" aria-expanded="false">
-                      <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="m3 16 4 4 4-4"></path>
-                        <path d="M7 20V4"></path>
-                        <path d="m21 8-4-4-4 4"></path>
-                        <path d="M17 4v16"></path>
-                      </svg>
-                    </button>
-                  </div>
-                  <span class="panel-actions-divider" aria-hidden="true"></span>
-                  <button type="button" class="panel-expand-btn" data-expand="poems" aria-label="Expand Poems">
-                    <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                    <svg class="icon-collapse" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  <button type="button" class="panel-tool-btn panel-sort-btn" data-panel="poems" title="Sort poems" aria-label="Sort poems" aria-haspopup="true" aria-expanded="false">
+                    <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m3 16 4 4 4-4"></path>
+                      <path d="M7 20V4"></path>
+                      <path d="m21 8-4-4-4 4"></path>
+                      <path d="M17 4v16"></path>
+                    </svg>
                   </button>
-                  <div class="panel-popover filter-popover" id="filter-popover-poems" hidden role="menu" aria-label="Filter Poems">
-                    <div class="popover-header">Filter</div>
-                    <button type="button" class="popover-item is-active" data-panel="poems" data-type="filter" data-val="all" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>All Poems</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="poems" data-type="filter" data-val="short" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Short (&lt; 6 lines)</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="poems" data-type="filter" data-val="long" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Long (6+ lines)</span>
-                    </button>
-                  </div>
-                  <div class="panel-popover sort-popover" id="sort-popover-poems" hidden role="menu" aria-label="Sort Poems">
-                    <div class="popover-header">Sort By</div>
-                    <button type="button" class="popover-item is-active" data-panel="poems" data-type="sort" data-val="newest" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Newest First</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="poems" data-type="sort" data-val="oldest" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Oldest First</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="poems" data-type="sort" data-val="az" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Title (A–Z)</span>
-                    </button>
-                    <button type="button" class="popover-item" data-panel="poems" data-type="sort" data-val="za" role="menuitem">
-                      <span class="popover-check" aria-hidden="true">✓</span>
-                      <span>Title (Z–A)</span>
-                    </button>
-                  </div>
                 </div>
-              </header>
-              <div class="panel-body poems-body" id="body-poems"></div>
-            </section>
-          </div>
+                <span class="panel-actions-divider" aria-hidden="true"></span>
+                <button type="button" class="panel-expand-btn" data-expand="poems" aria-label="Expand Poems">
+                  <svg class="icon-expand" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  <svg class="icon-collapse" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                </button>
+                <div class="panel-popover filter-popover" id="filter-popover-poems" hidden role="menu" aria-label="Filter Poems">
+                  <div class="popover-header">Filter</div>
+                  <button type="button" class="popover-item is-active" data-panel="poems" data-type="filter" data-val="all" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>All Poems</span>
+                  </button>
+                  <button type="button" class="popover-item" data-panel="poems" data-type="filter" data-val="short" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>Short (&lt; 6 lines)</span>
+                  </button>
+                  <button type="button" class="popover-item" data-panel="poems" data-type="filter" data-val="long" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>Long (6+ lines)</span>
+                  </button>
+                </div>
+                <div class="panel-popover sort-popover" id="sort-popover-poems" hidden role="menu" aria-label="Sort Poems">
+                  <div class="popover-header">Sort By</div>
+                  <button type="button" class="popover-item is-active" data-panel="poems" data-type="sort" data-val="newest" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>Newest First</span>
+                  </button>
+                  <button type="button" class="popover-item" data-panel="poems" data-type="sort" data-val="oldest" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>Oldest First</span>
+                  </button>
+                  <button type="button" class="popover-item" data-panel="poems" data-type="sort" data-val="az" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>Title (A–Z)</span>
+                  </button>
+                  <button type="button" class="popover-item" data-panel="poems" data-type="sort" data-val="za" role="menuitem">
+                    <span class="popover-check" aria-hidden="true">✓</span>
+                    <span>Title (Z–A)</span>
+                  </button>
+                </div>
+              </div>
+            </header>
+            <div class="panel-body poems-body" id="body-poems"></div>
+          </section>
         </div>
       </main>
 
