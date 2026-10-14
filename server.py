@@ -625,9 +625,18 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                     return
 
                 admin_count = database.get_admin_count()
-                if admin_count > 0 and not self.is_authenticated():
-                    self.send_error_json(403, "Registration is closed. An active admin must log in to create new accounts.")
-                    return
+                setup_key = str(body.get("setup_key", "")).strip()
+                if admin_count == 0:
+                    # Root admin bootstrap requires the server master token (setup key)
+                    # to prevent arbitrary internet strangers from claiming the server
+                    auth_token = self.get_auth_token() or setup_key
+                    if not auth_token or not secrets.compare_digest(auth_token, ADMIN_TOKEN):
+                        self.send_error_json(403, "Master Setup Key required: Enter the server master key from .admin_token to initialize root admin")
+                        return
+                else:
+                    if not self.is_authenticated():
+                        self.send_error_json(403, "Registration is closed. An active admin must log in to create new accounts.")
+                        return
 
                 if database.get_admin_by_username(username):
                     self.send_error_json(409, "Username already exists")

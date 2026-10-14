@@ -489,14 +489,34 @@ def test_suite():
         assert "has_admin" in st_data
         assert st_data["authenticated"] is False
 
-        # 15b: Reject short password
-        r_code, _, _ = http_post_json("/api/auth/register", {"username": "superuser", "password": "123"})
+        # 15b: Reject short password even with setup key
+        r_code, _, _ = http_post_json("/api/auth/register", {
+            "username": "superuser",
+            "password": "123",
+            "setup_key": ADMIN_TOKEN
+        })
         assert r_code == 400
 
-        # 15c: Initial registration succeeds and returns session cookie + token
+        # 15c: Reject registration without Master Setup Key (blocks internet strangers!)
+        r_stranger_code, _, _ = http_post_json("/api/auth/register", {
+            "username": "stranger_admin",
+            "password": "strongPassword!123"
+        })
+        assert r_stranger_code == 403
+
+        # 15d: Registration with invalid Master Setup Key rejected
+        r_fake_code, _, _ = http_post_json("/api/auth/register", {
+            "username": "fake_admin",
+            "password": "strongPassword!123",
+            "setup_key": "wrong_key_12345"
+        })
+        assert r_fake_code == 403
+
+        # 15e: Initial registration succeeds with valid Master Setup Key
         r_code, r_headers, r_raw = http_post_json("/api/auth/register", {
             "username": "root_tester",
-            "password": "strongPassword!123"
+            "password": "strongPassword!123",
+            "setup_key": ADMIN_TOKEN
         })
         assert r_code == 201, f"Expected 201, got {r_code}: {r_raw}"
         reg_data = json.loads(r_raw)

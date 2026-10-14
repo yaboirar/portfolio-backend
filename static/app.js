@@ -236,6 +236,7 @@
     regUsername: document.getElementById('reg-username'),
     regPassword: document.getElementById('reg-password'),
     regConfirm: document.getElementById('reg-confirm'),
+    regSetupKey: document.getElementById('reg-setup-key'),
     btnRegisterSubmit: document.getElementById('btn-register-submit'),
     btnRegisterText: document.getElementById('btn-register-text'),
     authRegisterNotice: document.getElementById('auth-register-notice'),
@@ -1322,12 +1323,20 @@
       if (!state.hasAdmin) {
         if (dom.tabAuthLogin) dom.tabAuthLogin.hidden = true;
         if (dom.tabRegisterText) dom.tabRegisterText.textContent = 'Setup Root Admin';
-        if (dom.authRegisterNotice) dom.authRegisterNotice.textContent = 'Create your primary administrator account';
+        if (dom.authRegisterNotice) dom.authRegisterNotice.textContent = 'Enter username, password, and the server Master Key';
+        if (dom.regSetupKey) {
+          dom.regSetupKey.hidden = false;
+          dom.regSetupKey.required = true;
+        }
         switchAuthTab('register');
       } else {
         if (dom.tabAuthLogin) dom.tabAuthLogin.hidden = false;
         if (dom.tabRegisterText) dom.tabRegisterText.textContent = t('register');
         if (dom.authRegisterNotice) dom.authRegisterNotice.textContent = 'Register an additional admin (requires active admin)';
+        if (dom.regSetupKey) {
+          dom.regSetupKey.hidden = true;
+          dom.regSetupKey.required = false;
+        }
         switchAuthTab('login');
       }
     }
@@ -1397,6 +1406,16 @@
       return;
     }
 
+    const payload = { username, password };
+    if (!state.hasAdmin) {
+      const setupKey = (dom.regSetupKey && dom.regSetupKey.value.trim()) || '';
+      if (!setupKey) {
+        showAuthAlert('Master Setup Key is required to verify ownership', 'error');
+        return;
+      }
+      payload.setup_key = setupKey;
+    }
+
     dom.btnRegisterSubmit.disabled = true;
     try {
       const headers = { 'Content-Type': 'application/json' };
@@ -1406,7 +1425,7 @@
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok && data.success) {
