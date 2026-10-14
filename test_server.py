@@ -96,6 +96,19 @@ def http_get(path, headers=None):
         return e.code, e.headers, e.read()
 
 
+def http_post_json(path, data, headers=None):
+    payload = json.dumps(data).encode("utf-8")
+    h = {"Content-Type": "application/json"}
+    if headers:
+        h.update(headers)
+    req = urllib.request.Request(f"{BASE_URL}{path}", data=payload, headers=h)
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return resp.status, resp.headers, resp.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers, e.read()
+
+
 def test_suite():
     print("🛡️ Running Consolidated Creative Portfolio Regression Verification Suite...")
     httpd = start_test_server()
@@ -466,9 +479,94 @@ def test_suite():
         csp = headers.get("Content-Security-Policy", "")
         assert "connect-src 'self'" in csp, f"CSP missing connect-src 'self': {csp}"
         assert headers.get("X-Content-Type-Options") == "nosniff"
-        print("  ✓ Test 14: Security headers verified (Content-Security-Policy and X-Content-Type-Options)")
+        # =====================================================================
+        # TEST 15: Admin Registration, Login, Session Management & Protected Actions
+        # =====================================================================
+        # 15a: Check initial auth status
+        st_code, _, st_raw = http_get("/api/auth/status")
+        assert st_code == 200
+        st_data = json.loads(st_raw)
+        assert "has_admin" in st_data
+        assert st_data["authenticated"] is False
 
-        print("\n🎉 ALL 14 CONSOLIDATED REGRESSION TESTS PASSED 100%!")
+        # 15b: Reject short password
+        r_code, _, _ = http_post_json("/api/auth/register", {"username": "superuser", "password": "123"})
+        assert r_code == 400
+
+        # 15c: Initial registration succeeds and returns session cookie + token
+        r_code, r_headers, r_raw = http_post_json("/api/auth/register", {
+            "username": "root_tester",
+            "password": "strongPassword!123"
+        })
+        assert r_code == 201, f"Expected 201, got {r_code}: {r_raw}"
+        reg_data = json.loads(r_raw)
+        sess_token = reg_data["token"]
+        assert "Set-Cookie" in r_headers
+        assert f"session_token={sess_token}" in r_headers["Set-Cookie"]
+
+        # 15d: Verify session authentication via X-Admin-Token
+        v_code, _, v_raw = http_get("/api/auth/verify", headers={"X-Admin-Token": sess_token})
+        assert v_code == 200
+        v_data = json.loads(v_raw)
+        assert v_data["authenticated"] is True
+        assert v_data["username"] == "root_tester"
+
+        # 15e: Verify session authentication via Cookie header
+        v_code, _, v_raw = http_get("/api/auth/verify", headers={"Cookie": f"session_token={sess_token}"})
+        assert v_code == 200
+        assert json.loads(v_raw)["authenticated"] is True
+
+        # 15f: Unauthenticated registration blocked now that an admin exists
+        r2_code, _, _ = http_post_json("/api/auth/register", {
+            "username": "intruder",
+            "password": "intruderPassword!123"
+        })
+        assert r2_code == 403
+
+        # 15g: Login with bad credentials fails with 401
+        l_bad_code, _, _ = http_post_json("/api/auth/login", {
+            "username": "root_tester",
+            "password": "wrongPassword"
+        })
+        assert l_bad_code == 401
+
+        # 15h: Login with good credentials succeeds
+        l_good_code, l_headers, l_raw = http_post_json("/api/auth/login", {
+            "username": "root_tester",
+            "password": "strongPassword!123"
+        })
+        assert l_good_code == 200
+        l_data = json.loads(l_raw)
+        new_token = l_data["token"]
+        assert "Set-Cookie" in l_headers
+
+        # 15i: Perform protected action (create poem) with new session token
+        p_code, _, p_raw = http_post_json("/api/poems", {
+            "title": "Auth Suite Poem",
+            "content": "Testing session auth works end-to-end"
+        }, headers={"X-Admin-Token": new_token})
+        assert p_code == 201
+        poem_id = json.loads(p_raw)["id"]
+
+        # 15j: Logout revokes session
+        lo_code, lo_headers, _ = http_post_json("/api/auth/logout", {}, headers={"X-Admin-Token": new_token})
+        assert lo_code == 200
+        assert "Max-Age=0" in lo_headers.get("Set-Cookie", "")
+
+        # 15k: Revoked session can no longer perform protected actions
+        p2_code, _, _ = http_post_json("/api/poems", {
+            "title": "Blocked Poem",
+            "content": "This must be rejected"
+        }, headers={"X-Admin-Token": new_token})
+        assert p2_code == 401
+
+        # Clean up test artifacts in DB
+        database.delete_poem(poem_id)
+        with database.get_db() as conn:
+            conn.execute("DELETE FROM admins WHERE username = 'root_tester'")
+        print("  ✓ Test 15: Full admin registration, login, session tokens & logout verified 100%")
+
+        print("\n🎉 ALL 15 CONSOLIDATED REGRESSION TESTS PASSED 100%!")
 
     finally:
         httpd.shutdown()

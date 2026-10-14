@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=media-unified-v5">
+  <link rel="stylesheet" href="/static/style.css?v=admin-auth-v1">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -370,11 +370,76 @@
           </header>
 
           <div class="upload-scroll">
-            <div class="token-pill">
-              <input type="password" id="admin-token" placeholder="Admin token" data-i18n-placeholder="adminToken" autocomplete="off">
-              <button type="button" class="pill-btn" id="save-token">
-                <span class="js-text-roll" id="text-save-token" data-i18n="save" data-text="Save">Save</span>
-              </button>
+            <!-- Admin Authentication Card -->
+            <div class="auth-card" id="auth-card">
+              <!-- Logged-in State Banner -->
+              <div class="auth-logged-in" id="auth-logged-in" hidden>
+                <div class="auth-user-info">
+                  <span class="auth-status-dot"></span>
+                  <span class="auth-welcome">Admin: <strong id="auth-current-user">User</strong></span>
+                </div>
+                <div class="auth-user-actions">
+                  <button type="button" class="pill-btn auth-small-btn" id="auth-add-btn" title="Add another admin">
+                    <span>+ Add</span>
+                  </button>
+                  <button type="button" class="pill-btn auth-small-btn" id="auth-logout-btn">
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Logged-out Auth Container -->
+              <div class="auth-logged-out" id="auth-logged-out">
+                <div class="auth-tabs" id="auth-tabs" role="tablist">
+                  <button type="button" class="auth-tab is-active" id="tab-auth-login" data-auth-tab="login">
+                    <span>Sign In</span>
+                  </button>
+                  <button type="button" class="auth-tab" id="tab-auth-register" data-auth-tab="register">
+                    <span id="tab-register-text">Register</span>
+                  </button>
+                </div>
+
+                <!-- Alert Message -->
+                <div class="auth-alert" id="auth-alert" hidden></div>
+
+                <!-- Login Form -->
+                <form id="form-auth-login" class="auth-subform">
+                  <div class="auth-field-group">
+                    <input type="text" class="sleek-input auth-input" id="login-username" placeholder="Username" autocomplete="username" required>
+                    <input type="password" class="sleek-input auth-input" id="login-password" placeholder="Password" autocomplete="current-password" required>
+                  </div>
+                  <button type="submit" class="primary-action-btn auth-submit-btn" id="btn-login-submit">
+                    <span>Sign In</span>
+                  </button>
+                </form>
+
+                <!-- Register Form -->
+                <form id="form-auth-register" class="auth-subform" hidden>
+                  <div class="auth-notice" id="auth-register-notice">Create primary administrator account</div>
+                  <div class="auth-field-group">
+                    <input type="text" class="sleek-input auth-input" id="reg-username" placeholder="Username (letters, numbers, _)" autocomplete="username" required>
+                    <input type="password" class="sleek-input auth-input" id="reg-password" placeholder="Password (min. 6 chars)" autocomplete="new-password" required>
+                    <input type="password" class="sleek-input auth-input" id="reg-confirm" placeholder="Confirm password" autocomplete="new-password" required>
+                  </div>
+                  <button type="submit" class="primary-action-btn auth-submit-btn" id="btn-register-submit">
+                    <span id="btn-register-text">Create Admin Account</span>
+                  </button>
+                </form>
+
+                <!-- Token Fallback Accordion -->
+                <div class="auth-token-fallback">
+                  <button type="button" class="auth-token-toggle" id="auth-token-toggle">
+                    <span>Or use master token</span>
+                    <svg class="chevron-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </button>
+                  <div class="token-pill" id="token-pill-container" hidden>
+                    <input type="password" id="admin-token" placeholder="Admin token" data-i18n-placeholder="adminToken" autocomplete="off">
+                    <button type="button" class="pill-btn" id="save-token">
+                      <span class="js-text-roll" id="text-save-token" data-i18n="save" data-text="Save">Save</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <form id="upload-form" class="upload-form">
@@ -494,7 +559,7 @@
   </div>
 
   <script src="/static/hls.min.js"></script>
-  <script src="/static/app.js?v=hls-fix-v3"></script>
+  <script src="/static/app.js?v=admin-auth-v1"></script>
 </body>
 </html>
 

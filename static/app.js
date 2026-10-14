@@ -67,6 +67,15 @@
       prev: 'Prev',
       next: 'Next',
       close: 'Close',
+      signIn: 'Sign In',
+      register: 'Register',
+      logOut: 'Log Out',
+      loginRequired: 'Please sign in as admin first',
+      passwordsDoNotMatch: 'Passwords do not match',
+      passwordTooShort: 'Password must be at least 6 characters',
+      adminCreated: 'Admin account created successfully',
+      loginSuccess: 'Signed in successfully',
+      logoutSuccess: 'Signed out successfully',
     },
     id: {
       all: 'Semua',
@@ -125,6 +134,15 @@
       prev: 'Sebelumnya',
       next: 'Selanjutnya',
       close: 'Tutup',
+      signIn: 'Masuk',
+      register: 'Daftar',
+      logOut: 'Keluar',
+      loginRequired: 'Silakan masuk sebagai admin terlebih dahulu',
+      passwordsDoNotMatch: 'Kata sandi tidak cocok',
+      passwordTooShort: 'Kata sandi minimal 6 karakter',
+      adminCreated: 'Akun admin berhasil dibuat',
+      loginSuccess: 'Berhasil masuk',
+      logoutSuccess: 'Berhasil keluar',
     },
   };
 
@@ -142,6 +160,9 @@
     uploadOpen: false,
     lightboxIndex: -1,
     token: sessionStorage.getItem('admin_token') || '',
+    adminUser: null,
+    hasAdmin: false,
+    isAuthenticated: false,
     lang: localStorage.getItem('portfolio_lang') || 'en',
     split: {
       primaryPct: 50,
@@ -196,6 +217,30 @@
     uploadClose: document.getElementById('upload-close'),
     uploadTabs: document.querySelectorAll('.upload-tab'),
 
+    authCard: document.getElementById('auth-card'),
+    authLoggedIn: document.getElementById('auth-logged-in'),
+    authLoggedOut: document.getElementById('auth-logged-out'),
+    authCurrentUser: document.getElementById('auth-current-user'),
+    authLogoutBtn: document.getElementById('auth-logout-btn'),
+    authAddBtn: document.getElementById('auth-add-btn'),
+    authTabs: document.getElementById('auth-tabs'),
+    tabAuthLogin: document.getElementById('tab-auth-login'),
+    tabAuthRegister: document.getElementById('tab-auth-register'),
+    tabRegisterText: document.getElementById('tab-register-text'),
+    authAlert: document.getElementById('auth-alert'),
+    formAuthLogin: document.getElementById('form-auth-login'),
+    loginUsername: document.getElementById('login-username'),
+    loginPassword: document.getElementById('login-password'),
+    btnLoginSubmit: document.getElementById('btn-login-submit'),
+    formAuthRegister: document.getElementById('form-auth-register'),
+    regUsername: document.getElementById('reg-username'),
+    regPassword: document.getElementById('reg-password'),
+    regConfirm: document.getElementById('reg-confirm'),
+    btnRegisterSubmit: document.getElementById('btn-register-submit'),
+    btnRegisterText: document.getElementById('btn-register-text'),
+    authRegisterNotice: document.getElementById('auth-register-notice'),
+    authTokenToggle: document.getElementById('auth-token-toggle'),
+    tokenPillContainer: document.getElementById('token-pill-container'),
     adminToken: document.getElementById('admin-token'),
     saveToken: document.getElementById('save-token'),
 
@@ -1207,20 +1252,223 @@
   }
 
   /* ========================================================================
-     UPLOAD, POEM & DELETE HANDLERS
+     AUTHENTICATION & ADMIN SESSION MANAGEMENT
      ======================================================================== */
-  function syncTokenUI() {
-    dom.adminToken.value = state.token;
-    dom.authIndicator.hidden = !state.token;
+  function showAuthAlert(msg, type = 'error') {
+    if (!dom.authAlert) return;
+    dom.authAlert.textContent = msg;
+    dom.authAlert.className = `auth-alert is-${type}`;
+    dom.authAlert.hidden = false;
   }
 
+  function hideAuthAlert() {
+    if (!dom.authAlert) return;
+    dom.authAlert.hidden = true;
+    dom.authAlert.textContent = '';
+  }
+
+  function switchAuthTab(targetTab) {
+    hideAuthAlert();
+    const isLogin = targetTab === 'login';
+    if (dom.tabAuthLogin) dom.tabAuthLogin.classList.toggle('is-active', isLogin);
+    if (dom.tabAuthRegister) dom.tabAuthRegister.classList.toggle('is-active', !isLogin);
+    if (dom.formAuthLogin) dom.formAuthLogin.hidden = !isLogin;
+    if (dom.formAuthRegister) dom.formAuthRegister.hidden = isLogin;
+  }
+
+  async function checkAuthStatus() {
+    try {
+      const headers = {};
+      if (state.token) {
+        headers['X-Admin-Token'] = state.token;
+      }
+      const res = await fetch('/api/auth/status', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        state.hasAdmin = Boolean(data.has_admin);
+        state.isAuthenticated = Boolean(data.authenticated);
+        if (state.isAuthenticated && data.username) {
+          state.adminUser = data.username;
+        } else if (!state.isAuthenticated && !state.token) {
+          state.adminUser = null;
+        }
+      }
+    } catch {
+      // Ignore network errors during auth check
+    }
+    syncAuthUI();
+  }
+
+  function syncAuthUI() {
+    const isAuthed = Boolean(state.isAuthenticated || state.token);
+    if (dom.authIndicator) {
+      dom.authIndicator.hidden = !isAuthed;
+    }
+    if (dom.adminToken && state.token) {
+      dom.adminToken.value = state.token;
+    }
+
+    if (isAuthed) {
+      if (dom.authLoggedIn) dom.authLoggedIn.hidden = false;
+      if (dom.authLoggedOut) dom.authLoggedOut.hidden = true;
+      if (dom.authCurrentUser) {
+        dom.authCurrentUser.textContent = state.adminUser || 'Admin';
+      }
+      hideAuthAlert();
+    } else {
+      if (dom.authLoggedIn) dom.authLoggedIn.hidden = true;
+      if (dom.authLoggedOut) dom.authLoggedOut.hidden = false;
+
+      if (!state.hasAdmin) {
+        if (dom.tabAuthLogin) dom.tabAuthLogin.hidden = true;
+        if (dom.tabRegisterText) dom.tabRegisterText.textContent = 'Setup Root Admin';
+        if (dom.authRegisterNotice) dom.authRegisterNotice.textContent = 'Create your primary administrator account';
+        switchAuthTab('register');
+      } else {
+        if (dom.tabAuthLogin) dom.tabAuthLogin.hidden = false;
+        if (dom.tabRegisterText) dom.tabRegisterText.textContent = t('register');
+        if (dom.authRegisterNotice) dom.authRegisterNotice.textContent = 'Register an additional admin (requires active admin)';
+        switchAuthTab('login');
+      }
+    }
+  }
+
+  function syncTokenUI() {
+    syncAuthUI();
+  }
+
+  async function handleAuthLogin(e) {
+    e.preventDefault();
+    hideAuthAlert();
+    const username = dom.loginUsername.value.trim();
+    const password = dom.loginPassword.value;
+
+    if (!username || !password) {
+      showAuthAlert('Username and password are required', 'error');
+      return;
+    }
+
+    dom.btnLoginSubmit.disabled = true;
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        state.token = data.token;
+        state.isAuthenticated = true;
+        state.adminUser = data.username;
+        sessionStorage.setItem('admin_token', data.token);
+        dom.formAuthLogin.reset();
+        showAuthAlert(t('loginSuccess'), 'success');
+        setTimeout(() => {
+          syncAuthUI();
+          renderPanels();
+        }, 500);
+      } else {
+        showAuthAlert(data.message || 'Invalid username or password', 'error');
+      }
+    } catch {
+      showAuthAlert(t('networkError'), 'error');
+    } finally {
+      dom.btnLoginSubmit.disabled = false;
+    }
+  }
+
+  async function handleAuthRegister(e) {
+    e.preventDefault();
+    hideAuthAlert();
+    const username = dom.regUsername.value.trim();
+    const password = dom.regPassword.value;
+    const confirm = dom.regConfirm.value;
+
+    if (!username || !password) {
+      showAuthAlert('All fields are required', 'error');
+      return;
+    }
+    if (password.length < 6) {
+      showAuthAlert(t('passwordTooShort'), 'error');
+      return;
+    }
+    if (password !== confirm) {
+      showAuthAlert(t('passwordsDoNotMatch'), 'error');
+      return;
+    }
+
+    dom.btnRegisterSubmit.disabled = true;
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.token) {
+        headers['X-Admin-Token'] = state.token;
+      }
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        state.token = data.token;
+        state.isAuthenticated = true;
+        state.adminUser = data.username;
+        state.hasAdmin = true;
+        sessionStorage.setItem('admin_token', data.token);
+        dom.formAuthRegister.reset();
+        showAuthAlert(t('adminCreated'), 'success');
+        setTimeout(() => {
+          syncAuthUI();
+          renderPanels();
+        }, 600);
+      } else {
+        showAuthAlert(data.message || 'Registration failed', 'error');
+      }
+    } catch {
+      showAuthAlert(t('networkError'), 'error');
+    } finally {
+      dom.btnRegisterSubmit.disabled = false;
+    }
+  }
+
+  async function handleAuthLogout() {
+    try {
+      const headers = {};
+      if (state.token) {
+        headers['X-Admin-Token'] = state.token;
+      }
+      await fetch('/api/auth/logout', { method: 'POST', headers });
+    } catch {
+      // Ignore network errors on logout
+    }
+    state.token = '';
+    state.isAuthenticated = false;
+    state.adminUser = null;
+    sessionStorage.removeItem('admin_token');
+    if (dom.adminToken) dom.adminToken.value = '';
+    syncAuthUI();
+    renderPanels();
+  }
+
+  /* ========================================================================
+     UPLOAD, POEM & DELETE HANDLERS
+     ======================================================================== */
   async function deleteEntry(endpoint, id) {
-    if (!state.token) return;
+    const token = (dom.adminToken && dom.adminToken.value.trim()) || state.token;
+    if (!token && !state.isAuthenticated) {
+      alert(t('loginRequired'));
+      return;
+    }
     if (!window.confirm('Delete this item?')) return;
+
+    const headers = {};
+    if (token) {
+      headers['X-Admin-Token'] = token;
+    }
 
     const res = await fetch(`/api/${endpoint}/${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      headers: { 'X-Admin-Token': state.token },
+      headers,
     });
 
     if (res.ok) {
@@ -1263,11 +1511,12 @@
 
   function handleMediaUpload(e) {
     e.preventDefault();
-    const token = dom.adminToken.value.trim() || state.token;
+    const token = (dom.adminToken && dom.adminToken.value.trim()) || state.token;
     const file = dom.uploadFile.files[0];
 
-    if (!token) {
-      dom.uploadStatus.textContent = t('enterTokenAbove');
+    if (!token && !state.isAuthenticated) {
+      dom.uploadStatus.textContent = t('loginRequired');
+      showAuthAlert(t('loginRequired'), 'error');
       return;
     }
     if (!file) {
@@ -1275,9 +1524,11 @@
       return;
     }
 
-    state.token = token;
-    sessionStorage.setItem('admin_token', token);
-    syncTokenUI();
+    if (token) {
+      state.token = token;
+      sessionStorage.setItem('admin_token', token);
+    }
+    syncAuthUI();
 
     const fd = new FormData();
     fd.append('file', file);
@@ -1286,7 +1537,9 @@
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/upload', true);
-    xhr.setRequestHeader('X-Admin-Token', token);
+    if (token) {
+      xhr.setRequestHeader('X-Admin-Token', token);
+    }
 
     dom.uploadSubmit.disabled = true;
     dom.uploadMeter.hidden = false;
@@ -1333,26 +1586,30 @@
 
   async function handlePoemUpload(e) {
     e.preventDefault();
-    const token = dom.adminToken.value.trim() || state.token;
-    if (!token) {
-      dom.poemStatus.textContent = t('enterTokenAbove');
+    const token = (dom.adminToken && dom.adminToken.value.trim()) || state.token;
+    if (!token && !state.isAuthenticated) {
+      dom.poemStatus.textContent = t('loginRequired');
+      showAuthAlert(t('loginRequired'), 'error');
       return;
     }
 
-    state.token = token;
-    sessionStorage.setItem('admin_token', token);
-    syncTokenUI();
+    if (token) {
+      state.token = token;
+      sessionStorage.setItem('admin_token', token);
+    }
+    syncAuthUI();
 
     dom.poemSubmit.disabled = true;
     dom.poemStatus.textContent = t('uploading');
 
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['X-Admin-Token'] = token;
+      }
       const res = await fetch('/api/poems', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Token': token,
-        },
+        headers,
         body: JSON.stringify({
           title: dom.poemTitle.value.trim(),
           content: dom.poemContent.value.trim(),
@@ -1803,7 +2060,7 @@
   /* ========================================================================
      INIT
      ======================================================================== */
-  function init() {
+  async function init() {
     const savedTheme = localStorage.getItem('portfolio_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
 
@@ -1881,16 +2138,50 @@
     dom.uploadToggle.addEventListener('click', () => toggleUploadDock());
     dom.uploadClose.addEventListener('click', () => toggleUploadDock(false));
 
-    dom.saveToken.addEventListener('click', () => {
-      state.token = dom.adminToken.value.trim();
-      sessionStorage.setItem('admin_token', state.token);
-      syncTokenUI();
-      renderPanels();
-      setTextRoll(dom.saveToken, t('saved'));
-      setTimeout(() => {
-        setTextRoll(dom.saveToken, t('save'));
-      }, 1500);
-    });
+    // --- Admin Auth Event Listeners ---
+    if (dom.tabAuthLogin) {
+      dom.tabAuthLogin.addEventListener('click', () => switchAuthTab('login'));
+    }
+    if (dom.tabAuthRegister) {
+      dom.tabAuthRegister.addEventListener('click', () => switchAuthTab('register'));
+    }
+    if (dom.formAuthLogin) {
+      dom.formAuthLogin.addEventListener('submit', handleAuthLogin);
+    }
+    if (dom.formAuthRegister) {
+      dom.formAuthRegister.addEventListener('submit', handleAuthRegister);
+    }
+    if (dom.authLogoutBtn) {
+      dom.authLogoutBtn.addEventListener('click', handleAuthLogout);
+    }
+    if (dom.authAddBtn) {
+      dom.authAddBtn.addEventListener('click', () => {
+        if (dom.authLoggedIn) dom.authLoggedIn.hidden = true;
+        if (dom.authLoggedOut) dom.authLoggedOut.hidden = false;
+        if (dom.tabRegisterText) dom.tabRegisterText.textContent = '+ Add Admin';
+        switchAuthTab('register');
+      });
+    }
+    if (dom.authTokenToggle) {
+      dom.authTokenToggle.addEventListener('click', () => {
+        const isClosed = dom.tokenPillContainer.hidden;
+        dom.tokenPillContainer.hidden = !isClosed;
+        dom.authTokenToggle.classList.toggle('is-open', isClosed);
+      });
+    }
+
+    if (dom.saveToken) {
+      dom.saveToken.addEventListener('click', () => {
+        state.token = dom.adminToken.value.trim();
+        sessionStorage.setItem('admin_token', state.token);
+        syncTokenUI();
+        renderPanels();
+        setTextRoll(dom.saveToken, t('saved'));
+        setTimeout(() => {
+          setTextRoll(dom.saveToken, t('save'));
+        }, 1500);
+      });
+    }
 
     dom.uploadTabs.forEach((tab) => {
       tab.addEventListener('click', () => {
@@ -1927,7 +2218,8 @@
       }
     });
 
-    fetchPortfolio();
+    await checkAuthStatus();
+    await fetchPortfolio();
   }
 
   init();

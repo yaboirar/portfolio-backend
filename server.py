@@ -20,6 +20,7 @@ import tempfile
 import shutil
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.cookies import SimpleCookie
 from typing import Optional, Tuple, Dict, Any
 
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -337,13 +338,49 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         self.send_cors_headers()
         self.end_headers()
 
-    def is_authenticated(self) -> bool:
+    def get_cookie(self, name: str) -> Optional[str]:
+        cookie_header = self.headers.get("Cookie", "")
+        if not cookie_header:
+            return None
+        try:
+            cookie = SimpleCookie()
+            cookie.load(cookie_header)
+            if name in cookie:
+                return cookie[name].value
+        except Exception:
+            pass
+        return None
+
+    def get_auth_token(self) -> Optional[str]:
         token = self.headers.get("X-Admin-Token")
+        if token:
+            return token.strip()
+        auth_header = self.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            return auth_header[7:].strip()
+        cookie_token = self.get_cookie("session_token")
+        if cookie_token:
+            return cookie_token.strip()
+        return None
+
+    def get_authenticated_user(self) -> Optional[Dict[str, Any]]:
+        token = self.get_auth_token()
         if not token:
-            auth_header = self.headers.get("Authorization", "")
-            if auth_header.startswith("Bearer "):
-                token = auth_header[7:].strip()
-        return bool(token and secrets.compare_digest(token, ADMIN_TOKEN))
+            return None
+        if secrets.compare_digest(token, ADMIN_TOKEN):
+            return {"username": "Admin", "is_master": True, "token": token}
+        session = database.validate_session(token)
+        if session:
+            return {
+                "username": session["username"],
+                "admin_id": session["admin_id"],
+                "is_master": False,
+                "token": token
+            }
+        return None
+
+    def is_authenticated(self) -> bool:
+        return self.get_authenticated_user() is not None
 
     def require_auth(self) -> bool:
         if not self.is_authenticated():
@@ -351,12 +388,15 @@ class PortfolioHandler(BaseHTTPRequestHandler):
             return False
         return True
 
-    def send_json(self, status_code: int, data: any):
+    def send_json(self, status_code: int, data: any, extra_headers: Optional[Dict[str, str]] = None):
         payload = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(status_code)
         self.send_cors_headers()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
+        if extra_headers:
+            for k, v in extra_headers.items():
+                self.send_header(k, v)
         self.end_headers()
         self.wfile.write(payload)
 
@@ -465,8 +505,23 @@ class PortfolioHandler(BaseHTTPRequestHandler):
             self.send_json(200, database.get_stats())
             return
 
+        if path == "/api/auth/status":
+            auth_user = self.get_authenticated_user()
+            admin_count = database.get_admin_count()
+            self.send_json(200, {
+                "has_admin": admin_count > 0,
+                "authenticated": bool(auth_user),
+                "username": auth_user.get("username") if auth_user else None,
+                "is_master": auth_user.get("is_master", False) if auth_user else False
+            })
+            return
+
         if path == "/api/auth/verify":
-            self.send_json(200, {"authenticated": self.is_authenticated()})
+            auth_user = self.get_authenticated_user()
+            self.send_json(200, {
+                "authenticated": bool(auth_user),
+                "username": auth_user.get("username") if auth_user else None
+            })
             return
 
         if path == "/api/poems":
@@ -545,6 +600,92 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         if "chunked" in transfer_encoding:
             self.close_connection = True
             self.send_error_json(400, "Chunked transfer encoding is not supported; Content-Length header is required")
+            return
+
+        if path == "/api/auth/register":
+            try:
+                body = self.parse_json_body()
+                username = str(body.get("username", "")).strip()
+                password = str(body.get("password", ""))
+
+                if not username or not password:
+                    self.send_error_json(400, "Username and password are required")
+                    return
+
+                if len(username) < 3 or len(username) > 32:
+                    self.send_error_json(400, "Username must be between 3 and 32 characters")
+                    return
+
+                if not re.match(r"^[a-zA-Z0-9_\-\.]+$", username):
+                    self.send_error_json(400, "Username can only contain letters, numbers, hyphens, periods, and underscores")
+                    return
+
+                if len(password) < 6:
+                    self.send_error_json(400, "Password must be at least 6 characters")
+                    return
+
+                admin_count = database.get_admin_count()
+                if admin_count > 0 and not self.is_authenticated():
+                    self.send_error_json(403, "Registration is closed. An active admin must log in to create new accounts.")
+                    return
+
+                if database.get_admin_by_username(username):
+                    self.send_error_json(409, "Username already exists")
+                    return
+
+                new_admin = database.create_admin(username, password)
+                session_token = database.create_session(new_admin["id"])
+                cookie_val = f"session_token={session_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800"
+                self.send_json(201, {
+                    "success": True,
+                    "token": session_token,
+                    "username": new_admin["username"],
+                    "message": "Admin account registered successfully"
+                }, extra_headers={"Set-Cookie": cookie_val})
+            except Exception as e:
+                self.send_error_json(400, f"Registration failed: {str(e)}")
+            return
+
+        if path == "/api/auth/login":
+            try:
+                body = self.parse_json_body()
+                username = str(body.get("username", "")).strip()
+                password = str(body.get("password", ""))
+
+                if not username or not password:
+                    self.send_error_json(400, "Username and password are required")
+                    return
+
+                admin = database.get_admin_by_username(username)
+                if not admin or not database.verify_password(password, admin["password_hash"], admin["salt"]):
+                    self.send_error_json(401, "Invalid username or password")
+                    return
+
+                session_token = database.create_session(admin["id"])
+                cookie_val = f"session_token={session_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800"
+                self.send_json(200, {
+                    "success": True,
+                    "token": session_token,
+                    "username": admin["username"],
+                    "message": "Logged in successfully"
+                }, extra_headers={"Set-Cookie": cookie_val})
+            except Exception as e:
+                self.send_error_json(400, f"Login failed: {str(e)}")
+            return
+
+        if path == "/api/auth/logout":
+            try:
+                self.parse_json_body()
+            except Exception:
+                pass
+            token = self.get_auth_token()
+            if token:
+                database.delete_session(token)
+            cookie_val = "session_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly; SameSite=Lax"
+            self.send_json(200, {
+                "success": True,
+                "message": "Logged out successfully"
+            }, extra_headers={"Set-Cookie": cookie_val})
             return
 
         if path == "/api/poems":
@@ -931,8 +1072,9 @@ def run_server(port: int = 8000, host: str = "0.0.0.0"):
     # Startup persistence recovery
     cleaned_tmp = cleanup_orphaned_tmp_files(TMP_DIR)
     cleaned_del = database.cleanup_unfinished_deletions(UPLOADS_DIR)
-    if cleaned_tmp > 0 or cleaned_del > 0:
-        print(f"🧹 Startup cleanup: removed {cleaned_tmp} stale temp files and {cleaned_del} pending deletions")
+    cleaned_sess = database.cleanup_expired_sessions()
+    if cleaned_tmp > 0 or cleaned_del > 0 or cleaned_sess > 0:
+        print(f"🧹 Startup cleanup: removed {cleaned_tmp} stale temp files, {cleaned_del} pending deletions, {cleaned_sess} expired sessions")
 
     server_address = (host, port)
     httpd = ThreadingHTTPServer(server_address, PortfolioHandler)

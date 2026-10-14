@@ -1701,12 +1701,194 @@ video:-ms-fullscreen {
   gap: calc(14 * var(--ui-unit));
 }
 
+/* --- Admin Auth Card & Session Management --- */
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: calc(14 * var(--ui-unit));
+  padding: calc(12 * var(--ui-unit));
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-logged-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8 * var(--ui-unit));
+}
+
+.auth-user-info {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--ui-unit));
+  font-size: calc(12.5 * var(--ui-unit));
+}
+
+.auth-status-dot {
+  width: calc(8 * var(--ui-unit));
+  height: calc(8 * var(--ui-unit));
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 calc(8 * var(--ui-unit)) rgba(16, 185, 129, 0.6);
+  flex-shrink: 0;
+}
+
+.auth-welcome {
+  color: var(--text-dim);
+}
+
+.auth-welcome strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.auth-user-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--ui-unit));
+}
+
+.auth-small-btn {
+  height: calc(26 * var(--ui-unit));
+  padding: 0 calc(9 * var(--ui-unit));
+  font-size: calc(11 * var(--ui-unit));
+}
+
+.auth-logged-out {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--ui-unit));
+}
+
+.auth-tabs {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: calc(10 * var(--ui-unit));
+  padding: calc(3 * var(--ui-unit));
+  gap: calc(3 * var(--ui-unit));
+}
+
+.auth-tab {
+  flex: 1;
+  height: calc(28 * var(--ui-unit));
+  border-radius: calc(7 * var(--ui-unit));
+  font-size: calc(12 * var(--ui-unit));
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.auth-tab:hover {
+  color: var(--text);
+}
+
+.auth-tab.is-active {
+  background: var(--card-hover);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.auth-alert {
+  padding: calc(8 * var(--ui-unit)) calc(12 * var(--ui-unit));
+  border-radius: calc(8 * var(--ui-unit));
+  font-size: calc(11.5 * var(--ui-unit));
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.auth-alert.is-error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.auth-alert.is-success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+.auth-subform {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--ui-unit));
+}
+
+.auth-notice {
+  font-size: calc(11 * var(--ui-unit));
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: calc(-2 * var(--ui-unit));
+}
+
+.auth-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--ui-unit));
+}
+
+.auth-input {
+  height: calc(34 * var(--ui-unit)) !important;
+  font-size: calc(12.5 * var(--ui-unit)) !important;
+  padding: 0 calc(10 * var(--ui-unit)) !important;
+}
+
+.auth-submit-btn {
+  width: 100%;
+  height: calc(34 * var(--ui-unit));
+  font-size: calc(12.5 * var(--ui-unit));
+  justify-content: center;
+}
+
+.auth-token-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--ui-unit));
+  margin-top: calc(4 * var(--ui-unit));
+  border-top: 1px dashed var(--border);
+  padding-top: calc(8 * var(--ui-unit));
+}
+
+.auth-token-toggle {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: calc(11 * var(--ui-unit));
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(4 * var(--ui-unit));
+  padding: calc(4 * var(--ui-unit));
+}
+
+.auth-token-toggle:hover {
+  color: var(--text);
+}
+
+.auth-token-toggle .chevron-svg {
+  transition: transform 0.2s ease;
+}
+
+.auth-token-toggle.is-open .chevron-svg {
+  transform: rotate(180deg);
+}
+
 .token-pill {
   display: flex;
   align-items: center;
   gap: calc(8 * var(--ui-unit));
   padding: calc(4 * var(--ui-unit)) calc(4 * var(--ui-unit)) calc(4 * var(--ui-unit)) calc(12 * var(--ui-unit));
-  background: var(--card);
+  background: var(--card-hover);
   border: 1px solid var(--border);
   border-radius: calc(12 * var(--ui-unit));
 }
@@ -1730,6 +1912,7 @@ video:-ms-fullscreen {
   letter-spacing: -0.01em;
   display: inline-flex;
   align-items: center;
+  cursor: pointer;
 }
 
 .pill-btn:hover {
