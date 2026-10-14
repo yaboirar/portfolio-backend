@@ -197,6 +197,7 @@
 
     themeToggle: document.getElementById('theme-toggle'),
     uploadToggle: document.getElementById('upload-toggle'),
+    adminToggle: document.getElementById('admin-toggle'),
     authIndicator: document.getElementById('auth-indicator'),
 
     bentoStage: document.getElementById('bento-stage'),
@@ -216,7 +217,12 @@
     uploadDock: document.getElementById('upload-dock'),
     uploadClose: document.getElementById('upload-close'),
     uploadTabs: document.querySelectorAll('.upload-tab'),
+    uploadAuthBanner: document.getElementById('upload-auth-banner'),
+    btnBannerAuth: document.getElementById('btn-banner-auth'),
 
+    adminModal: document.getElementById('admin-modal'),
+    adminModalBackdrop: document.getElementById('admin-modal-backdrop'),
+    adminModalClose: document.getElementById('admin-modal-close'),
     authCard: document.getElementById('auth-card'),
     authLoggedIn: document.getElementById('auth-logged-in'),
     authLoggedOut: document.getElementById('auth-logged-out'),
@@ -1308,6 +1314,9 @@
     if (dom.adminToken && state.token) {
       dom.adminToken.value = state.token;
     }
+    if (dom.uploadAuthBanner) {
+      dom.uploadAuthBanner.hidden = isAuthed;
+    }
 
     if (isAuthed) {
       if (dom.authLoggedIn) dom.authLoggedIn.hidden = false;
@@ -1322,7 +1331,7 @@
 
       if (!state.hasAdmin) {
         if (dom.tabAuthLogin) dom.tabAuthLogin.hidden = true;
-        if (dom.tabRegisterText) dom.tabRegisterText.textContent = 'Setup Root Admin';
+        if (dom.tabRegisterText) dom.tabRegisterText.textContent = 'Create Admin';
         if (dom.authRegisterNotice) dom.authRegisterNotice.textContent = 'Enter username, password, and the server Master Key';
         if (dom.regSetupKey) {
           dom.regSetupKey.hidden = false;
@@ -1339,6 +1348,44 @@
         }
         switchAuthTab('login');
       }
+    }
+  }
+
+  function openAdminModal() {
+    if (!dom.adminModal) return;
+    dom.adminModal.hidden = false;
+    dom.adminModal.setAttribute('aria-hidden', 'false');
+    if (dom.adminToggle) {
+      dom.adminToggle.classList.add('is-active');
+      dom.adminToggle.setAttribute('aria-expanded', 'true');
+    }
+    syncAuthUI();
+    setTimeout(() => {
+      if (dom.formAuthLogin && !dom.formAuthLogin.hidden && dom.loginUsername) {
+        dom.loginUsername.focus();
+      } else if (dom.formAuthRegister && !dom.formAuthRegister.hidden && dom.regUsername) {
+        dom.regUsername.focus();
+      }
+    }, 60);
+  }
+
+  function closeAdminModal() {
+    if (!dom.adminModal) return;
+    dom.adminModal.hidden = true;
+    dom.adminModal.setAttribute('aria-hidden', 'true');
+    if (dom.adminToggle) {
+      dom.adminToggle.classList.remove('is-active');
+      dom.adminToggle.setAttribute('aria-expanded', 'false');
+    }
+    hideAuthAlert();
+  }
+
+  function toggleAdminModal() {
+    if (!dom.adminModal) return;
+    if (dom.adminModal.hidden) {
+      openAdminModal();
+    } else {
+      closeAdminModal();
     }
   }
 
@@ -1375,6 +1422,7 @@
         setTimeout(() => {
           syncAuthUI();
           renderPanels();
+          closeAdminModal();
         }, 500);
       } else {
         showAuthAlert(data.message || 'Invalid username or password', 'error');
@@ -1439,6 +1487,7 @@
         setTimeout(() => {
           syncAuthUI();
           renderPanels();
+          closeAdminModal();
         }, 600);
       } else {
         showAuthAlert(data.message || 'Registration failed', 'error');
@@ -1475,7 +1524,8 @@
   async function deleteEntry(endpoint, id) {
     const token = (dom.adminToken && dom.adminToken.value.trim()) || state.token;
     if (!token && !state.isAuthenticated) {
-      alert(t('loginRequired'));
+      showAuthAlert(t('loginRequired'), 'error');
+      openAdminModal();
       return;
     }
     if (!window.confirm('Delete this item?')) return;
@@ -1536,6 +1586,7 @@
     if (!token && !state.isAuthenticated) {
       dom.uploadStatus.textContent = t('loginRequired');
       showAuthAlert(t('loginRequired'), 'error');
+      openAdminModal();
       return;
     }
     if (!file) {
@@ -1609,6 +1660,7 @@
     if (!token && !state.isAuthenticated) {
       dom.poemStatus.textContent = t('loginRequired');
       showAuthAlert(t('loginRequired'), 'error');
+      openAdminModal();
       return;
     }
 
@@ -2223,7 +2275,28 @@
     dom.lbPrev.addEventListener('click', () => stepLightbox(-1));
     dom.lbNext.addEventListener('click', () => stepLightbox(1));
 
+    // --- Admin Modal Event Listeners ---
+    if (dom.adminToggle) {
+      dom.adminToggle.addEventListener('click', () => toggleAdminModal());
+    }
+    if (dom.adminModalClose) {
+      dom.adminModalClose.addEventListener('click', () => closeAdminModal());
+    }
+    if (dom.adminModalBackdrop) {
+      dom.adminModalBackdrop.addEventListener('click', () => closeAdminModal());
+    }
+    if (dom.btnBannerAuth) {
+      dom.btnBannerAuth.addEventListener('click', () => {
+        toggleUploadDock(false);
+        openAdminModal();
+      });
+    }
+
     document.addEventListener('keydown', (e) => {
+      if (dom.adminModal && !dom.adminModal.hidden && e.key === 'Escape') {
+        closeAdminModal();
+        return;
+      }
       if (e.key === 'Escape') closeAllPanelPopovers();
       if (!dom.lightbox.hidden) {
         if (e.key === 'Escape') closeLightbox();
