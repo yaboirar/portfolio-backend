@@ -343,12 +343,15 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         return json.loads(raw.decode("utf-8"))
 
     def serve_file_with_range(self, filepath: Path, head_only: bool = False):
-        total_size = filepath.stat().st_size
-        mime_type, _ = mimetypes.guess_type(str(filepath))
-        if not mime_type:
-            mime_type = "application/octet-stream"
-
         ext = filepath.suffix.lower()
+        if ext == ".ts":
+            mime_type = "video/mp2t"
+        elif ext == ".m3u8":
+            mime_type = "application/vnd.apple.mpegurl"
+        else:
+            mime_type, _ = mimetypes.guess_type(str(filepath))
+            if not mime_type:
+                mime_type = "application/octet-stream"
         if ext in {".html", ".htm"}:
             cache_header = "no-cache, no-store, must-revalidate"
         elif ext in {".css", ".js"}:
