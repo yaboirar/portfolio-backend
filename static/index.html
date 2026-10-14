@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=search-spacing-2">
+  <link rel="stylesheet" href="/static/style.css?v=footer-upload-1">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -527,19 +527,38 @@
       </aside>
     </div>
 
-    <!-- Bottom Footer: Language Switcher (EN priority, ID secondary) -->
+    <!-- Bottom Footer: Correlated Upload / Load Progress Component -->
     <footer class="app-footer" id="app-footer">
-      <div class="lang-switch-pill" role="group" aria-label="Language switcher">
-        <span class="lang-globe-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+      <div class="footer-upload-hub" id="footer-upload-hub">
+        <!-- Idle Upload Button -->
+        <button type="button" class="footer-upload-btn" id="footer-upload-btn" aria-label="Upload file">
+          <svg class="footer-upload-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
-        </span>
-        <button type="button" class="lang-btn is-active" data-lang="en" aria-pressed="true">EN</button>
-        <span class="lang-sep" aria-hidden="true"></span>
-        <button type="button" class="lang-btn" data-lang="id" aria-pressed="false">ID</button>
+          <span class="footer-upload-label" id="footer-upload-label">Upload</span>
+        </button>
+
+        <!-- Correlated File Progress Bar (Exact replica of ProgressBar.tsx) -->
+        <div class="footer-progress-widget" id="footer-progress-widget" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="footer-progress-top">
+            <span class="footer-progress-title truncate" id="footer-progress-title">roadmap.pdf</span>
+            <span class="footer-progress-status-grid" aria-hidden="true">
+              <span class="footer-progress-pending" id="footer-progress-pending">Working</span>
+              <span class="footer-progress-percent" id="footer-progress-percent">0%</span>
+            </span>
+          </div>
+
+          <div class="footer-progress-track">
+            <div class="footer-progress-slot">
+              <span class="footer-progress-fill" id="footer-progress-fill"></span>
+              <span class="footer-progress-scan" id="footer-progress-scan" hidden></span>
+            </div>
+          </div>
+        </div>
+
+        <input type="file" id="footer-file-input" hidden accept="image/*,video/*">
       </div>
     </footer>
   </div>
@@ -566,7 +585,7 @@
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=footer-lang-1"></script>
+  <script src="/static/app.js?v=footer-upload-1"></script>
 </body>
 </html>
 

@@ -246,6 +246,15 @@
     lbPrev: document.getElementById('lb-prev'),
     lbNext: document.getElementById('lb-next'),
     lbClose: document.getElementById('lb-close'),
+    footerUploadHub: document.getElementById('footer-upload-hub'),
+    footerUploadBtn: document.getElementById('footer-upload-btn'),
+    footerProgressWidget: document.getElementById('footer-progress-widget'),
+    footerProgressTitle: document.getElementById('footer-progress-title'),
+    footerProgressPending: document.getElementById('footer-progress-pending'),
+    footerProgressPercent: document.getElementById('footer-progress-percent'),
+    footerProgressFill: document.getElementById('footer-progress-fill'),
+    footerProgressScan: document.getElementById('footer-progress-scan'),
+    footerFileInput: document.getElementById('footer-file-input'),
   };
 
   /* ========================================================================
@@ -1275,11 +1284,25 @@
     dom.uploadMeterFill.style.width = '0%';
     dom.uploadStatus.textContent = '0%';
 
+    updateFooterProgress({
+      file,
+      value: null,
+      pendingLabel: 'Sizing',
+      completeLabel: 'Upload complete',
+    });
+
     xhr.upload.onprogress = (ev) => {
       if (ev.lengthComputable) {
         const pct = Math.round((ev.loaded / ev.total) * 100);
         dom.uploadMeterFill.style.width = `${pct}%`;
         dom.uploadStatus.textContent = `${pct}%`;
+        updateFooterProgress({
+          file,
+          value: pct,
+          max: 100,
+          pendingLabel: 'Working',
+          completeLabel: 'Upload complete',
+        });
       }
     };
 
@@ -1289,18 +1312,36 @@
         dom.uploadForm.reset();
         updateDropPreview();
         dom.uploadStatus.textContent = t('uploaded');
+        updateFooterProgress({
+          file,
+          value: 100,
+          max: 100,
+          completeLabel: 'Upload complete',
+        });
         setTimeout(() => {
           dom.uploadMeter.hidden = true;
         }, 600);
         await fetchPortfolio();
       } else {
         dom.uploadStatus.textContent = `Error ${xhr.status}`;
+        updateFooterProgress({
+          file,
+          value: 100,
+          max: 100,
+          completeLabel: `Error ${xhr.status}`,
+        });
       }
     };
 
     xhr.onerror = () => {
       dom.uploadSubmit.disabled = false;
       dom.uploadStatus.textContent = t('networkError');
+      updateFooterProgress({
+        file,
+        value: 100,
+        max: 100,
+        completeLabel: t('networkError'),
+      });
     };
 
     xhr.send(fd);
@@ -1612,14 +1653,7 @@
     localStorage.setItem('portfolio_lang', activeLang);
     document.documentElement.setAttribute('lang', activeLang);
 
-    // 1. Language switcher buttons
-    document.querySelectorAll('.lang-btn').forEach((btn) => {
-      const isActive = btn.dataset.lang === activeLang;
-      btn.classList.toggle('is-active', isActive);
-      btn.setAttribute('aria-pressed', String(isActive));
-    });
-
-    // 2. Translatable text nodes
+    // 1. Translatable text nodes
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.dataset.i18n;
       const translated = t(key);
@@ -1630,12 +1664,12 @@
       }
     });
 
-    // 3. Placeholders
+    // 2. Placeholders
     document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
       el.placeholder = t(el.dataset.i18nPlaceholder);
     });
 
-    // 4. Titles & Aria labels
+    // 3. Titles & Aria labels
     document.querySelectorAll('[data-i18n-title]').forEach((el) => {
       el.title = t(el.dataset.i18nTitle);
     });
@@ -1643,21 +1677,21 @@
       el.setAttribute('aria-label', t(el.dataset.i18nAria));
     });
 
-    // 5. Update category drawer titles & re-render nav pill
+    // 4. Update category drawer titles & re-render nav pill
     CATEGORIES.forEach((cat) => {
       cat.label = t(cat.key);
       cat.title = cat.key === 'all' ? t('allHome') : t(cat.key);
     });
     renderNavPill(state.filter, false);
 
-    // 6. Update universal search placeholder
+    // 5. Update universal search placeholder
     if (dom.searchInput) {
       dom.searchInput.placeholder = dom.searchHub.classList.contains('is-focused')
         ? t('searchPrompt')
         : t('searchPlaceholder');
     }
 
-    // 7. Update panel tools tooltips & aria labels
+    // 6. Update panel tools tooltips & aria labels
     ['videos', 'photos', 'poems'].forEach((key) => {
       const searchBtn = document.querySelector(`.panel-search-icon-btn[data-panel="${key}"]`);
       const searchInput = document.getElementById(`search-input-${key}`);
@@ -1692,22 +1726,188 @@
       }
     });
 
-    // 8. Re-render popovers
+    // 7. Re-render popovers
     updatePopoversText();
 
-    // 9. Re-render panels (updates empty states and delete buttons)
+    // 8. Re-render panels (updates empty states and delete buttons)
     renderPanels();
   }
 
-  function initLanguageSwitcher() {
-    document.querySelectorAll('.lang-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const selected = btn.dataset.lang;
-        if (selected && selected !== state.lang) {
-          applyLanguage(selected);
-        }
+  /* ========================================================================
+     CORRELATED FOOTER UPLOAD & PROGRESS BAR (ProgressBar component)
+     ======================================================================== */
+  let footerProgressResetTimer = null;
+
+  function updateFooterProgress({
+    file,
+    value,
+    max = 100,
+    label,
+    pendingLabel = 'Working',
+    completeLabel = 'Complete',
+  }) {
+    if (!dom.footerProgressWidget || !dom.footerUploadBtn) return;
+
+    if (footerProgressResetTimer) {
+      clearTimeout(footerProgressResetTimer);
+      footerProgressResetTimer = null;
+    }
+
+    const resolvedLabel = label || (file ? (typeof file === 'string' ? file : file.name) : 'Upload');
+    dom.footerProgressTitle.textContent = resolvedLabel;
+
+    // Switch view to progress bar widget
+    dom.footerUploadBtn.hidden = true;
+    dom.footerProgressWidget.hidden = false;
+
+    const isIndeterminate = value === null || value === undefined;
+    const fraction = isIndeterminate || max <= 0 ? 0 : Math.min(1, Math.max(0, value / max));
+    const percent = Math.round(fraction * 100);
+    const isComplete = !isIndeterminate && fraction >= 1;
+
+    if (isIndeterminate) {
+      dom.footerProgressWidget.classList.remove('is-measured');
+      dom.footerProgressPending.textContent = pendingLabel;
+      dom.footerProgressScan.hidden = false;
+      dom.footerProgressFill.style.transform = 'scaleX(0)';
+    } else {
+      dom.footerProgressWidget.classList.add('is-measured');
+      dom.footerProgressScan.hidden = true;
+      dom.footerProgressFill.style.transform = `scaleX(${fraction})`;
+      dom.footerProgressPercent.textContent = `${percent}%`;
+    }
+
+    dom.footerProgressWidget.setAttribute('aria-valuenow', isIndeterminate ? '' : String(percent));
+    dom.footerProgressWidget.setAttribute('aria-valuetext', isIndeterminate ? pendingLabel : `${percent}%`);
+
+    if (isComplete) {
+      dom.footerProgressPending.textContent = completeLabel;
+      dom.footerProgressPercent.textContent = `${percent}%`;
+      footerProgressResetTimer = setTimeout(() => {
+        dom.footerProgressWidget.hidden = true;
+        dom.footerUploadBtn.hidden = false;
+        dom.footerProgressFill.style.transform = 'scaleX(0)';
+        dom.footerProgressWidget.classList.remove('is-measured');
+      }, 2400);
+    }
+  }
+
+  function startFooterFileUpload(file) {
+    if (!file) return;
+
+    const token = state.token || dom.adminToken.value.trim() || sessionStorage.getItem('admin_token') || '';
+
+    // If no admin token, run the interactive progress demo and open the upload dock to guide user
+    if (!token) {
+      runProgressDemo(file.name);
+      toggleUpload(true);
+      dom.uploadStatus.textContent = t('enterTokenAbove');
+      return;
+    }
+
+    // Correlate with the drawer preview & fields
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    dom.uploadFile.files = dt.files;
+    updateDropPreview();
+
+    // Start upload
+    updateFooterProgress({
+      file,
+      value: null,
+      pendingLabel: 'Sizing',
+      completeLabel: 'Upload complete',
+    });
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('title', file.name.replace(/\.[^/.]+$/, ''));
+    fd.append('description', '');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload', true);
+    xhr.setRequestHeader('X-Admin-Token', token);
+
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) {
+        const pct = Math.round((ev.loaded / ev.total) * 100);
+        updateFooterProgress({
+          file,
+          value: pct,
+          max: 100,
+          pendingLabel: 'Working',
+          completeLabel: 'Upload complete',
+        });
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        updateFooterProgress({
+          file,
+          value: 100,
+          max: 100,
+          completeLabel: 'Upload complete',
+        });
+        dom.uploadForm.reset();
+        updateDropPreview();
+        dom.uploadStatus.textContent = t('uploaded');
+        await fetchPortfolio();
+      } else {
+        updateFooterProgress({
+          file,
+          value: 100,
+          max: 100,
+          completeLabel: `Error ${xhr.status}`,
+        });
+      }
+    };
+
+    xhr.onerror = () => {
+      updateFooterProgress({
+        file,
+        value: 100,
+        max: 100,
+        completeLabel: t('networkError'),
       });
+    };
+
+    xhr.send(fd);
+  }
+
+  function runProgressDemo(filename = 'roadmap.pdf') {
+    updateFooterProgress({ file: filename, value: null, pendingLabel: 'Sizing' });
+    setTimeout(() => {
+      updateFooterProgress({ file: filename, value: 16, pendingLabel: 'Working' });
+      const step = (val) => {
+        if (val >= 100) {
+          updateFooterProgress({ file: filename, value: 100, completeLabel: 'Upload complete' });
+          return;
+        }
+        setTimeout(() => {
+          const next = Math.min(100, val + 28);
+          updateFooterProgress({ file: filename, value: next, pendingLabel: 'Working' });
+          step(next);
+        }, 400);
+      };
+      step(16);
+    }, 900);
+  }
+
+  function initFooterUpload() {
+    if (!dom.footerUploadBtn || !dom.footerFileInput) return;
+
+    dom.footerUploadBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dom.footerFileInput.click();
+    });
+
+    dom.footerFileInput.addEventListener('change', () => {
+      const file = dom.footerFileInput.files[0];
+      if (file) {
+        startFooterFileUpload(file);
+      }
+      dom.footerFileInput.value = '';
     });
   }
 
@@ -1726,7 +1926,7 @@
     syncTokenUI();
     initWorkspaceInteractions();
     initPanelTools();
-    initLanguageSwitcher();
+    initFooterUpload();
 
     dom.navCurrent.addEventListener('click', (e) => {
       if (e.detail !== 0 && !navHovered && e.pointerType === 'touch') {
