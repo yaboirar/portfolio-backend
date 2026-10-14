@@ -624,15 +624,13 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 if safe_target:
                     try:
                         if safe_target.name == "index.m3u8" and safe_target.parent.is_relative_to(VIDEOS_DIR):
-                            shutil.rmtree(safe_target.parent, ignore_errors=False)
+                            safe_target.unlink()
+                            shutil.rmtree(safe_target.parent, ignore_errors=True)
                             filename = marked_item.get("filename", "")
                             if filename:
                                 orig_file = resolve_safe_path(VIDEOS_DIR, filename)
                                 if orig_file and orig_file.is_file():
-                                    try:
-                                        orig_file.unlink()
-                                    except OSError:
-                                        pass
+                                    orig_file.unlink()
                         elif safe_target.is_file():
                             safe_target.unlink()
                     except OSError as e:
