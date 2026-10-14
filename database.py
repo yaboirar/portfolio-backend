@@ -10,6 +10,7 @@ Features:
 import sqlite3
 import os
 import datetime
+from pathlib import Path
 from contextlib import contextmanager
 from typing import List, Dict, Any, Optional
 
