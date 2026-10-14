@@ -193,7 +193,15 @@ def is_media_active_by_url(relative_url: str) -> bool:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT 1 FROM media WHERE relative_url = ? AND status = 'active' LIMIT 1", (relative_url,))
-        return cursor.fetchone() is not None
+        if cursor.fetchone() is not None:
+            return True
+        # If this is an HLS segment (.ts or similar), check if its parent index.m3u8 is active
+        if "/videos/" in relative_url:
+            parent_m3u8 = str(Path(relative_url).parent / "index.m3u8")
+            cursor.execute("SELECT 1 FROM media WHERE relative_url = ? AND status = 'active' LIMIT 1", (parent_m3u8,))
+            if cursor.fetchone() is not None:
+                return True
+        return False
 
 
 def get_all_pending_deletions() -> List[Dict[str, Any]]:

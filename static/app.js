@@ -1127,9 +1127,28 @@
 
         if (v.url && v.url.includes('.m3u8')) {
           if (window.Hls && Hls.isSupported()) {
-            const hls = new Hls({ enableWorker: false });
+            const hls = new Hls({
+              enableWorker: false,
+              capLevelToPlayerSize: true,
+            });
             hls.loadSource(v.url);
             hls.attachMedia(video);
+            hls.on(Hls.Events.ERROR, (event, data) => {
+              if (data.fatal) {
+                switch (data.type) {
+                  case Hls.ErrorTypes.NETWORK_ERROR:
+                    hls.startLoad();
+                    break;
+                  case Hls.ErrorTypes.MEDIA_ERROR:
+                    hls.recoverMediaError();
+                    break;
+                  default:
+                    hls.destroy();
+                    video.src = v.url;
+                    break;
+                }
+              }
+            });
           } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = v.url;
           } else {

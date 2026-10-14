@@ -297,7 +297,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Range, X-Admin-Token")
         self.send_header("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; media-src 'self' https://assets.21st.dev; img-src 'self' data: https://assets.21st.dev; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:")
+        self.send_header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; media-src 'self' blob: https://assets.21st.dev; worker-src 'self' blob:; img-src 'self' data: https://assets.21st.dev; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:")
         if self.close_connection:
             self.send_header("Connection", "close")
 
