@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=nav-icons-1">
+  <link rel="stylesheet" href="/static/style.css?v=anim-upload-2">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -128,15 +128,21 @@
 
         <span class="pill-sep"></span>
 
-        <!-- Slide-In Upload Panel Toggle -->
+        <!-- Slide-In Upload Panel Toggle (Icon) -->
         <button
           type="button"
           class="upload-toggle"
           id="upload-toggle"
           aria-expanded="false"
+          title="Upload media & poems"
+          aria-label="Upload media & poems"
         >
           <span class="auth-indicator" id="auth-indicator" hidden></span>
-          <span class="js-text-roll upload-roll" data-text="Upload" data-center="true">Upload</span>
+          <svg class="upload-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
         </button>
       </div>
     </header>
@@ -317,7 +323,7 @@
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=nav-icons-1"></script>
+  <script src="/static/app.js?v=anim-upload-2"></script>
 </body>
 </html>
 

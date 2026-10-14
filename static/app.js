@@ -4,10 +4,10 @@
   const STAGGER = 0.035;
   const RING_CIRCUMFERENCE = 2 * Math.PI * 12.5; // ~78.54
   const NAV_ICONS = {
-    all: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.5z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-    videos: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="15" height="16" rx="2"/><polygon points="22 8 17 12 22 16 22 8"/></svg>`,
-    photos: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
-    poems: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>`,
+    all: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.5z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    videos: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="15" height="16" rx="2"/><polygon points="22 8 17 12 22 16 22 8"/></svg>`,
+    photos: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+    poems: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>`,
   };
 
   const CATEGORIES = [
@@ -230,10 +230,10 @@
       btn.setAttribute('aria-pressed', String(btn.dataset.filter === state.filter));
     });
 
-    const itemSize = 34 * uiScale();
-    animateNavElement(dom.navCurrent, { width: `${itemSize}px` });
+    const itemSize = 38 * uiScale();
+    animateNavElement(dom.navCurrent, { width: `${itemSize}px`, height: `${itemSize}px` });
 
-    const drawerWidth = Math.ceil(dom.navDrawerList.scrollWidth) + 16 * uiScale();
+    const drawerWidth = Math.ceil(dom.navDrawerList.scrollWidth) + 18 * uiScale();
     animateNavElement(drawer, {
       width: expanded ? `${drawerWidth}px` : '0px',
       paddingLeft: expanded ? `${10 * uiScale()}px` : '0px',
@@ -341,6 +341,14 @@
   }
 
   function applyFilter(nextFilter, shrinkNav = false) {
+    const allPanels = Array.from(dom.bentoStage.querySelectorAll('.bento-panel'));
+    const firstRects = new Map();
+    allPanels.forEach((panel) => {
+      if (!panel.closest('[hidden]')) {
+        firstRects.set(panel, panel.getBoundingClientRect());
+      }
+    });
+
     state.filter = nextFilter;
     renderNavPill(nextFilter, shrinkNav);
 
@@ -372,7 +380,77 @@
         'aria-label',
         isExpanded ? `Exit fullscreen ${btn.dataset.expand}` : `Expand ${btn.dataset.expand}`
       );
+      btn.classList.remove('is-animating');
+      void btn.offsetWidth;
+      btn.classList.add('is-animating');
+      setTimeout(() => btn.classList.remove('is-animating'), 500);
     });
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!prefersReducedMotion && typeof Element.prototype.animate === 'function') {
+      dom.bentoStage.classList.add('is-transitioning');
+
+      allPanels.forEach((panel) => {
+        if (panel._flipAnim) {
+          panel._flipAnim.cancel();
+          panel._flipAnim = null;
+        }
+        const isNowVisible = !panel.closest('[hidden]');
+        if (!isNowVisible) return;
+
+        const firstRect = firstRects.get(panel);
+        const lastRect = panel.getBoundingClientRect();
+
+        if (firstRect) {
+          const dx = firstRect.left - lastRect.left;
+          const dy = firstRect.top - lastRect.top;
+          const sw = firstRect.width / (lastRect.width || 1);
+          const sh = firstRect.height / (lastRect.height || 1);
+
+          if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5 || Math.abs(sw - 1) > 0.005 || Math.abs(sh - 1) > 0.005) {
+            panel.classList.add('is-flipping');
+            panel.style.transformOrigin = 'top left';
+            panel.style.willChange = 'transform';
+            const anim = panel.animate([
+              { transform: `translate(${dx}px, ${dy}px) scale(${sw}, ${sh})` },
+              { transform: 'translate(0px, 0px) scale(1, 1)' }
+            ], {
+              duration: 440,
+              easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            });
+            panel._flipAnim = anim;
+            anim.onfinish = () => {
+              panel.classList.remove('is-flipping');
+              panel.style.transformOrigin = '';
+              panel.style.willChange = '';
+              if (panel._flipAnim === anim) panel._flipAnim = null;
+            };
+          }
+        } else {
+          // Newly appearing panel when exiting fullscreen back to 'all'
+          panel.style.willChange = 'transform, opacity';
+          const anim = panel.animate([
+            { opacity: 0, transform: 'scale(0.96) translateY(8px)' },
+            { opacity: 1, transform: 'scale(1) translateY(0px)' }
+          ], {
+            duration: 380,
+            delay: 40,
+            easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            fill: 'both'
+          });
+          panel._flipAnim = anim;
+          anim.onfinish = () => {
+            panel.style.willChange = '';
+            if (panel._flipAnim === anim) panel._flipAnim = null;
+          };
+        }
+      });
+
+      clearTimeout(dom.bentoStage._transTimer);
+      dom.bentoStage._transTimer = setTimeout(() => {
+        dom.bentoStage.classList.remove('is-transitioning');
+      }, 500);
+    }
   }
 
   /* ========================================================================
