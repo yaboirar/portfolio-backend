@@ -625,6 +625,14 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                     try:
                         if safe_target.name == "index.m3u8" and safe_target.parent.is_relative_to(VIDEOS_DIR):
                             shutil.rmtree(safe_target.parent, ignore_errors=False)
+                            filename = marked_item.get("filename", "")
+                            if filename:
+                                orig_file = resolve_safe_path(VIDEOS_DIR, filename)
+                                if orig_file and orig_file.is_file():
+                                    try:
+                                        orig_file.unlink()
+                                    except OSError:
+                                        pass
                         elif safe_target.is_file():
                             safe_target.unlink()
                     except OSError as e:
@@ -724,10 +732,6 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 if hls_info:
                     rel_url, final_size = hls_info
                     mime_type = "application/vnd.apple.mpegurl"
-                    try:
-                        save_path.unlink()
-                    except OSError:
-                        pass
                 else:
                     rel_url = f"/uploads/{subfolder}/{anonymous_filename}"
             else:
@@ -848,10 +852,6 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 if hls_info:
                     rel_url, final_size = hls_info
                     mime_type = "application/vnd.apple.mpegurl"
-                    try:
-                        save_path.unlink()
-                    except OSError:
-                        pass
                 else:
                     rel_url = f"/uploads/{subfolder}/{anonymous_filename}"
             else:
