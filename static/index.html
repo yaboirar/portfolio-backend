@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=ascii-bg-1">
+  <link rel="stylesheet" href="/static/style.css?v=nav-icons-1">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -28,23 +28,30 @@
   <div class="app-frame">
     <!-- Floating Top Bar -->
     <header class="top-bar">
-      <!-- Top-Left: Active Category Pill (Shrinks to current category, slides out others on hover) -->
+      <!-- Top-Left: Active Category Pill (Icons: Home, Videos, Photos, Poems) -->
       <nav class="nav-pill" id="nav-pill" aria-label="Categories">
-        <button type="button" class="nav-item is-active" id="nav-current" data-filter="all">
-          <span class="js-text-roll nav-roll" data-text="All" data-center="true">All</span>
+        <button type="button" class="nav-item is-active" id="nav-current" data-filter="all" title="All (Home)" aria-label="All (Home)">
+          <span class="nav-current-icons">
+            <span class="nav-icon-slot nav-selected-icon" data-key="all">
+              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.5z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </span>
+            <span class="nav-icon-slot nav-all-icon" data-key="all" style="opacity: 0; transform: scale(0.7) translateY(40%);">
+              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.5z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </span>
+          </span>
         </button>
 
         <div class="nav-drawer" id="nav-drawer">
           <span class="nav-divider"></span>
           <div class="nav-drawer-list" id="nav-drawer-list">
-            <button type="button" class="nav-item" data-filter="videos">
-              <span class="js-text-roll nav-roll" data-text="Videos" data-center="true">Videos</span>
+            <button type="button" class="nav-item" data-filter="videos" title="Videos" aria-label="Videos">
+              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="15" height="16" rx="2"/><polygon points="22 8 17 12 22 16 22 8"/></svg>
             </button>
-            <button type="button" class="nav-item" data-filter="photos">
-              <span class="js-text-roll nav-roll" data-text="Photos" data-center="true">Photos</span>
+            <button type="button" class="nav-item" data-filter="photos" title="Photos" aria-label="Photos">
+              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
             </button>
-            <button type="button" class="nav-item" data-filter="poems">
-              <span class="js-text-roll nav-roll" data-text="Poems" data-center="true">Poems</span>
+            <button type="button" class="nav-item" data-filter="poems" title="Poems" aria-label="Poems">
+              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
             </button>
           </div>
         </div>
@@ -310,7 +317,7 @@
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=manrope-titlecase-1"></script>
+  <script src="/static/app.js?v=nav-icons-1"></script>
 </body>
 </html>
 

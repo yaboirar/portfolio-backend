@@ -3,11 +3,18 @@
 
   const STAGGER = 0.035;
   const RING_CIRCUMFERENCE = 2 * Math.PI * 12.5; // ~78.54
+  const NAV_ICONS = {
+    all: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.5z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    videos: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="15" height="16" rx="2"/><polygon points="22 8 17 12 22 16 22 8"/></svg>`,
+    photos: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+    poems: `<svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>`,
+  };
+
   const CATEGORIES = [
-    { key: 'all', label: 'All' },
-    { key: 'videos', label: 'Videos' },
-    { key: 'photos', label: 'Photos' },
-    { key: 'poems', label: 'Poems' },
+    { key: 'all', label: 'All', title: 'All (Home)', icon: NAV_ICONS.all },
+    { key: 'videos', label: 'Videos', title: 'Videos', icon: NAV_ICONS.videos },
+    { key: 'photos', label: 'Photos', title: 'Photos', icon: NAV_ICONS.photos },
+    { key: 'poems', label: 'Poems', title: 'Poems', icon: NAV_ICONS.poems },
   ];
 
   const state = {
@@ -179,81 +186,94 @@
     };
   }
 
-  function setNavLabelText(label, text) {
-    if (label.dataset.text === text) return;
-    label.dataset.text = text;
-    label.replaceChildren(...Array.from(text, (letter) => {
-      const char = document.createElement('span');
-      char.className = 'nav-label-char';
-      char.textContent = letter;
-      // A newly selected label starts offscreen before rolling into place.
-      char.style.transform = 'translateY(-110%)';
-      char.style.opacity = '0';
-      return char;
-    }));
+  function createNavIconSlot(key, className = '') {
+    const span = document.createElement('span');
+    span.className = `nav-icon-slot ${className}`.trim();
+    span.dataset.key = key;
+    span.innerHTML = NAV_ICONS[key] || NAV_ICONS.all;
+    return span;
   }
 
-  function animateNavLabel(label, visible, exitDirection) {
-    const chars = Array.from(label.children);
-    chars.forEach((char, i) => animateNavElement(char, {
-      transform: `translateY(${visible ? 0 : exitDirection * 110}%)`,
+  function setNavIcon(slot, key) {
+    if (slot.dataset.key === key) return;
+    slot.dataset.key = key;
+    slot.innerHTML = NAV_ICONS[key] || NAV_ICONS.all;
+  }
+
+  function animateNavIcon(slot, visible, exitDirection) {
+    animateNavElement(slot, {
+      transform: visible ? 'scale(1) translateY(0%)' : `scale(0.7) translateY(${exitDirection * 40}%)`,
       opacity: visible ? '1' : '0'
-    }, Math.abs(i - (chars.length - 1) / 2) * 24));
+    }, 0);
   }
-
 
   function syncNavPresentation() {
     const expanded = !navLocked && (navHovered || navKeyboardOpen);
     const cat = CATEGORIES.find((c) => c.key === state.filter) || CATEGORIES[0];
-    const selected = dom.navCurrent.querySelector('.nav-selected-label');
-    setNavLabelText(selected, cat.label);
+    const selected = dom.navCurrent.querySelector('.nav-selected-icon');
+    if (selected) setNavIcon(selected, cat.key);
+
     dom.navPill.classList.toggle('is-expanded', expanded);
     dom.navPill.classList.remove('is-collapsing');
     dom.navCurrent.dataset.filter = expanded ? 'all' : cat.key;
-    dom.navCurrent.setAttribute('aria-label', expanded ? 'Show all categories' : `${cat.label}: show all categories`);
+    dom.navCurrent.title = expanded ? 'All (Home)' : cat.title;
+    dom.navCurrent.setAttribute('aria-label', expanded ? 'Show all categories' : `${cat.title}: show all categories`);
     dom.navCurrent.setAttribute('aria-expanded', String(expanded));
     dom.navCurrent.classList.toggle('is-active', !expanded || state.filter === 'all');
+
     const drawer = document.getElementById('nav-drawer');
     drawer.inert = !expanded;
     drawer.setAttribute('aria-hidden', String(!expanded));
+
     dom.navDrawerList.querySelectorAll('.nav-item').forEach((btn) => {
       btn.classList.toggle('is-active', btn.dataset.filter === state.filter);
       btn.setAttribute('aria-pressed', String(btn.dataset.filter === state.filter));
     });
-    const label = dom.navCurrent.querySelector(expanded ? '.nav-all-label' : '.nav-selected-label');
-    animateNavElement(dom.navCurrent, { width: `${Math.ceil(label.getBoundingClientRect().width) + 8 * uiScale()}px` });
+
+    const itemSize = 34 * uiScale();
+    animateNavElement(dom.navCurrent, { width: `${itemSize}px` });
+
+    const drawerWidth = Math.ceil(dom.navDrawerList.scrollWidth) + 16 * uiScale();
     animateNavElement(drawer, {
-      width: expanded ? `${Math.ceil(dom.navDrawerList.scrollWidth) + 38 * uiScale() + 1}px` : '0px',
-      paddingLeft: expanded ? `${18 * uiScale()}px` : '0px',
+      width: expanded ? `${drawerWidth}px` : '0px',
+      paddingLeft: expanded ? `${10 * uiScale()}px` : '0px',
       opacity: expanded ? '1' : '0',
-      transform: expanded ? 'translateX(0px)' : `translateX(${-8 * uiScale()}px)`
+      transform: expanded ? 'translateX(0px)' : `translateX(${-6 * uiScale()}px)`
     });
-    animateNavLabel(selected, !expanded, -1);
-    animateNavLabel(dom.navCurrent.querySelector('.nav-all-label'), expanded, 1);
+
+    if (selected) animateNavIcon(selected, !expanded, -1);
+    const allIcon = dom.navCurrent.querySelector('.nav-all-icon');
+    if (allIcon) animateNavIcon(allIcon, expanded, 1);
     navPainted = true;
   }
 
   function renderNavPill(activeKey, shrinkImmediately = false) {
     if (!navReady) {
       navReady = true;
-      const labels = document.createElement('span');
-      labels.className = 'nav-current-labels';
-      labels.setAttribute('aria-hidden', 'true');
-      ['selected', 'all'].forEach((kind) => {
-        const span = document.createElement('span');
-        span.className = `nav-roll nav-${kind}-label`;
-        setNavLabelText(span, 'All');
-        labels.appendChild(span);
-      });
-      dom.navCurrent.replaceChildren(labels);
+      const iconsContainer = document.createElement('span');
+      iconsContainer.className = 'nav-current-icons';
+      iconsContainer.setAttribute('aria-hidden', 'true');
+
+      const selectedSlot = createNavIconSlot('all', 'nav-selected-icon');
+      const allSlot = createNavIconSlot('all', 'nav-all-icon');
+      allSlot.style.opacity = '0';
+      allSlot.style.transform = 'scale(0.7) translateY(40%)';
+
+      iconsContainer.appendChild(selectedSlot);
+      iconsContainer.appendChild(allSlot);
+
+      dom.navCurrent.replaceChildren(iconsContainer);
       dom.navCurrent.setAttribute('aria-controls', 'nav-drawer');
+
       dom.navDrawerList.replaceChildren();
       CATEGORIES.filter((cat) => cat.key !== 'all').forEach((cat) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'nav-item';
         btn.dataset.filter = cat.key;
-        btn.appendChild(createTextRollNode(cat.label, true, 'nav-roll'));
+        btn.title = cat.title;
+        btn.setAttribute('aria-label', cat.title);
+        btn.innerHTML = cat.icon;
         btn.addEventListener('click', () => applyFilter(cat.key, true));
         dom.navDrawerList.appendChild(btn);
       });
