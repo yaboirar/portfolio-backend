@@ -1063,69 +1063,175 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   opacity: 1;
 }
 
-/* Expandable Search Bar directly under panel header */
-.panel-search-bar {
-  display: flex;
-  align-items: center;
-  padding: calc(7 * var(--ui-unit)) calc(16 * var(--ui-unit));
-  border-bottom: 1px solid var(--border);
-  background: var(--tile-bg);
-  gap: calc(8 * var(--ui-unit));
-  animation: searchSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  flex-shrink: 0;
+/* ==========================================================================
+   PANEL SEARCH PILL (Spring Pop & Scale Animation matching Universal Search)
+   ========================================================================== */
+.panel-search-hub {
   position: relative;
-  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  z-index: 20;
 }
 
-@keyframes searchSlide {
-  from {
-    opacity: 0;
-    transform: translateY(calc(-6 * var(--ui-unit)));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.panel-search-hub.is-focused,
+.panel-search-hub:focus-within {
+  z-index: 30;
 }
 
-.panel-search-icon {
-  color: var(--fg-dim);
+.panel-search-pill {
+  height: calc(27 * var(--ui-unit));
+  width: calc(27 * var(--ui-unit));
+  min-width: calc(27 * var(--ui-unit));
+  border-radius: calc(999 * var(--ui-unit));
+  background: transparent;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  cursor: pointer;
+  transform: translateY(0) scale(1);
+  transform-origin: left center;
+  transition:
+    width 0.45s var(--ease-pop),
+    transform 0.42s var(--ease-pop),
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.35s var(--ease-spring);
+}
+
+/* Hover state when collapsed */
+.panel-search-hub:not(.is-focused):not(.has-query):hover .panel-search-pill {
+  background: var(--nav-hover-bg);
+  transform: scale(1.08);
+}
+
+.panel-search-hub:not(.is-focused):not(.has-query):hover .panel-search-icon-btn {
+  color: var(--fg);
+}
+
+/* Clicked / Focused state: expands width & pops with spring scale */
+.panel-search-hub.is-focused .panel-search-pill,
+.panel-search-hub:focus-within .panel-search-pill {
+  width: calc(148 * var(--ui-unit));
+  background: var(--glass-pill-active);
+  backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
+  -webkit-backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px) scale(1.06);
+  cursor: text;
+}
+
+/* Retains compact query display when unfocused */
+.panel-search-hub.has-query:not(.is-focused) .panel-search-pill {
+  width: calc(128 * var(--ui-unit));
+  background: var(--tile-bg);
+  border-color: var(--border-strong);
+  transform: translateY(0) scale(1);
+  box-shadow: none;
+}
+
+.panel-search-icon-btn {
+  width: calc(27 * var(--ui-unit));
+  height: calc(27 * var(--ui-unit));
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--fg-dim);
+  background: transparent;
+  border: none;
   flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease, transform 0.35s var(--ease-pop);
+}
+
+.panel-search-icon-btn .tool-svg {
+  width: calc(13.5 * var(--ui-unit));
+  height: calc(13.5 * var(--ui-unit));
+  stroke-width: 2.1;
+  pointer-events: none;
+  transition: transform 0.35s var(--ease-pop);
+}
+
+.panel-search-hub.is-focused .panel-search-icon-btn,
+.panel-search-hub:focus-within .panel-search-icon-btn,
+.panel-search-hub.has-query .panel-search-icon-btn {
+  color: var(--fg);
+}
+
+.panel-search-hub.is-focused .panel-search-icon-btn .tool-svg,
+.panel-search-hub:focus-within .panel-search-icon-btn .tool-svg {
+  transform: rotate(-8deg) scale(1.08);
 }
 
 .panel-search-input {
   flex: 1;
-  background: transparent;
+  min-width: 0;
+  height: 100%;
   border: none;
   outline: none;
-  font-size: calc(13 * var(--ui-unit));
+  background: transparent;
+  font-size: calc(12.5 * var(--ui-unit));
   font-family: inherit;
+  font-weight: 500;
   color: var(--fg);
-  min-width: 0;
+  padding: 0 calc(4 * var(--ui-unit)) 0 calc(2 * var(--ui-unit));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.panel-search-input::-webkit-search-decoration,
+.panel-search-input::-webkit-search-cancel-button,
+.panel-search-input::-webkit-search-results-button,
+.panel-search-input::-webkit-search-results-decoration {
+  display: none;
+}
+
+.panel-search-hub.is-focused .panel-search-input,
+.panel-search-hub:focus-within .panel-search-input,
+.panel-search-hub.has-query .panel-search-input {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .panel-search-input::placeholder {
   color: var(--fg-dim);
+  font-size: calc(12 * var(--ui-unit));
+  font-weight: 500;
 }
 
 .panel-search-clear {
-  color: var(--fg-dim);
+  width: calc(18 * var(--ui-unit));
+  height: calc(18 * var(--ui-unit));
+  margin-right: calc(4 * var(--ui-unit));
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: calc(22 * var(--ui-unit));
-  height: calc(22 * var(--ui-unit));
-  border-radius: 50%;
-  transition: color 0.15s ease, background-color 0.15s ease;
   flex-shrink: 0;
+  border: none;
+  background: var(--tile-bg);
+  color: var(--fg-dim);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.2s var(--ease-spring);
+}
+
+.panel-search-clear[hidden] {
+  display: none !important;
 }
 
 .panel-search-clear:hover {
   color: var(--fg);
-  background: var(--nav-hover-bg);
+  background: var(--card-hover);
+  transform: scale(1.12);
+}
+
+.panel-search-clear:active {
+  transform: scale(0.92);
 }
 
 .panel-expand-btn {

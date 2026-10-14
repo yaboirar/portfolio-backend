@@ -1223,55 +1223,80 @@
 
   function syncToolBadges(panelKey) {
     const p = panelState[panelKey];
-    const searchBtn = document.querySelector(`.panel-search-btn[data-panel="${panelKey}"]`);
+    const hub = document.getElementById(`panel-search-hub-${panelKey}`);
     const filterBtn = document.querySelector(`.panel-filter-btn[data-panel="${panelKey}"]`);
     const sortBtn = document.querySelector(`.panel-sort-btn[data-panel="${panelKey}"]`);
 
-    if (searchBtn) searchBtn.classList.toggle('has-active', Boolean(p.search));
+    if (hub) hub.classList.toggle('has-query', Boolean(p.search));
     if (filterBtn) filterBtn.classList.toggle('has-active', p.filter !== 'all');
     if (sortBtn) sortBtn.classList.toggle('has-active', p.sort !== 'newest');
   }
 
-  function togglePanelSearch(panelKey, force) {
+  function clearPanelSearch(panelKey) {
     const p = panelState[panelKey];
-    const searchBar = document.getElementById(`search-bar-${panelKey}`);
-    const searchInput = document.getElementById(`search-input-${panelKey}`);
-    const searchBtn = document.querySelector(`.panel-search-btn[data-panel="${panelKey}"]`);
+    const hub = document.getElementById(`panel-search-hub-${panelKey}`);
+    const input = document.getElementById(`search-input-${panelKey}`);
+    const clearBtn = document.getElementById(`search-clear-${panelKey}`);
 
-    const next = typeof force === 'boolean' ? force : !p.searchOpen;
-    p.searchOpen = next;
-    if (searchBar) searchBar.hidden = !next;
-    if (searchBtn) searchBtn.classList.toggle('is-open', next);
-
-    if (next) {
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.select();
-      }
-    } else {
-      if (p.search) {
-        p.search = '';
-        if (searchInput) searchInput.value = '';
-        syncToolBadges(panelKey);
-        renderPanels();
-      }
+    p.search = '';
+    if (input) {
+      input.value = '';
+      input.focus();
     }
+    if (clearBtn) clearBtn.hidden = true;
+    if (hub) hub.classList.remove('has-query');
+
+    syncToolBadges(panelKey);
+    renderPanels();
   }
 
   function initPanelTools() {
-    // 1. Search buttons & inputs
-    document.querySelectorAll('.panel-search-btn').forEach((btn) => {
+    // 1. Search buttons & inputs (Pop-up & scale-up search pill)
+    document.querySelectorAll('.panel-search-icon-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         closeAllPanelPopovers();
-        togglePanelSearch(btn.dataset.panel);
+        const panelKey = btn.dataset.panel;
+        const hub = document.getElementById(`panel-search-hub-${panelKey}`);
+        const input = document.getElementById(`search-input-${panelKey}`);
+        const isFocused = hub && hub.classList.contains('is-focused');
+
+        if (isFocused && document.activeElement === input) {
+          if (!input.value.trim()) {
+            hub.classList.remove('is-focused');
+            input.blur();
+          }
+        } else {
+          if (hub) hub.classList.add('is-focused');
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        }
       });
     });
 
     document.querySelectorAll('.panel-search-input').forEach((input) => {
       const panelKey = input.dataset.panel;
+      const hub = document.getElementById(`panel-search-hub-${panelKey}`);
+      const clearBtn = document.getElementById(`search-clear-${panelKey}`);
+
+      input.addEventListener('focus', () => {
+        closeAllPanelPopovers();
+        if (hub) hub.classList.add('is-focused');
+      });
+
+      input.addEventListener('blur', () => {
+        if (!input.value.trim() && hub) {
+          hub.classList.remove('is-focused');
+        }
+      });
+
       input.addEventListener('input', (e) => {
-        panelState[panelKey].search = e.target.value.trim();
+        const val = e.target.value.trim();
+        panelState[panelKey].search = val;
+        if (hub) hub.classList.toggle('has-query', Boolean(val));
+        if (clearBtn) clearBtn.hidden = !val;
         syncToolBadges(panelKey);
         renderPanels();
       });
@@ -1279,7 +1304,9 @@
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           e.stopPropagation();
-          togglePanelSearch(panelKey, false);
+          clearPanelSearch(panelKey);
+          if (hub) hub.classList.remove('is-focused');
+          input.blur();
         }
       });
     });
@@ -1287,7 +1314,7 @@
     document.querySelectorAll('.panel-search-clear').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        togglePanelSearch(btn.dataset.panel, false);
+        clearPanelSearch(btn.dataset.panel);
       });
     });
 
@@ -1353,11 +1380,17 @@
       });
     });
 
-    // 5. Global click outside popovers
+    // 5. Global click outside popovers & unfocus panel search pills
     document.addEventListener('pointerdown', (e) => {
       if (!e.target.closest('.panel-header-actions')) {
         closeAllPanelPopovers();
       }
+      ['videos', 'photos', 'poems'].forEach((key) => {
+        const hub = document.getElementById(`panel-search-hub-${key}`);
+        if (hub && !hub.contains(e.target)) {
+          hub.classList.remove('is-focused');
+        }
+      });
     });
   }
 

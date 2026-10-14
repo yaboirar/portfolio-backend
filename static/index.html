@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=cactus-empty-1">
+  <link rel="stylesheet" href="/static/style.css?v=search-pop-1">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -160,12 +160,29 @@
               </div>
               <div class="panel-header-actions">
                 <div class="panel-toolbar" role="toolbar" aria-label="Videos controls">
-                  <button type="button" class="panel-tool-btn panel-search-btn" data-panel="videos" title="Search videos" aria-label="Search videos">
-                    <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <circle cx="11" cy="11" r="7.5"></circle>
-                      <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-                    </svg>
-                  </button>
+                  <div class="panel-search-hub" id="panel-search-hub-videos">
+                    <div class="panel-search-pill" id="panel-search-pill-videos">
+                      <button type="button" class="panel-search-icon-btn" data-panel="videos" title="Search videos" aria-label="Search videos">
+                        <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <circle cx="11" cy="11" r="7.5"></circle>
+                          <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+                        </svg>
+                      </button>
+                      <input
+                        type="search"
+                        class="panel-search-input"
+                        id="search-input-videos"
+                        data-panel="videos"
+                        placeholder="Search..."
+                        autocomplete="off"
+                        spellcheck="false"
+                        aria-label="Search videos"
+                      >
+                      <button type="button" class="panel-search-clear" id="search-clear-videos" data-panel="videos" title="Clear search" aria-label="Clear search" hidden>
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      </button>
+                    </div>
+                  </div>
                   <button type="button" class="panel-tool-btn panel-filter-btn" data-panel="videos" title="Filter videos" aria-label="Filter videos" aria-haspopup="true" aria-expanded="false">
                     <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
@@ -221,15 +238,6 @@
                 </div>
               </div>
             </header>
-            <div class="panel-search-bar" id="search-bar-videos" hidden>
-              <span class="panel-search-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
-              </span>
-              <input type="search" class="panel-search-input" id="search-input-videos" data-panel="videos" placeholder="Search videos..." autocomplete="off" spellcheck="false" aria-label="Search videos">
-              <button type="button" class="panel-search-clear" id="search-clear-videos" data-panel="videos" title="Close search" aria-label="Close search">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
-            </div>
             <div class="panel-body" id="body-videos"></div>
           </section>
         </div>
@@ -251,12 +259,29 @@
                 </div>
                 <div class="panel-header-actions">
                   <div class="panel-toolbar" role="toolbar" aria-label="Photos controls">
-                    <button type="button" class="panel-tool-btn panel-search-btn" data-panel="photos" title="Search photos" aria-label="Search photos">
-                      <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="11" cy="11" r="7.5"></circle>
-                        <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-                      </svg>
-                    </button>
+                    <div class="panel-search-hub" id="panel-search-hub-photos">
+                      <div class="panel-search-pill" id="panel-search-pill-photos">
+                        <button type="button" class="panel-search-icon-btn" data-panel="photos" title="Search photos" aria-label="Search photos">
+                          <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7.5"></circle>
+                            <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+                          </svg>
+                        </button>
+                        <input
+                          type="search"
+                          class="panel-search-input"
+                          id="search-input-photos"
+                          data-panel="photos"
+                          placeholder="Search..."
+                          autocomplete="off"
+                          spellcheck="false"
+                          aria-label="Search photos"
+                        >
+                        <button type="button" class="panel-search-clear" id="search-clear-photos" data-panel="photos" title="Clear search" aria-label="Clear search" hidden>
+                          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                      </div>
+                    </div>
                     <button type="button" class="panel-tool-btn panel-filter-btn" data-panel="photos" title="Filter photos" aria-label="Filter photos" aria-haspopup="true" aria-expanded="false">
                       <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
@@ -312,15 +337,6 @@
                   </div>
                 </div>
               </header>
-              <div class="panel-search-bar" id="search-bar-photos" hidden>
-                <span class="panel-search-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
-                </span>
-                <input type="search" class="panel-search-input" id="search-input-photos" data-panel="photos" placeholder="Search photos..." autocomplete="off" spellcheck="false" aria-label="Search photos">
-                <button type="button" class="panel-search-clear" id="search-clear-photos" data-panel="photos" title="Close search" aria-label="Close search">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-              </div>
               <div class="panel-body" id="body-photos"></div>
             </section>
           </div>
@@ -340,12 +356,29 @@
                 </div>
                 <div class="panel-header-actions">
                   <div class="panel-toolbar" role="toolbar" aria-label="Poems controls">
-                    <button type="button" class="panel-tool-btn panel-search-btn" data-panel="poems" title="Search poems" aria-label="Search poems">
-                      <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="11" cy="11" r="7.5"></circle>
-                        <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-                      </svg>
-                    </button>
+                    <div class="panel-search-hub" id="panel-search-hub-poems">
+                      <div class="panel-search-pill" id="panel-search-pill-poems">
+                        <button type="button" class="panel-search-icon-btn" data-panel="poems" title="Search poems" aria-label="Search poems">
+                          <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7.5"></circle>
+                            <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+                          </svg>
+                        </button>
+                        <input
+                          type="search"
+                          class="panel-search-input"
+                          id="search-input-poems"
+                          data-panel="poems"
+                          placeholder="Search..."
+                          autocomplete="off"
+                          spellcheck="false"
+                          aria-label="Search poems"
+                        >
+                        <button type="button" class="panel-search-clear" id="search-clear-poems" data-panel="poems" title="Clear search" aria-label="Clear search" hidden>
+                          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                      </div>
+                    </div>
                     <button type="button" class="panel-tool-btn panel-filter-btn" data-panel="poems" title="Filter poems" aria-label="Filter poems" aria-haspopup="true" aria-expanded="false">
                       <svg class="tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
@@ -401,15 +434,6 @@
                   </div>
                 </div>
               </header>
-              <div class="panel-search-bar" id="search-bar-poems" hidden>
-                <span class="panel-search-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
-                </span>
-                <input type="search" class="panel-search-input" id="search-input-poems" data-panel="poems" placeholder="Search poems..." autocomplete="off" spellcheck="false" aria-label="Search poems">
-                <button type="button" class="panel-search-clear" id="search-clear-poems" data-panel="poems" title="Close search" aria-label="Close search">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-              </div>
               <div class="panel-body poems-body" id="body-poems"></div>
             </section>
           </div>
@@ -524,7 +548,7 @@
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <script src="/static/app.js?v=cactus-empty-1"></script>
+  <script src="/static/app.js?v=search-pop-1"></script>
 </body>
 </html>
 
