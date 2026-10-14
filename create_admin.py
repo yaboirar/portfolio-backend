@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Local server console only: create an admin or reset its password."""
+import os
 import getpass
 import sqlite3
 import sys
+
+os.environ.setdefault('PUBLIC_ORIGIN', 'http://localhost:8000')
+
 import database
 import auth
 
