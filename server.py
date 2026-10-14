@@ -175,9 +175,13 @@ def transcode_video_to_hls(input_path: Path, hls_dir: Path) -> Optional[Tuple[st
         hls_dir.mkdir(parents=True, exist_ok=True)
         playlist = hls_dir / "index.m3u8"
 
-        # Attempt 1: Fast stream copy (instant, lossless)
+        # Attempt 1: Fast stream copy with full metadata scrub (instant, lossless)
         cmd_copy = [
             "ffmpeg", "-y", "-i", str(input_path),
+            "-map_metadata", "-1",
+            "-fflags", "+bitexact",
+            "-flags:v", "+bitexact",
+            "-flags:a", "+bitexact",
             "-codec:", "copy",
             "-start_number", "0",
             "-hls_time", "3",
@@ -191,6 +195,10 @@ def transcode_video_to_hls(input_path: Path, hls_dir: Path) -> Optional[Tuple[st
         if res_copy.returncode != 0 or not playlist.is_file():
             cmd_transcode = [
                 "ffmpeg", "-y", "-i", str(input_path),
+                "-map_metadata", "-1",
+                "-fflags", "+bitexact",
+                "-flags:v", "+bitexact",
+                "-flags:a", "+bitexact",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
                 "-c:a", "aac", "-b:a", "128k",
                 "-start_number", "0",
@@ -208,6 +216,29 @@ def transcode_video_to_hls(input_path: Path, hls_dir: Path) -> Optional[Tuple[st
         return rel_url, total_bytes
     except Exception:
         return None
+
+
+def sanitize_video_metadata(file_path: Path) -> None:
+    """Strips all internal container metadata (creation time, GPS, encoder, software) from video file."""
+    try:
+        clean_tmp = file_path.with_suffix(".clean" + file_path.suffix)
+        cmd = [
+            "ffmpeg", "-y", "-i", str(file_path),
+            "-map_metadata", "-1",
+            "-fflags", "+bitexact",
+            "-flags:v", "+bitexact",
+            "-flags:a", "+bitexact",
+            "-codec:", "copy",
+            str(clean_tmp)
+        ]
+        res = subprocess.run(cmd, capture_output=True, timeout=120, check=False)
+        if res.returncode == 0 and clean_tmp.is_file() and clean_tmp.stat().st_size > 0:
+            clean_tmp.replace(file_path)
+        else:
+            if clean_tmp.is_file():
+                clean_tmp.unlink()
+    except Exception:
+        pass
 
 
 # --- Path Resolution & Containment Helper ---
@@ -682,7 +713,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                 self.send_error_json(413, f"File exceeds maximum allowed size of {max_limit // (1024*1024)}MB")
                 return
 
-            title = query.get("title", [os.path.splitext(original_filename)[0]])[0]
+            title = query.get("title", ["Untitled Project"])[0]
             desc = query.get("description", [""])[0]
 
             subfolder = "videos" if is_video else "images"
@@ -722,6 +753,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                     return
                 tmp_path.replace(save_path)
                 tmp_path = None
+                sanitize_video_metadata(save_path)
                 final_size = save_path.stat().st_size
 
             mime_type, _ = mimetypes.guess_type(str(save_path))
@@ -839,6 +871,7 @@ class PortfolioHandler(BaseHTTPRequestHandler):
                     return
                 tmp_path.replace(save_path)
                 tmp_path = None
+                sanitize_video_metadata(save_path)
                 final_size = save_path.stat().st_size
 
             mime_type, _ = mimetypes.guess_type(str(save_path))
