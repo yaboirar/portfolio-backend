@@ -1940,14 +1940,15 @@ body.is-resizing .gutter-h {
 }
 
 /* ==========================================================================
-   APP FOOTER & CORRELATED UPLOAD / LOAD PROGRESS BAR (ProgressBar component)
+   APP FOOTER & UPLOAD / LOAD PROGRESS BAR BUTTON (ProgressBar component)
    ========================================================================== */
 .app-footer {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  min-height: calc(34 * var(--ui-unit));
+  min-height: calc(46 * var(--ui-unit));
+  padding-bottom: calc(2 * var(--ui-unit));
   position: relative;
   z-index: 20;
 }
@@ -1957,80 +1958,41 @@ body.is-resizing .gutter-h {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: width 0.45s var(--ease-pop), max-width 0.45s var(--ease-pop);
+  width: 100%;
 }
 
-/* Idle State: Sleek Frosted Glass Button */
-.footer-upload-btn {
-  height: calc(30 * var(--ui-unit));
-  padding: 0 calc(14 * var(--ui-unit)) 0 calc(11 * var(--ui-unit));
-  border-radius: calc(999 * var(--ui-unit));
+/* The loading bar button: exact replica of ProgressBar.tsx in demo.tsx (max-w-[360px]) */
+.footer-progress-widget {
+  width: min(92vw, calc(340 * var(--ui-unit)));
+  padding: calc(9 * var(--ui-unit)) calc(13 * var(--ui-unit));
+  border-radius: calc(12 * var(--ui-unit));
   background: var(--glass-pill);
   backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
   -webkit-backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  display: inline-flex;
-  align-items: center;
-  gap: calc(7 * var(--ui-unit));
-  color: var(--fg);
   cursor: pointer;
   outline: none !important;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease,
-    transform 0.2s var(--ease-spring),
+    transform 0.22s var(--ease-spring),
     box-shadow 0.25s ease;
 }
 
-.footer-upload-btn:hover {
+.footer-progress-widget:hover {
   background: var(--glass-pill-active);
   border-color: var(--border-strong);
   transform: translateY(-1px);
-}
-
-.footer-upload-btn:active {
-  transform: translateY(0) scale(0.97);
-}
-
-.footer-upload-icon {
-  color: var(--fg-dim);
-  transition: transform 0.25s var(--ease-spring), color 0.2s ease;
-}
-
-.footer-upload-btn:hover .footer-upload-icon {
-  color: var(--fg);
-  transform: translateY(-1px);
-}
-
-.footer-upload-label {
-  font-size: calc(12 * var(--ui-unit));
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-/* Active Progress State: Matches ProgressBar.tsx exact specs */
-.footer-progress-widget {
-  width: min(90vw, calc(340 * var(--ui-unit)));
-  padding: calc(9 * var(--ui-unit)) calc(13 * var(--ui-unit));
-  border-radius: calc(12 * var(--ui-unit));
-  background: var(--panel);
-  backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
-  -webkit-backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
-  border: 1px solid var(--border);
   box-shadow: 0 calc(4 * var(--ui-unit)) calc(16 * var(--ui-unit)) rgba(0, 0, 0, 0.25);
-  animation: progressPop 0.35s var(--ease-pop);
 }
 
-@keyframes progressPop {
-  from {
-    opacity: 0;
-    transform: translateY(calc(6 * var(--ui-unit))) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.footer-progress-widget:active {
+  transform: translateY(0) scale(0.985);
 }
 
 .footer-progress-top {
@@ -2038,13 +2000,32 @@ body.is-resizing .gutter-h {
   align-items: baseline;
   justify-content: space-between;
   gap: calc(12 * var(--ui-unit));
+  width: 100%;
+}
+
+.footer-progress-label-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6 * var(--ui-unit));
+  min-width: 0;
+  flex: 1;
+}
+
+.footer-upload-icon {
+  color: var(--fg-dim);
+  flex-shrink: 0;
+  transition: color 0.2s ease, transform 0.2s var(--ease-spring);
+}
+
+.footer-progress-widget:hover .footer-upload-icon {
+  color: var(--fg);
+  transform: translateY(-1px);
 }
 
 .footer-progress-title {
   font-size: calc(13 * var(--ui-unit));
   font-weight: 500;
   color: #e7e5e4;
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2076,6 +2057,10 @@ body.is-resizing .gutter-h {
   transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.footer-progress-pending {
+  opacity: 1;
+}
+
 .footer-progress-percent {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-variant-numeric: tabular-nums;
@@ -2090,13 +2075,14 @@ body.is-resizing .gutter-h {
   opacity: 0;
 }
 
-/* Outer track */
+/* Outer track: exact specs from progress-bar.tsx */
 .footer-progress-track {
   margin-top: calc(8 * var(--ui-unit));
   border-radius: calc(4 * var(--ui-unit));
   background: #1D1D1A;
   padding: calc(2 * var(--ui-unit));
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+  width: 100%;
 }
 
 [data-theme="light"] .footer-progress-track {
@@ -2104,7 +2090,7 @@ body.is-resizing .gutter-h {
   box-shadow: inset 0 1px 2px rgba(28, 25, 23, 0.1), inset 0 0 0 1px rgba(28, 25, 23, 0.06);
 }
 
-/* Inner groove slot */
+/* Inner groove slot: exact specs from progress-bar.tsx */
 .footer-progress-slot {
   position: relative;
   height: calc(8 * var(--ui-unit));
@@ -2112,7 +2098,7 @@ body.is-resizing .gutter-h {
   border-radius: calc(2 * var(--ui-unit));
 }
 
-/* Fill bar with spring physics */
+/* Fill bar with spring physics: exact specs from progress-bar.tsx */
 .footer-progress-fill {
   position: absolute;
   inset: 0;
@@ -2130,7 +2116,7 @@ body.is-resizing .gutter-h {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(28, 25, 23, 0.2);
 }
 
-/* Indeterminate scanner */
+/* Indeterminate scanner: exact specs from progress-bar.tsx */
 .footer-progress-scan {
   position: absolute;
   inset-block: 0;
@@ -2141,6 +2127,12 @@ body.is-resizing .gutter-h {
   background: #93B0FF;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
   animation: progressScan 1.25s ease-in-out infinite;
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+.footer-progress-widget.is-measured .footer-progress-scan {
+  display: none !important;
 }
 
 [data-theme="light"] .footer-progress-scan {
@@ -2164,6 +2156,7 @@ body.is-resizing .gutter-h {
     opacity: 0;
   }
 }
+
 
 /* Window scaling preserves the desktop arrangement at half-screen width. */
 :root { --ui-unit: clamp(0.5px, 0.0694444444vw, 1px); --upload-ratio: 28%; }

@@ -247,7 +247,6 @@
     lbNext: document.getElementById('lb-next'),
     lbClose: document.getElementById('lb-close'),
     footerUploadHub: document.getElementById('footer-upload-hub'),
-    footerUploadBtn: document.getElementById('footer-upload-btn'),
     footerProgressWidget: document.getElementById('footer-progress-widget'),
     footerProgressTitle: document.getElementById('footer-progress-title'),
     footerProgressPending: document.getElementById('footer-progress-pending'),
@@ -1284,6 +1283,12 @@
     dom.uploadMeterFill.style.width = '0%';
     dom.uploadStatus.textContent = '0%';
 
+    activeRealUpload = true;
+    if (demoTimer) {
+      clearTimeout(demoTimer);
+      demoTimer = null;
+    }
+
     updateFooterProgress({
       file,
       value: null,
@@ -1331,6 +1336,11 @@
           completeLabel: `Error ${xhr.status}`,
         });
       }
+      setTimeout(() => {
+        activeRealUpload = false;
+        demoValue = null;
+        stepDemoLoop();
+      }, 3000);
     };
 
     xhr.onerror = () => {
@@ -1342,6 +1352,11 @@
         max: 100,
         completeLabel: t('networkError'),
       });
+      setTimeout(() => {
+        activeRealUpload = false;
+        demoValue = null;
+        stepDemoLoop();
+      }, 3000);
     };
 
     xhr.send(fd);
@@ -1736,7 +1751,9 @@
   /* ========================================================================
      CORRELATED FOOTER UPLOAD & PROGRESS BAR (ProgressBar component)
      ======================================================================== */
-  let footerProgressResetTimer = null;
+  let activeRealUpload = false;
+  let demoTimer = null;
+  let demoValue = null;
 
   function updateFooterProgress({
     file,
@@ -1746,19 +1763,12 @@
     pendingLabel = 'Working',
     completeLabel = 'Complete',
   }) {
-    if (!dom.footerProgressWidget || !dom.footerUploadBtn) return;
+    if (!dom.footerProgressWidget) return;
 
-    if (footerProgressResetTimer) {
-      clearTimeout(footerProgressResetTimer);
-      footerProgressResetTimer = null;
+    const resolvedLabel = label || (file ? (typeof file === 'string' ? file : file.name) : 'roadmap.pdf');
+    if (dom.footerProgressTitle) {
+      dom.footerProgressTitle.textContent = resolvedLabel;
     }
-
-    const resolvedLabel = label || (file ? (typeof file === 'string' ? file : file.name) : 'Upload');
-    dom.footerProgressTitle.textContent = resolvedLabel;
-
-    // Switch view to progress bar widget
-    dom.footerUploadBtn.hidden = true;
-    dom.footerProgressWidget.hidden = false;
 
     const isIndeterminate = value === null || value === undefined;
     const fraction = isIndeterminate || max <= 0 ? 0 : Math.min(1, Math.max(0, value / max));
@@ -1767,57 +1777,120 @@
 
     if (isIndeterminate) {
       dom.footerProgressWidget.classList.remove('is-measured');
-      dom.footerProgressPending.textContent = pendingLabel;
-      dom.footerProgressScan.hidden = false;
-      dom.footerProgressFill.style.transform = 'scaleX(0)';
+      if (dom.footerProgressPending) dom.footerProgressPending.textContent = pendingLabel;
+      if (dom.footerProgressScan) dom.footerProgressScan.style.display = 'block';
+      if (dom.footerProgressFill) dom.footerProgressFill.style.transform = 'scaleX(0)';
     } else {
       dom.footerProgressWidget.classList.add('is-measured');
-      dom.footerProgressScan.hidden = true;
-      dom.footerProgressFill.style.transform = `scaleX(${fraction})`;
-      dom.footerProgressPercent.textContent = `${percent}%`;
+      if (dom.footerProgressScan) dom.footerProgressScan.style.display = 'none';
+      if (dom.footerProgressFill) dom.footerProgressFill.style.transform = `scaleX(${fraction})`;
+      if (dom.footerProgressPercent) dom.footerProgressPercent.textContent = `${percent}%`;
+    }
+
+    if (isComplete) {
+      if (dom.footerProgressPending) dom.footerProgressPending.textContent = completeLabel;
+      if (dom.footerProgressPercent) dom.footerProgressPercent.textContent = `${percent}%`;
     }
 
     dom.footerProgressWidget.setAttribute('aria-valuenow', isIndeterminate ? '' : String(percent));
     dom.footerProgressWidget.setAttribute('aria-valuetext', isIndeterminate ? pendingLabel : `${percent}%`);
+  }
 
-    if (isComplete) {
-      dom.footerProgressPending.textContent = completeLabel;
-      dom.footerProgressPercent.textContent = `${percent}%`;
-      footerProgressResetTimer = setTimeout(() => {
-        dom.footerProgressWidget.hidden = true;
-        dom.footerUploadBtn.hidden = false;
-        dom.footerProgressFill.style.transform = 'scaleX(0)';
-        dom.footerProgressWidget.classList.remove('is-measured');
-      }, 2400);
+  function stepDemoLoop() {
+    if (activeRealUpload) return;
+
+    if (demoValue === null) {
+      updateFooterProgress({
+        file: 'roadmap.pdf',
+        value: null,
+        pendingLabel: 'Sizing',
+        completeLabel: 'Upload complete',
+      });
+      demoTimer = setTimeout(() => {
+        if (activeRealUpload) return;
+        demoValue = 8;
+        updateFooterProgress({
+          file: 'roadmap.pdf',
+          value: demoValue,
+          pendingLabel: 'Sizing',
+          completeLabel: 'Upload complete',
+        });
+        stepDemoLoop();
+      }, 1300);
+      return;
     }
+
+    if (demoValue < 100) {
+      demoTimer = setTimeout(() => {
+        if (activeRealUpload) return;
+        demoValue = Math.min(100, demoValue + 14);
+        updateFooterProgress({
+          file: 'roadmap.pdf',
+          value: demoValue,
+          pendingLabel: 'Sizing',
+          completeLabel: 'Upload complete',
+        });
+        stepDemoLoop();
+      }, 520);
+      return;
+    }
+
+    // demoValue >= 100
+    demoTimer = setTimeout(() => {
+      if (activeRealUpload) return;
+      demoValue = null;
+      stepDemoLoop();
+    }, 1800);
   }
 
   function startFooterFileUpload(file) {
     if (!file) return;
 
-    const token = state.token || dom.adminToken.value.trim() || sessionStorage.getItem('admin_token') || '';
-
-    // If no admin token, run the interactive progress demo and open the upload dock to guide user
-    if (!token) {
-      runProgressDemo(file.name);
-      toggleUpload(true);
-      dom.uploadStatus.textContent = t('enterTokenAbove');
-      return;
+    activeRealUpload = true;
+    if (demoTimer) {
+      clearTimeout(demoTimer);
+      demoTimer = null;
     }
 
-    // Correlate with the drawer preview & fields
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    dom.uploadFile.files = dt.files;
-    updateDropPreview();
+    const token = state.token || dom.adminToken.value.trim() || sessionStorage.getItem('admin_token') || '';
 
-    // Start upload
     updateFooterProgress({
-      file,
+      file: file.name,
       value: null,
       pendingLabel: 'Sizing',
       completeLabel: 'Upload complete',
     });
+
+    if (!token) {
+      // Sizing & upload simulation for real file, then prompt for token
+      let simVal = 8;
+      const simInterval = setInterval(() => {
+        simVal = Math.min(100, simVal + 18);
+        updateFooterProgress({
+          file: file.name,
+          value: simVal,
+          pendingLabel: 'Working',
+          completeLabel: 'Upload complete',
+        });
+        if (simVal >= 100) {
+          clearInterval(simInterval);
+          toggleUpload(true);
+          dom.uploadStatus.textContent = t('enterTokenAbove');
+          setTimeout(() => {
+            activeRealUpload = false;
+            demoValue = null;
+            stepDemoLoop();
+          }, 3000);
+        }
+      }, 350);
+      return;
+    }
+
+    // Correlate with drawer preview if open
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    dom.uploadFile.files = dt.files;
+    updateDropPreview();
 
     const fd = new FormData();
     fd.append('file', file);
@@ -1832,7 +1905,7 @@
       if (ev.lengthComputable) {
         const pct = Math.round((ev.loaded / ev.total) * 100);
         updateFooterProgress({
-          file,
+          file: file.name,
           value: pct,
           max: 100,
           pendingLabel: 'Working',
@@ -1844,7 +1917,7 @@
     xhr.onload = async () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         updateFooterProgress({
-          file,
+          file: file.name,
           value: 100,
           max: 100,
           completeLabel: 'Upload complete',
@@ -1855,49 +1928,40 @@
         await fetchPortfolio();
       } else {
         updateFooterProgress({
-          file,
+          file: file.name,
           value: 100,
           max: 100,
           completeLabel: `Error ${xhr.status}`,
         });
       }
+      setTimeout(() => {
+        activeRealUpload = false;
+        demoValue = null;
+        stepDemoLoop();
+      }, 3000);
     };
 
     xhr.onerror = () => {
       updateFooterProgress({
-        file,
+        file: file.name,
         value: 100,
         max: 100,
         completeLabel: t('networkError'),
       });
+      setTimeout(() => {
+        activeRealUpload = false;
+        demoValue = null;
+        stepDemoLoop();
+      }, 3000);
     };
 
     xhr.send(fd);
   }
 
-  function runProgressDemo(filename = 'roadmap.pdf') {
-    updateFooterProgress({ file: filename, value: null, pendingLabel: 'Sizing' });
-    setTimeout(() => {
-      updateFooterProgress({ file: filename, value: 16, pendingLabel: 'Working' });
-      const step = (val) => {
-        if (val >= 100) {
-          updateFooterProgress({ file: filename, value: 100, completeLabel: 'Upload complete' });
-          return;
-        }
-        setTimeout(() => {
-          const next = Math.min(100, val + 28);
-          updateFooterProgress({ file: filename, value: next, pendingLabel: 'Working' });
-          step(next);
-        }, 400);
-      };
-      step(16);
-    }, 900);
-  }
-
   function initFooterUpload() {
-    if (!dom.footerUploadBtn || !dom.footerFileInput) return;
+    if (!dom.footerProgressWidget || !dom.footerFileInput) return;
 
-    dom.footerUploadBtn.addEventListener('click', (e) => {
+    dom.footerProgressWidget.addEventListener('click', (e) => {
       e.stopPropagation();
       dom.footerFileInput.click();
     });
@@ -1909,6 +1973,9 @@
       }
       dom.footerFileInput.value = '';
     });
+
+    // Start demo loop so the loading bar is active right away
+    stepDemoLoop();
   }
 
   /* ========================================================================
