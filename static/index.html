@@ -5,11 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=manrope-titlecase-1">
+  <link rel="stylesheet" href="/static/style.css?v=ascii-bg-1">
 </head>
 <body>
-  <!-- Ambient Background Glow -->
+  <!-- Ambient Background Glow & ASCII Art Canvas -->
   <div class="ambient-stage" aria-hidden="true">
+    <video
+      class="ascii-art-bg"
+      src="/static/ascii/bg.mp4"
+      poster="/static/ascii/bg.webp"
+      autoplay
+      loop
+      muted
+      playsinline
+      aria-hidden="true"
+    ></video>
+    <div class="ambient-scrim"></div>
     <div class="ambient-orb orb-1"></div>
     <div class="ambient-orb orb-2"></div>
   </div>
