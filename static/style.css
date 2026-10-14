@@ -947,7 +947,13 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   justify-content: center;
   color: var(--fg-dim);
   position: relative;
+  outline: none !important;
   transition: color 0.18s ease, background-color 0.18s ease, transform 0.18s var(--ease-spring);
+}
+
+.panel-tool-btn:focus,
+.panel-tool-btn:focus-visible {
+  outline: none !important;
 }
 
 .panel-tool-btn:hover {
@@ -1085,18 +1091,26 @@ button:hover .text-roll-layer--bottom .text-roll-char,
 }
 
 /* ==========================================================================
-   PANEL SEARCH PILL (Spring Pop & Scale Animation matching Universal Search)
+   PANEL SEARCH PILL (Spring Pop Animation with Clear Margin Spacing)
    ========================================================================== */
 .panel-search-hub {
   position: relative;
   display: inline-flex;
   align-items: center;
   z-index: 20;
+  margin-right: 0;
+  transition: margin-right 0.38s var(--ease-spring);
+  outline: none !important;
 }
 
 .panel-search-hub.is-focused,
 .panel-search-hub:focus-within {
   z-index: 30;
+  margin-right: calc(8 * var(--ui-unit));
+}
+
+.panel-search-hub.has-query {
+  margin-right: calc(8 * var(--ui-unit));
 }
 
 .panel-search-pill {
@@ -1110,46 +1124,66 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   align-items: center;
   overflow: hidden;
   cursor: pointer;
-  transform: translateY(0) scale(1);
-  transform-origin: left center;
+  transform: translateY(0);
+  outline: none !important;
+  box-shadow: none;
   transition:
-    width 0.45s var(--ease-pop),
-    transform 0.42s var(--ease-pop),
+    width 0.42s var(--ease-pop),
+    transform 0.35s var(--ease-spring),
     background 0.25s ease,
     border-color 0.25s ease,
-    box-shadow 0.35s var(--ease-spring);
+    box-shadow 0.25s ease;
+}
+
+.panel-search-pill:focus,
+.panel-search-pill:focus-visible,
+.panel-search-pill:focus-within {
+  outline: none !important;
 }
 
 /* Hover state when collapsed */
 .panel-search-hub:not(.is-focused):not(.has-query):hover .panel-search-pill {
   background: var(--nav-hover-bg);
-  transform: scale(1.08);
+  transform: translateY(-1px);
 }
 
 .panel-search-hub:not(.is-focused):not(.has-query):hover .panel-search-icon-btn {
   color: var(--fg);
 }
 
-/* Clicked / Focused state: expands width & pops with spring scale */
+/* Clicked / Focused state: expands width & pops with spring scale, clean soft shadow, no white outer ring */
 .panel-search-hub.is-focused .panel-search-pill,
 .panel-search-hub:focus-within .panel-search-pill {
-  width: calc(148 * var(--ui-unit));
+  width: calc(130 * var(--ui-unit));
   background: var(--glass-pill-active);
   backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
   -webkit-backdrop-filter: blur(calc(24 * var(--ui-unit))) saturate(165%);
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-pop);
-  transform: translateY(-1px) scale(1.06);
+  border: 1px solid var(--border);
+  box-shadow: 0 calc(3 * var(--ui-unit)) calc(10 * var(--ui-unit)) rgba(0, 0, 0, 0.28);
+  transform: translateY(-1px);
   cursor: text;
+  outline: none !important;
+}
+
+[data-theme="light"] .panel-search-hub.is-focused .panel-search-pill,
+[data-theme="light"] .panel-search-hub:focus-within .panel-search-pill {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 calc(2 * var(--ui-unit)) calc(8 * var(--ui-unit)) rgba(0, 0, 0, 0.08);
 }
 
 /* Retains compact query display when unfocused */
 .panel-search-hub.has-query:not(.is-focused) .panel-search-pill {
-  width: calc(128 * var(--ui-unit));
+  width: calc(116 * var(--ui-unit));
   background: var(--tile-bg);
-  border-color: var(--border-strong);
-  transform: translateY(0) scale(1);
+  border: 1px solid var(--border);
+  transform: translateY(0);
   box-shadow: none;
+  outline: none !important;
+}
+
+[data-theme="light"] .panel-search-hub.has-query:not(.is-focused) .panel-search-pill {
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .panel-search-icon-btn {
@@ -1162,10 +1196,16 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   color: var(--fg-dim);
   background: transparent;
   border: none;
+  outline: none !important;
   flex-shrink: 0;
   cursor: pointer;
   padding: 0;
   transition: color 0.2s ease, transform 0.35s var(--ease-pop);
+}
+
+.panel-search-icon-btn:focus,
+.panel-search-icon-btn:focus-visible {
+  outline: none !important;
 }
 
 .panel-search-icon-btn .tool-svg {
@@ -1192,7 +1232,8 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   min-width: 0;
   height: 100%;
   border: none;
-  outline: none;
+  outline: none !important;
+  box-shadow: none !important;
   background: transparent;
   font-size: calc(12.5 * var(--ui-unit));
   font-family: inherit;
@@ -1202,6 +1243,12 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.22s ease;
+}
+
+.panel-search-input:focus,
+.panel-search-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .panel-search-input::-webkit-search-decoration,
@@ -1234,11 +1281,17 @@ button:hover .text-roll-layer--bottom .text-roll-char,
   justify-content: center;
   flex-shrink: 0;
   border: none;
+  outline: none !important;
   background: var(--tile-bg);
   color: var(--fg-dim);
   cursor: pointer;
   padding: 0;
   transition: color 0.15s ease, background-color 0.15s ease, transform 0.2s var(--ease-spring);
+}
+
+.panel-search-clear:focus,
+.panel-search-clear:focus-visible {
+  outline: none !important;
 }
 
 .panel-search-clear[hidden] {
