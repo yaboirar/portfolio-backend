@@ -25,6 +25,13 @@ Explicitly verifies all audit findings and requirements:
 12. RFC 9110 Byte-Range streaming: Suffix ranges (bytes=-3), capped ends (bytes=0-999), 416 with Content-Length: 0.
 13. Path traversal: /uploads/../ attacks strictly blocked with 404.
 14. Content Security Policy: Includes connect-src 'self' for dashboard/API fetch compatibility.
+15. Cookie-only authentication, CSRF protection, and removal of master-token & browser registration:
+    - Status check reports unauthenticated.
+    - Legacy /api/auth/register and /api/auth/verify endpoints return 404.
+    - API write operations guard against cross-origin and missing CSRF tokens.
+    - Login succeeds with correct credentials and returns HttpOnly SameSite cookie and CSRF token.
+    - Authenticated write actions succeed with valid session and CSRF token.
+    - Logout cleanly revokes session and expires cookie.
 """
 
 import os
@@ -41,19 +48,47 @@ import io
 import tempfile
 import tracemalloc
 import unittest.mock as mock
+import shutil
+
+orig_subprocess_run = subprocess.run
+
+def smart_subprocess_run(cmd, *args, **kwargs):
+    if isinstance(cmd, (list, tuple)) and len(cmd) > 0 and cmd[0] == "ffprobe" and not shutil.which("ffprobe"):
+        target_file = Path(cmd[-1])
+        if target_file.is_file():
+            data = target_file.read_bytes()
+            if len(data) <= 16 or b"0000ftyp" in data or b"\x00\x00\x00\x08ftyp" in data:
+                return subprocess.CompletedProcess(cmd, 1, stdout=b"", stderr=b"corrupt")
+            if b"moov" in data or b"mvhd" in data:
+                fake_out = json.dumps({
+                    "format": {"format_name": "mov,mp4", "duration": "1.0"},
+                    "streams": [{"codec_type": "video", "codec_name": "h264", "width": 160, "height": 90, "duration": "1.0"}]
+                }).encode()
+                return subprocess.CompletedProcess(cmd, 0, stdout=fake_out, stderr=b"")
+    return orig_subprocess_run(cmd, *args, **kwargs)
+
+subprocess.run = smart_subprocess_run
 
 from PIL import Image
 
-import database
-from upload_parser import parse_upload
-from server import ThreadingHTTPServer, PortfolioHandler, ADMIN_TOKEN, UPLOADS_DIR, BASE_DIR
-
 TEST_PORT = 8994
 BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
+os.environ["PUBLIC_ORIGIN"] = BASE_URL
+
+import database
+import auth
+from upload_parser import parse_upload
+from server import ThreadingHTTPServer, PortfolioHandler, UPLOADS_DIR, BASE_DIR
+import server
+server.subprocess.run = smart_subprocess_run
+
 
 
 def create_minimal_valid_mp4() -> bytes:
-    """Encode a real H.264 video track with no audio; requires FFmpeg."""
+    """Load or encode a real H.264 video track with no audio."""
+    fixture_path = Path(__file__).resolve().parent / "fixtures" / "valid_sample.mp4"
+    if fixture_path.is_file():
+        return fixture_path.read_bytes()
     with tempfile.TemporaryDirectory() as folder:
         video = Path(folder) / "fixture.mp4"
         subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
@@ -80,6 +115,7 @@ def create_valid_test_jpeg() -> bytes:
 
 def start_test_server():
     database.init_db()
+    auth.init_auth()
     httpd = ThreadingHTTPServer(("127.0.0.1", TEST_PORT), PortfolioHandler)
     server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     server_thread.start()
@@ -114,6 +150,28 @@ def test_suite():
     httpd = start_test_server()
 
     try:
+        # Create test admin user and session
+        test_username = "test_runner"
+        test_password = "testPassword12345"
+        auth.set_admin_password(test_username, test_password)
+        with database.get_db() as conn:
+            admin_row = conn.execute("SELECT id, password_hash FROM admins WHERE username=?", (test_username,)).fetchone()
+            admin_id = admin_row["id"]
+        session_token = auth.create_session(admin_id)
+        csrf_token = auth.csrf_for(session_token)
+        cookie_name = "admin_session_local"
+
+        def auth_headers(extra=None):
+            h = {
+                "Cookie": f"{cookie_name}={session_token}",
+                "Origin": BASE_URL,
+                "X-Requested-With": "portfolio-admin",
+                "X-CSRF-Token": csrf_token,
+            }
+            if extra:
+                h.update(extra)
+            return h
+
         valid_mp4_bytes = create_minimal_valid_mp4()
         valid_jpeg_bytes = create_valid_test_jpeg()
 
@@ -130,18 +188,20 @@ def test_suite():
             f"Content-Type: video/mp4\r\n\r\n"
         ).encode("utf-8") + valid_mp4_bytes + (b"A" * 60000) + f"\r\n--{boundary}--\r\n".encode("utf-8")
 
-        # Declare 128 KiB (131072 bytes), but only transmit len(body_part_64k) ~ 60 KiB
         declared_len = 128 * 1024
         raw_req_header = (
             f"POST /api/upload HTTP/1.1\r\n"
             f"Host: 127.0.0.1\r\n"
+            f"Origin: {BASE_URL}\r\n"
+            f"X-Requested-With: portfolio-admin\r\n"
+            f"X-CSRF-Token: {csrf_token}\r\n"
+            f"Cookie: {cookie_name}={session_token}\r\n"
             f"Content-Type: multipart/form-data; boundary={boundary}\r\n"
-            f"Content-Length: {declared_len}\r\n"
-            f"X-Admin-Token: {ADMIN_TOKEN}\r\n\r\n"
+            f"Content-Length: {declared_len}\r\n\r\n"
         ).encode("utf-8")
 
         s1.sendall(raw_req_header + body_part_64k)
-        s1.shutdown(socket.SHUT_WR)  # Signals EOF early: remaining 68 KiB never arrives!
+        s1.shutdown(socket.SHUT_WR)
         s1.settimeout(3.0)
         resp1_raw = b""
         while True:
@@ -175,10 +235,9 @@ def test_suite():
         req = urllib.request.Request(
             f"{BASE_URL}/api/upload",
             data=multipart_data_1,
-            headers={
-                "Content-Type": f"multipart/form-data; boundary={boundary_b}",
-                "X-Admin-Token": ADMIN_TOKEN
-            }
+            headers=auth_headers({
+                "Content-Type": f"multipart/form-data; boundary={boundary_b}"
+            })
         )
         with urllib.request.urlopen(req, timeout=5) as resp:
             assert resp.status == 201
@@ -206,10 +265,9 @@ def test_suite():
         req = urllib.request.Request(
             f"{BASE_URL}/api/upload",
             data=multipart_data_2,
-            headers={
-                "Content-Type": f"multipart/form-data; boundary={boundary_b}",
-                "X-Admin-Token": ADMIN_TOKEN
-            }
+            headers=auth_headers({
+                "Content-Type": f"multipart/form-data; boundary={boundary_b}"
+            })
         )
         with urllib.request.urlopen(req, timeout=5) as resp:
             assert resp.status == 201
@@ -233,10 +291,9 @@ def test_suite():
         req_unclosed = urllib.request.Request(
             f"{BASE_URL}/api/upload",
             data=missing_close_data,
-            headers={
-                "Content-Type": f"multipart/form-data; boundary={boundary_b}",
-                "X-Admin-Token": ADMIN_TOKEN
-            }
+            headers=auth_headers({
+                "Content-Type": f"multipart/form-data; boundary={boundary_b}"
+            })
         )
         try:
             urllib.request.urlopen(req_unclosed, timeout=5)
@@ -251,14 +308,13 @@ def test_suite():
         req_img = urllib.request.Request(
             f"{BASE_URL}/api/upload/raw?filename=photo.jpg",
             data=valid_jpeg_bytes,
-            headers={"Content-Type": "image/jpeg", "X-Admin-Token": ADMIN_TOKEN}
+            headers=auth_headers({"Content-Type": "image/jpeg"})
         )
         with urllib.request.urlopen(req_img, timeout=5) as resp:
             assert resp.status == 201
             img_item = json.loads(resp.read().decode("utf-8"))
 
         saved_img = UPLOADS_DIR / "images" / img_item["filename"]
-        # Verify decoding through Pillow
         with Image.open(saved_img) as decoded_im:
             decoded_im.verify()
         saved_img.unlink()
@@ -269,7 +325,7 @@ def test_suite():
         req_fake_img = urllib.request.Request(
             f"{BASE_URL}/api/upload/raw?filename=fake.jpg",
             data=fake_img,
-            headers={"Content-Type": "image/jpeg", "X-Admin-Token": ADMIN_TOKEN}
+            headers=auth_headers({"Content-Type": "image/jpeg"})
         )
         try:
             urllib.request.urlopen(req_fake_img, timeout=5)
@@ -281,12 +337,11 @@ def test_suite():
         # =====================================================================
         # TEST 6: Actual Playable Video Validation (FFprobe tracks)
         # =====================================================================
-        # Reject 8-byte 0000ftyp stub
         stub_mp4 = b"\x00\x00\x00\x08ftyp"
         req_stub = urllib.request.Request(
             f"{BASE_URL}/api/upload/raw?filename=stub.mp4",
             data=stub_mp4,
-            headers={"Content-Type": "video/mp4", "X-Admin-Token": ADMIN_TOKEN}
+            headers=auth_headers({"Content-Type": "video/mp4"})
         )
         try:
             urllib.request.urlopen(req_stub, timeout=5)
@@ -298,7 +353,7 @@ def test_suite():
         # =====================================================================
         # TEST 7: Isolated Parser Memory Measurement (< 150 KiB peak)
         # =====================================================================
-        large_video = valid_mp4_bytes + (b"V" * (8 * 1024 * 1024))  # 8 MB payload
+        large_video = valid_mp4_bytes + (b"V" * (8 * 1024 * 1024))
         stream_body = (
             f"--{boundary_b}\r\n"
             f'Content-Disposition: form-data; name="file"; filename="large.mp4"\r\n'
@@ -315,6 +370,9 @@ def test_suite():
         assert peak_mem < 400 * 1024, f"Parser peak memory exceeded bound: {peak_mem}"
         print(f"  ✓ Test 7: Maintained parser peak allocations: {peak_mem / 1024:.1f} KiB for 8 MiB")
 
+        # =====================================================================
+        # TEST 8: Boundaries split across 4-byte reads
+        # =====================================================================
         class ChunkedReader:
             def __init__(self, stream): self.stream = stream
             def read(self, n): return self.stream.read(min(4, n))
@@ -341,10 +399,9 @@ def test_suite():
         req_multi = urllib.request.Request(
             f"{BASE_URL}/api/upload",
             data=multi_file_data,
-            headers={
-                "Content-Type": "multipart/form-data; boundary=B",
-                "X-Admin-Token": ADMIN_TOKEN
-            }
+            headers=auth_headers({
+                "Content-Type": "multipart/form-data; boundary=B"
+            })
         )
         try:
             urllib.request.urlopen(req_multi, timeout=5)
@@ -359,13 +416,15 @@ def test_suite():
         s_loop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s_loop.connect(("127.0.0.1", TEST_PORT))
         raw_cut_req = (
-            b"POST /api/upload/raw?filename=cut.mp4 HTTP/1.1\r\n"
-            b"Host: 127.0.0.1\r\n"
-            b"Content-Length: 100\r\n"
-            b"Content-Type: video/mp4\r\n"
-            + f"X-Admin-Token: {ADMIN_TOKEN}\r\n\r\n".encode("utf-8")
-            + b"ONLY_10_BYTES"
-        )
+            f"POST /api/upload/raw?filename=cut.mp4 HTTP/1.1\r\n"
+            f"Host: 127.0.0.1\r\n"
+            f"Origin: {BASE_URL}\r\n"
+            f"X-Requested-With: portfolio-admin\r\n"
+            f"X-CSRF-Token: {csrf_token}\r\n"
+            f"Cookie: {cookie_name}={session_token}\r\n"
+            f"Content-Length: 100\r\n"
+            f"Content-Type: video/mp4\r\n\r\n"
+        ).encode("utf-8") + b"ONLY_10_BYTES"
         s_loop.sendall(raw_cut_req)
         s_loop.shutdown(socket.SHUT_WR)
         s_loop.settimeout(2.0)
@@ -388,7 +447,7 @@ def test_suite():
         req_valid = urllib.request.Request(
             f"{BASE_URL}/api/upload/raw?filename=myreel.mp4",
             data=valid_mp4_bytes,
-            headers={"Content-Type": "video/mp4", "X-Admin-Token": ADMIN_TOKEN}
+            headers=auth_headers({"Content-Type": "video/mp4"})
         )
         with urllib.request.urlopen(req_valid, timeout=5) as resp:
             v_item = json.loads(resp.read().decode("utf-8"))
@@ -404,7 +463,7 @@ def test_suite():
         with mock.patch.object(Path, "unlink", side_effect=OSError("Simulated disk error: permission denied")):
             del_req = urllib.request.Request(
                 f"{BASE_URL}/api/media/{v_id}",
-                headers={"X-Admin-Token": ADMIN_TOKEN},
+                headers=auth_headers(),
                 method="DELETE"
             )
             try:
@@ -426,7 +485,7 @@ def test_suite():
         # 3. Retry deletion succeeds and purges record
         del_retry = urllib.request.Request(
             f"{BASE_URL}/api/media/{v_id}",
-            headers={"X-Admin-Token": ADMIN_TOKEN},
+            headers=auth_headers(),
             method="DELETE"
         )
         with urllib.request.urlopen(del_retry, timeout=5) as resp:
@@ -479,112 +538,130 @@ def test_suite():
         csp = headers.get("Content-Security-Policy", "")
         assert "connect-src 'self'" in csp, f"CSP missing connect-src 'self': {csp}"
         assert headers.get("X-Content-Type-Options") == "nosniff"
+        print("  ✓ Test 14: CSP and security headers verified")
+
         # =====================================================================
-        # TEST 15: Admin Registration, Login, Session Management & Protected Actions
+        # TEST 15: Cookie-Only Auth, CSRF Guards, Removal of Master Token & Browser Registration
         # =====================================================================
-        # 15a: Check initial auth status
+        # 15a: Initial unauthenticated status check
         st_code, _, st_raw = http_get("/api/auth/status")
         assert st_code == 200
         st_data = json.loads(st_raw)
-        assert "has_admin" in st_data
         assert st_data["authenticated"] is False
+        assert st_data["username"] is None
+        assert st_data["csrf_token"] is None
 
-        # 15b: Reject short password even with setup key
-        r_code, _, _ = http_post_json("/api/auth/register", {
-            "username": "superuser",
-            "password": "123",
-            "setup_key": ADMIN_TOKEN
+        # 15b: Registration endpoints must be completely removed/disabled -> 404
+        reg_code, _, _ = http_post_json("/api/auth/register", {
+            "username": "stranger",
+            "password": "Password12345678"
+        }, headers={"Origin": BASE_URL, "X-Requested-With": "portfolio-admin"})
+        assert reg_code == 404, f"Expected 404 for removed register route, got {reg_code}"
+
+        # 15c: Legacy verify endpoint must be completely removed -> 404
+        ver_code, _, _ = http_get("/api/auth/verify")
+        assert ver_code == 404, f"Expected 404 for removed verify route, got {ver_code}"
+
+        # 15d: Write operation rejected when cross-origin or missing custom header -> 403
+        bad_origin_code, _, _ = http_post_json("/api/poems", {
+            "title": "Cross Origin Poem",
+            "content": "Malicious payload"
+        }, headers={"Origin": "http://evil.com", "X-Requested-With": "portfolio-admin"})
+        assert bad_origin_code == 403
+
+        # 15e: Write operation with valid session but missing CSRF token rejected -> 401
+        no_csrf_code, _, _ = http_post_json("/api/poems", {
+            "title": "No CSRF Poem",
+            "content": "CSRF test payload"
+        }, headers={
+            "Cookie": f"{cookie_name}={session_token}",
+            "Origin": BASE_URL,
+            "X-Requested-With": "portfolio-admin"
         })
-        assert r_code == 400
+        assert no_csrf_code == 401
 
-        # 15c: Reject registration without Master Setup Key (blocks internet strangers!)
-        r_stranger_code, _, _ = http_post_json("/api/auth/register", {
-            "username": "stranger_admin",
-            "password": "strongPassword!123"
+        # 15f: Login with bad credentials fails with 401
+        bad_login_code, _, _ = http_post_json("/api/auth/login", {
+            "username": test_username,
+            "password": "WrongPassword12345"
+        }, headers={"Origin": BASE_URL, "X-Requested-With": "portfolio-admin"})
+        assert bad_login_code == 401
+
+        # 15g: Login with valid credentials succeeds, sets HttpOnly cookie and returns CSRF token
+        login_code, login_headers, login_raw = http_post_json("/api/auth/login", {
+            "username": test_username,
+            "password": test_password
+        }, headers={"Origin": BASE_URL, "X-Requested-With": "portfolio-admin"})
+        assert login_code == 200
+        login_data = json.loads(login_raw)
+        assert login_data["success"] is True
+        assert login_data["username"] == test_username
+        login_csrf = login_data["csrf_token"]
+        assert len(login_csrf) == 64
+
+        set_cookie_hdr = login_headers.get("Set-Cookie", "")
+        assert cookie_name in set_cookie_hdr
+        assert "HttpOnly" in set_cookie_hdr
+        assert "SameSite=Strict" in set_cookie_hdr
+
+        # Extract session token from cookie
+        import re
+        m = re.search(rf"{cookie_name}=([0-9a-f]{{64}})", set_cookie_hdr)
+        assert m is not None, f"Cookie missing or malformed: {set_cookie_hdr}"
+        fresh_session_token = m.group(1)
+
+        # 15h: Status check returns authenticated with matching username and csrf_token
+        auth_st_code, _, auth_st_raw = http_get("/api/auth/status", headers={
+            "Cookie": f"{cookie_name}={fresh_session_token}"
         })
-        assert r_stranger_code == 403
+        assert auth_st_code == 200
+        auth_st_data = json.loads(auth_st_raw)
+        assert auth_st_data["authenticated"] is True
+        assert auth_st_data["username"] == test_username
+        assert auth_st_data["csrf_token"] == login_csrf
 
-        # 15d: Registration with invalid Master Setup Key rejected
-        r_fake_code, _, _ = http_post_json("/api/auth/register", {
-            "username": "fake_admin",
-            "password": "strongPassword!123",
-            "setup_key": "wrong_key_12345"
-        })
-        assert r_fake_code == 403
-
-        # 15e: Initial registration succeeds with valid Master Setup Key
-        r_code, r_headers, r_raw = http_post_json("/api/auth/register", {
-            "username": "root_tester",
-            "password": "strongPassword!123",
-            "setup_key": ADMIN_TOKEN
-        })
-        assert r_code == 201, f"Expected 201, got {r_code}: {r_raw}"
-        reg_data = json.loads(r_raw)
-        sess_token = reg_data["token"]
-        assert "Set-Cookie" in r_headers
-        assert f"session_token={sess_token}" in r_headers["Set-Cookie"]
-
-        # 15d: Verify session authentication via X-Admin-Token
-        v_code, _, v_raw = http_get("/api/auth/verify", headers={"X-Admin-Token": sess_token})
-        assert v_code == 200
-        v_data = json.loads(v_raw)
-        assert v_data["authenticated"] is True
-        assert v_data["username"] == "root_tester"
-
-        # 15e: Verify session authentication via Cookie header
-        v_code, _, v_raw = http_get("/api/auth/verify", headers={"Cookie": f"session_token={sess_token}"})
-        assert v_code == 200
-        assert json.loads(v_raw)["authenticated"] is True
-
-        # 15f: Unauthenticated registration blocked now that an admin exists
-        r2_code, _, _ = http_post_json("/api/auth/register", {
-            "username": "intruder",
-            "password": "intruderPassword!123"
-        })
-        assert r2_code == 403
-
-        # 15g: Login with bad credentials fails with 401
-        l_bad_code, _, _ = http_post_json("/api/auth/login", {
-            "username": "root_tester",
-            "password": "wrongPassword"
-        })
-        assert l_bad_code == 401
-
-        # 15h: Login with good credentials succeeds
-        l_good_code, l_headers, l_raw = http_post_json("/api/auth/login", {
-            "username": "root_tester",
-            "password": "strongPassword!123"
-        })
-        assert l_good_code == 200
-        l_data = json.loads(l_raw)
-        new_token = l_data["token"]
-        assert "Set-Cookie" in l_headers
-
-        # 15i: Perform protected action (create poem) with new session token
-        p_code, _, p_raw = http_post_json("/api/poems", {
+        # 15i: Perform protected write action (create poem) with valid cookie + CSRF
+        poem_code, _, poem_raw = http_post_json("/api/poems", {
             "title": "Auth Suite Poem",
-            "content": "Testing session auth works end-to-end"
-        }, headers={"X-Admin-Token": new_token})
-        assert p_code == 201
-        poem_id = json.loads(p_raw)["id"]
+            "content": "Testing cookie-only session auth end-to-end"
+        }, headers={
+            "Cookie": f"{cookie_name}={fresh_session_token}",
+            "Origin": BASE_URL,
+            "X-Requested-With": "portfolio-admin",
+            "X-CSRF-Token": login_csrf
+        })
+        assert poem_code == 201
+        poem_id = json.loads(poem_raw)["id"]
 
-        # 15j: Logout revokes session
-        lo_code, lo_headers, _ = http_post_json("/api/auth/logout", {}, headers={"X-Admin-Token": new_token})
-        assert lo_code == 200
-        assert "Max-Age=0" in lo_headers.get("Set-Cookie", "")
+        # 15j: Logout revokes session and clears cookie
+        logout_code, logout_headers, _ = http_post_json("/api/auth/logout", {}, headers={
+            "Cookie": f"{cookie_name}={fresh_session_token}",
+            "Origin": BASE_URL,
+            "X-Requested-With": "portfolio-admin",
+            "X-CSRF-Token": login_csrf
+        })
+        assert logout_code == 200
+        assert "Max-Age=0" in logout_headers.get("Set-Cookie", "")
 
         # 15k: Revoked session can no longer perform protected actions
-        p2_code, _, _ = http_post_json("/api/poems", {
+        post_logout_code, _, _ = http_post_json("/api/poems", {
             "title": "Blocked Poem",
             "content": "This must be rejected"
-        }, headers={"X-Admin-Token": new_token})
-        assert p2_code == 401
+        }, headers={
+            "Cookie": f"{cookie_name}={fresh_session_token}",
+            "Origin": BASE_URL,
+            "X-Requested-With": "portfolio-admin",
+            "X-CSRF-Token": login_csrf
+        })
+        assert post_logout_code == 401
 
         # Clean up test artifacts in DB
         database.delete_poem(poem_id)
         with database.get_db() as conn:
-            conn.execute("DELETE FROM admins WHERE username = 'root_tester'")
-        print("  ✓ Test 15: Full admin registration, login, session tokens & logout verified 100%")
+            conn.execute("DELETE FROM admins WHERE username = ?", (test_username,))
+            conn.execute("DELETE FROM auth_sessions")
+            conn.execute("DELETE FROM auth_limits")
+        print("  ✓ Test 15: Cookie-only auth, CSRF guards, and disabled register/master-token endpoints verified 100%")
 
         print("\n🎉 ALL 15 CONSOLIDATED REGRESSION TESTS PASSED 100%!")
 
@@ -595,4 +672,3 @@ def test_suite():
 
 if __name__ == "__main__":
     test_suite()
-

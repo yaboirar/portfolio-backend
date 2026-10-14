@@ -32,7 +32,15 @@ python server.py
 
 Open `http://localhost:8000`. An optional port can be supplied with `python server.py 8080`.
 
-The application creates `portfolio.db`, upload directories, and a random `.admin_token` on first use. Enter that token into the dashboard when prompted, or supply your own secret through the `PORTFOLIO_ADMIN_TOKEN` environment variable. Keep secrets, the live database, and uploaded files out of GitHub. Back them up separately.
+To create or reset an administrator account, use the CLI setup script:
+
+```bash
+python create_admin.py admin "YourSuperSecurePassword123"
+```
+
+Browser admin registration and static master tokens are completely disabled. Authentication uses secure, HttpOnly, SameSite cookies with SHA-256 hashed sessions in SQLite and per-request CSRF validation.
+
+Set the `PUBLIC_ORIGIN` environment variable to match the deployed domain or IP (e.g. `export PUBLIC_ORIGIN="http://localhost:8000"` or `https://example.com`).
 
 ## Upload behavior
 
@@ -40,7 +48,7 @@ The application creates `portfolio.db`, upload directories, and a random `.admin
 - Video parts stream to temporary files with bounded Python buffers. Images are decoded into memory for processing; their memory use depends on pixel dimensions.
 - The complete declared request body must arrive before an upload is committed. Early EOF or missing multipart closure rejects the upload. Upload parse errors close the connection to prevent leftover bytes becoming another request.
 - Upload requests require `Content-Length`. Chunked upload requests are not supported. The global request limit is 60 MiB, including form overhead.
-- Pillow verifies images and normalizes EXIF orientation before re-encoding JPEG, PNG, or WebP. Re-encoding can change image file sizes and quality. Video metadata is retained.
+- Pillow verifies images and normalizes EXIF orientation before re-encoding JPEG, PNG, or WebP. Re-encoding can change image file sizes and quality. Video metadata is stripped.
 - FFprobe inspects MP4, MOV, and WebM containers and requires an identified video codec, positive dimensions, and positive finite duration. Silent videos are supported; audio-only files and header stubs are rejected. Inspection has a 15-second timeout and does **not** decode every frame or guarantee that every browser supports the codec.
 - A failed response delivery never removes an already committed upload.
 
@@ -56,12 +64,10 @@ FFmpeg and FFprobe must be available for real video fixtures.
 
 ```bash
 python test_server.py
-python -m unittest -v test_backend
+python -m unittest discover -s tests -v
 ```
 
-The HTTP suite covers uploads, boundary-prefix preservation, incomplete requests, images, ranges, and deletion access. The additional suite covers read splits from 1 through 64 bytes, headers and field limits, cleanup failures and retries, trackless containers, fake WebM files, and real silent MP4/MOV/WebM videos.
-
-The parser-memory check excludes construction of the input bytes. Test results describe the exercised cases, not proof of an absence of defects. The HTTP suite creates and removes test records in the configured local database; run it in a development checkout, not against production data.
+The HTTP suite covers uploads, boundary-prefix preservation, incomplete requests, images, ranges, deletion access, cookie-only authentication, CSRF guards, and disabled registration routes. The unit test suite tests persistent rate-limiting, session expiration, origin validation, and password hash upgrades.
 
 ## API
 
@@ -72,7 +78,13 @@ Public reads:
 - `GET /api/poems`, `/api/poems/<id>`; optional `?tag=reflection`
 - `GET /uploads/videos/<filename>` or `/uploads/images/<filename>` for active media only
 
-Owner operations require `X-Admin-Token` or `Authorization: Bearer <token>`:
+Authentication endpoints:
+
+- `GET /api/auth/status`: returns `{ authenticated, username, csrf_token }`
+- `POST /api/auth/login`: verifies credentials, sets HttpOnly session cookie, and returns `{ success, username, csrf_token }`
+- `POST /api/auth/logout`: revokes session in database and expires session cookie
+
+Owner operations require an active session cookie, matching `Origin`, `X-Requested-With: portfolio-admin`, and `X-CSRF-Token`:
 
 - `POST /api/upload`: multipart fields `file`, `title`, `description`
 - `POST /api/upload/raw?filename=showreel.mp4&title=Reel`: raw file body

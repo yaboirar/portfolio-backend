@@ -1,55 +1,29 @@
 #!/usr/bin/env python3
-"""
-CLI Utility to safely create or reset an admin account directly on the server.
-Usage:
-    python3 create_admin.py <username> <password>
-    or interactively:
-    python3 create_admin.py
-"""
-
-import sys
+"""Local server console only: create an admin or reset its password."""
 import getpass
-import re
+import sqlite3
+import sys
 import database
+import auth
 
 
 def main():
     database.init_db()
+    auth.init_auth()
     if len(sys.argv) >= 3:
         username = sys.argv[1].strip()
         password = sys.argv[2]
     else:
-        try:
-            print("🔒 Creative Portfolio — Admin Account Setup")
-            username = input("Enter admin username: ").strip()
-            password = getpass.getpass("Enter admin password (min 6 chars): ")
-            confirm = getpass.getpass("Confirm admin password: ")
-            if password != confirm:
-                print("❌ Passwords do not match.")
-                sys.exit(1)
-        except (KeyboardInterrupt, EOFError):
-            print("\nAborted.")
-            sys.exit(1)
-
-    if len(username) < 3 or len(username) > 32 or not re.match(r"^[a-zA-Z0-9_\-\.]+$", username):
-        print("❌ Username must be 3-32 characters (letters, numbers, _, -, .)")
-        sys.exit(1)
-
-    if len(password) < 6:
-        print("❌ Password must be at least 6 characters.")
-        sys.exit(1)
-
-    existing = database.get_admin_by_username(username)
-    if existing:
-        print(f"⚠️  Admin '{username}' already exists. Updating password...")
-        pwd_hash, salt = database.hash_password(password)
-        with database.get_db() as conn:
-            conn.execute("UPDATE admins SET password_hash = ?, salt = ? WHERE id = ?", (pwd_hash, salt, existing["id"]))
-        print(f"✅ Password for admin '{username}' successfully updated.")
-    else:
-        admin = database.create_admin(username, password)
-        print(f"✅ Admin account '{admin['username']}' created successfully (ID: {admin['id']}).")
+        username = input('Username: ').strip()
+        password = getpass.getpass('Password (15–128 characters): ')
+        if password != getpass.getpass('Confirm password: '):
+            raise ValueError('Passwords do not match')
+    auth.set_admin_password(username, password)
+    print(f"Account '{username}' saved. Sign in on the website.")
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, sqlite3.Error, RuntimeError) as exc:
+        raise SystemExit(str(exc))

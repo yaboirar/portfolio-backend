@@ -27,6 +27,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from upload_parser import parse_upload
 
 import database
+import auth
 
 # Configure Pillow limits to protect against decompression bombs
 Image.MAX_IMAGE_PIXELS = 50_000_000
@@ -43,21 +44,6 @@ for d in (UPLOADS_DIR, VIDEOS_DIR, IMAGES_DIR, STATIC_DIR, TMP_DIR):
 
 mimetypes.add_type("application/vnd.apple.mpegurl", ".m3u8")
 mimetypes.add_type("video/mp2t", ".ts")
-
-TOKEN_FILE = BASE_DIR / ".admin_token"
-_ENV_TOKEN = os.environ.get("PORTFOLIO_ADMIN_TOKEN")
-
-if _ENV_TOKEN:
-    ADMIN_TOKEN = _ENV_TOKEN
-elif TOKEN_FILE.is_file():
-    ADMIN_TOKEN = TOKEN_FILE.read_text().strip()
-else:
-    ADMIN_TOKEN = secrets.token_hex(24)
-    try:
-        TOKEN_FILE.write_text(ADMIN_TOKEN)
-        TOKEN_FILE.chmod(0o600)
-    except OSError:
-        pass
 
 ALLOWED_VIDEO_EXTS = {".mp4", ".webm", ".mov"}
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -311,80 +297,36 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
     allow_reuse_address = True
 
 
-class PortfolioHandler(BaseHTTPRequestHandler):
+class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def setup(self):
         super().setup()
-        self.connection.settimeout(30.0)
+        self.connection.settimeout(15.0)
 
     def log_message(self, format, *args):
         clean_path = urllib.parse.urlparse(self.path).path
         sys.stdout.write(f"[{self.log_date_time_string()}] {self.command} {clean_path} -> {args[1] if len(args) > 1 else ''}\n")
         sys.stdout.flush()
 
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Allow", "GET, POST, PUT, DELETE, OPTIONS")
+        self.end_headers()
+
     def send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Range, X-Admin-Token")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Range, X-Requested-With, X-CSRF-Token")
         self.send_header("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; media-src 'self' blob: https://assets.21st.dev; worker-src 'self' blob:; img-src 'self' data: https://assets.21st.dev; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:")
+        self.send_header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; media-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'")
         if self.close_connection:
             self.send_header("Connection", "close")
 
-    def do_OPTIONS(self):
-        self.send_response(204)
-        self.send_cors_headers()
-        self.end_headers()
-
-    def get_cookie(self, name: str) -> Optional[str]:
-        cookie_header = self.headers.get("Cookie", "")
-        if not cookie_header:
-            return None
-        try:
-            cookie = SimpleCookie()
-            cookie.load(cookie_header)
-            if name in cookie:
-                return cookie[name].value
-        except Exception:
-            pass
-        return None
-
-    def get_auth_token(self) -> Optional[str]:
-        token = self.headers.get("X-Admin-Token")
-        if token:
-            return token.strip()
-        auth_header = self.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            return auth_header[7:].strip()
-        cookie_token = self.get_cookie("session_token")
-        if cookie_token:
-            return cookie_token.strip()
-        return None
-
-    def get_authenticated_user(self) -> Optional[Dict[str, Any]]:
-        token = self.get_auth_token()
-        if not token:
-            return None
-        if secrets.compare_digest(token, ADMIN_TOKEN):
-            return {"username": "Admin", "is_master": True, "token": token}
-        session = database.validate_session(token)
-        if session:
-            return {
-                "username": session["username"],
-                "admin_id": session["admin_id"],
-                "is_master": False,
-                "token": token
-            }
-        return None
-
-    def is_authenticated(self) -> bool:
-        return self.get_authenticated_user() is not None
-
     def require_auth(self) -> bool:
         if not self.is_authenticated():
-            self.send_error_json(401, "Unauthorized: Provide valid X-Admin-Token or Authorization Bearer header")
+            self.send_error_json(401, "Sign in required")
             return False
         return True
 
@@ -493,6 +435,9 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         self.do_GET(head_only=True)
 
     def do_GET(self, head_only: bool = False):
+        if self.handle_auth():
+            return
+
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
@@ -503,25 +448,6 @@ class PortfolioHandler(BaseHTTPRequestHandler):
 
         if path == "/api/stats":
             self.send_json(200, database.get_stats())
-            return
-
-        if path == "/api/auth/status":
-            auth_user = self.get_authenticated_user()
-            admin_count = database.get_admin_count()
-            self.send_json(200, {
-                "has_admin": admin_count > 0,
-                "authenticated": bool(auth_user),
-                "username": auth_user.get("username") if auth_user else None,
-                "is_master": auth_user.get("is_master", False) if auth_user else False
-            })
-            return
-
-        if path == "/api/auth/verify":
-            auth_user = self.get_authenticated_user()
-            self.send_json(200, {
-                "authenticated": bool(auth_user),
-                "username": auth_user.get("username") if auth_user else None
-            })
             return
 
         if path == "/api/poems":
@@ -591,6 +517,11 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         self.send_error_json(404, f"Endpoint {path} not found")
 
     def do_POST(self):
+        if self.handle_auth():
+            return
+        if not self.guard_api_write():
+            return
+
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
@@ -600,101 +531,6 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         if "chunked" in transfer_encoding:
             self.close_connection = True
             self.send_error_json(400, "Chunked transfer encoding is not supported; Content-Length header is required")
-            return
-
-        if path == "/api/auth/register":
-            try:
-                body = self.parse_json_body()
-                username = str(body.get("username", "")).strip()
-                password = str(body.get("password", ""))
-
-                if not username or not password:
-                    self.send_error_json(400, "Username and password are required")
-                    return
-
-                if len(username) < 3 or len(username) > 32:
-                    self.send_error_json(400, "Username must be between 3 and 32 characters")
-                    return
-
-                if not re.match(r"^[a-zA-Z0-9_\-\.]+$", username):
-                    self.send_error_json(400, "Username can only contain letters, numbers, hyphens, periods, and underscores")
-                    return
-
-                if len(password) < 6:
-                    self.send_error_json(400, "Password must be at least 6 characters")
-                    return
-
-                admin_count = database.get_admin_count()
-                setup_key = str(body.get("setup_key", "")).strip()
-                if admin_count == 0:
-                    # Root admin bootstrap requires the server master token (setup key)
-                    # to prevent arbitrary internet strangers from claiming the server
-                    auth_token = self.get_auth_token() or setup_key
-                    if not auth_token or not secrets.compare_digest(auth_token, ADMIN_TOKEN):
-                        self.send_error_json(403, "Master Setup Key required: Enter the server master key from .admin_token to initialize root admin")
-                        return
-                else:
-                    if not self.is_authenticated():
-                        self.send_error_json(403, "Registration is closed. An active admin must log in to create new accounts.")
-                        return
-
-                if database.get_admin_by_username(username):
-                    self.send_error_json(409, "Username already exists")
-                    return
-
-                new_admin = database.create_admin(username, password)
-                session_token = database.create_session(new_admin["id"])
-                cookie_val = f"session_token={session_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800"
-                self.send_json(201, {
-                    "success": True,
-                    "token": session_token,
-                    "username": new_admin["username"],
-                    "message": "Admin account registered successfully"
-                }, extra_headers={"Set-Cookie": cookie_val})
-            except Exception as e:
-                self.send_error_json(400, f"Registration failed: {str(e)}")
-            return
-
-        if path == "/api/auth/login":
-            try:
-                body = self.parse_json_body()
-                username = str(body.get("username", "")).strip()
-                password = str(body.get("password", ""))
-
-                if not username or not password:
-                    self.send_error_json(400, "Username and password are required")
-                    return
-
-                admin = database.get_admin_by_username(username)
-                if not admin or not database.verify_password(password, admin["password_hash"], admin["salt"]):
-                    self.send_error_json(401, "Invalid username or password")
-                    return
-
-                session_token = database.create_session(admin["id"])
-                cookie_val = f"session_token={session_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800"
-                self.send_json(200, {
-                    "success": True,
-                    "token": session_token,
-                    "username": admin["username"],
-                    "message": "Logged in successfully"
-                }, extra_headers={"Set-Cookie": cookie_val})
-            except Exception as e:
-                self.send_error_json(400, f"Login failed: {str(e)}")
-            return
-
-        if path == "/api/auth/logout":
-            try:
-                self.parse_json_body()
-            except Exception:
-                pass
-            token = self.get_auth_token()
-            if token:
-                database.delete_session(token)
-            cookie_val = "session_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly; SameSite=Lax"
-            self.send_json(200, {
-                "success": True,
-                "message": "Logged out successfully"
-            }, extra_headers={"Set-Cookie": cookie_val})
             return
 
         if path == "/api/poems":
@@ -745,6 +581,11 @@ class PortfolioHandler(BaseHTTPRequestHandler):
         self.send_error_json(404, f"Endpoint {path} not found")
 
     def do_PUT(self):
+        if self.handle_auth():
+            return
+        if not self.guard_api_write():
+            return
+
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
@@ -773,7 +614,19 @@ class PortfolioHandler(BaseHTTPRequestHandler):
 
         self.send_error_json(404, f"Endpoint {path} not found")
 
+    def do_PATCH(self):
+        if self.handle_auth():
+            return
+        if not self.guard_api_write():
+            return
+        self.send_error_json(404, f"Endpoint {self.path} not found")
+
     def do_DELETE(self):
+        if self.handle_auth():
+            return
+        if not self.guard_api_write():
+            return
+
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
@@ -1078,18 +931,18 @@ class PortfolioHandler(BaseHTTPRequestHandler):
 
 def run_server(port: int = 8000, host: str = "0.0.0.0"):
     database.init_db()
+    auth.init_auth()
     # Startup persistence recovery
     cleaned_tmp = cleanup_orphaned_tmp_files(TMP_DIR)
     cleaned_del = database.cleanup_unfinished_deletions(UPLOADS_DIR)
-    cleaned_sess = database.cleanup_expired_sessions()
-    if cleaned_tmp > 0 or cleaned_del > 0 or cleaned_sess > 0:
-        print(f"🧹 Startup cleanup: removed {cleaned_tmp} stale temp files, {cleaned_del} pending deletions, {cleaned_sess} expired sessions")
+    if cleaned_tmp > 0 or cleaned_del > 0:
+        print(f"🧹 Startup cleanup: removed {cleaned_tmp} stale temp files, {cleaned_del} pending deletions")
 
     server_address = (host, port)
     httpd = ThreadingHTTPServer(server_address, PortfolioHandler)
     print("=" * 60)
     print(f"🎬 Creative Portfolio Backend running on http://localhost:{port}")
-    print(f"🔒 Admin Key Protected: Token configured from environment / .admin_token")
+    print(f"🔒 Cookie-only Authentication: Powered by auth.AuthMixin")
     print(f"🛡️  Hardened: Path traversal, RFC 9110 ranges, Pillow/Mutagen validation active")
     print("=" * 60)
     try:

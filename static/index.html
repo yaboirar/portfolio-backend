@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css?v=admin-auth-v1">
+  <link rel="stylesheet" href="/static/style.css?v=admin-auth-v2">
+  <link rel="stylesheet" href="/static/auth-ui.css">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -151,8 +152,10 @@
           class="admin-toggle"
           id="admin-toggle"
           aria-expanded="false"
-          title="Admin account & login"
-          aria-label="Admin account & login"
+          aria-haspopup="dialog"
+          aria-controls="admin-modal"
+          title="Admin sign in"
+          aria-label="Admin sign in"
         >
           <span class="auth-indicator" id="auth-indicator" hidden></span>
           <svg class="admin-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -515,99 +518,34 @@
     <div class="lightbox-canvas" id="lb-canvas"></div>
   </div>
 
-  <!-- Dedicated Admin Authentication Modal -->
-  <div class="admin-modal" id="admin-modal" hidden aria-hidden="true">
-    <div class="admin-modal-backdrop" id="admin-modal-backdrop"></div>
-    <div class="admin-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
-      <header class="admin-modal-header">
-        <div class="admin-modal-title-wrap">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-          <span class="admin-modal-title" id="admin-modal-title">Admin Account</span>
-        </div>
-        <button type="button" class="panel-expand-btn" id="admin-modal-close" aria-label="Close admin modal">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </header>
-
-      <div class="admin-modal-body">
-        <!-- Logged-in State Banner -->
-        <div class="auth-logged-in" id="auth-logged-in" hidden>
-          <div class="auth-user-info">
-            <span class="auth-status-dot"></span>
-            <span class="auth-welcome">Logged in as: <strong id="auth-current-user">User</strong></span>
-          </div>
-          <div class="auth-user-actions">
-            <button type="button" class="pill-btn auth-small-btn" id="auth-add-btn" title="Add another admin">
-              <span>+ Add Admin</span>
-            </button>
-            <button type="button" class="pill-btn auth-small-btn auth-logout-danger" id="auth-logout-btn">
-              <span>Log Out</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Logged-out Auth Container -->
-        <div class="auth-logged-out" id="auth-logged-out">
-          <div class="auth-tabs" id="auth-tabs" role="tablist">
-            <button type="button" class="auth-tab is-active" id="tab-auth-login" data-auth-tab="login">
-              <span>Sign In</span>
-            </button>
-            <button type="button" class="auth-tab" id="tab-auth-register" data-auth-tab="register">
-              <span id="tab-register-text">Create Admin</span>
-            </button>
-          </div>
-
-          <!-- Alert Message -->
-          <div class="auth-alert" id="auth-alert" hidden></div>
-
-          <!-- Login Form -->
-          <form id="form-auth-login" class="auth-subform">
-            <div class="auth-field-group">
-              <input type="text" class="sleek-input auth-input" id="login-username" placeholder="Username" autocomplete="username" required>
-              <input type="password" class="sleek-input auth-input" id="login-password" placeholder="Password" autocomplete="current-password" required>
-            </div>
-            <button type="submit" class="primary-action-btn auth-submit-btn" id="btn-login-submit">
-              <span>Sign In</span>
-            </button>
-          </form>
-
-          <!-- Register Form -->
-          <form id="form-auth-register" class="auth-subform" hidden>
-            <div class="auth-notice" id="auth-register-notice">Create primary administrator account</div>
-            <div class="auth-field-group">
-              <input type="text" class="sleek-input auth-input" id="reg-username" placeholder="Username (letters, numbers, _)" autocomplete="username" required>
-              <input type="password" class="sleek-input auth-input" id="reg-password" placeholder="Password (min. 6 chars)" autocomplete="new-password" required>
-              <input type="password" class="sleek-input auth-input" id="reg-confirm" placeholder="Confirm password" autocomplete="new-password" required>
-              <input type="password" class="sleek-input auth-input" id="reg-setup-key" placeholder="Master Setup Key (from .admin_token)" autocomplete="off">
-            </div>
-            <button type="submit" class="primary-action-btn auth-submit-btn" id="btn-register-submit">
-              <span id="btn-register-text">Create Admin Account</span>
-            </button>
-          </form>
-
-          <!-- Token Fallback Accordion -->
-          <div class="auth-token-fallback">
-            <button type="button" class="auth-token-toggle" id="auth-token-toggle">
-              <span>Or use master token</span>
-              <svg class="chevron-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
-            <div class="token-pill" id="token-pill-container" hidden>
-              <input type="password" id="admin-token" placeholder="Admin token" data-i18n-placeholder="adminToken" autocomplete="off">
-              <button type="button" class="pill-btn" id="save-token">
-                <span class="js-text-roll" id="text-save-token" data-i18n="save" data-text="Save">Save</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+  <!-- Modern native dialog Admin Modal -->
+  <dialog id="admin-modal" class="admin-login" aria-labelledby="admin-modal-title">
+    <button type="button" id="admin-modal-close" class="admin-login__close" aria-label="Close login">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+    </button>
+    <div id="auth-logged-out">
+      <h2 id="admin-modal-title">Sign in</h2>
+      <p class="admin-login__intro">Manage your portfolio.</p>
+      <form id="form-auth-login">
+        <label for="login-username">Username</label>
+        <input id="login-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" required>
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+        <p id="auth-alert" class="admin-login__error" role="alert" hidden></p>
+        <button id="btn-login-submit" class="admin-login__submit" type="submit">Sign in</button>
+      </form>
     </div>
-  </div>
+    <div id="auth-logged-in" hidden>
+      <h2 id="auth-account-title">Account</h2>
+      <p class="admin-login__intro">Signed in as <strong id="auth-current-user"></strong></p>
+      <p id="auth-logout-alert" class="admin-login__error" role="alert" hidden></p>
+      <button id="auth-logout-btn" class="admin-login__submit" type="button">Sign out</button>
+    </div>
+  </dialog>
 
   <script src="/static/hls.min.js"></script>
-  <script src="/static/app.js?v=admin-auth-v2"></script>
+  <script src="/static/app.js?v=portfolio-v3"></script>
+  <script src="/static/auth-ui.js?v=auth-v2" defer></script>
 </body>
 </html>
 

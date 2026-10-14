@@ -159,9 +159,7 @@
     searchQuery: '',
     uploadOpen: false,
     lightboxIndex: -1,
-    token: sessionStorage.getItem('admin_token') || '',
     adminUser: null,
-    hasAdmin: false,
     isAuthenticated: false,
     lang: localStorage.getItem('portfolio_lang') || 'en',
     split: {
@@ -217,39 +215,10 @@
     uploadDock: document.getElementById('upload-dock'),
     uploadClose: document.getElementById('upload-close'),
     uploadTabs: document.querySelectorAll('.upload-tab'),
+    adminModal: document.getElementById('admin-modal'),
     uploadAuthBanner: document.getElementById('upload-auth-banner'),
     btnBannerAuth: document.getElementById('btn-banner-auth'),
 
-    adminModal: document.getElementById('admin-modal'),
-    adminModalBackdrop: document.getElementById('admin-modal-backdrop'),
-    adminModalClose: document.getElementById('admin-modal-close'),
-    authCard: document.getElementById('auth-card'),
-    authLoggedIn: document.getElementById('auth-logged-in'),
-    authLoggedOut: document.getElementById('auth-logged-out'),
-    authCurrentUser: document.getElementById('auth-current-user'),
-    authLogoutBtn: document.getElementById('auth-logout-btn'),
-    authAddBtn: document.getElementById('auth-add-btn'),
-    authTabs: document.getElementById('auth-tabs'),
-    tabAuthLogin: document.getElementById('tab-auth-login'),
-    tabAuthRegister: document.getElementById('tab-auth-register'),
-    tabRegisterText: document.getElementById('tab-register-text'),
-    authAlert: document.getElementById('auth-alert'),
-    formAuthLogin: document.getElementById('form-auth-login'),
-    loginUsername: document.getElementById('login-username'),
-    loginPassword: document.getElementById('login-password'),
-    btnLoginSubmit: document.getElementById('btn-login-submit'),
-    formAuthRegister: document.getElementById('form-auth-register'),
-    regUsername: document.getElementById('reg-username'),
-    regPassword: document.getElementById('reg-password'),
-    regConfirm: document.getElementById('reg-confirm'),
-    regSetupKey: document.getElementById('reg-setup-key'),
-    btnRegisterSubmit: document.getElementById('btn-register-submit'),
-    btnRegisterText: document.getElementById('btn-register-text'),
-    authRegisterNotice: document.getElementById('auth-register-notice'),
-    authTokenToggle: document.getElementById('auth-token-toggle'),
-    tokenPillContainer: document.getElementById('token-pill-container'),
-    adminToken: document.getElementById('admin-token'),
-    saveToken: document.getElementById('save-token'),
 
     uploadForm: document.getElementById('upload-form'),
     dropSurface: document.getElementById('drop-surface'),
@@ -1120,7 +1089,7 @@
 
     info.appendChild(text);
 
-    if (state.token && item.id !== undefined) {
+    if (state.isAuthenticated && item.id !== undefined) {
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'delete-btn';
@@ -1237,7 +1206,7 @@
           title.textContent = poem.title;
           head.appendChild(title);
 
-          if (state.token && poem.id !== undefined) {
+          if (state.isAuthenticated && poem.id !== undefined) {
             const del = document.createElement('button');
             del.type = 'button';
             del.className = 'delete-btn';
@@ -1259,291 +1228,40 @@
   }
 
   /* ========================================================================
-     AUTHENTICATION & ADMIN SESSION MANAGEMENT
+     AUTHENTICATION INTEGRATION (auth-ui.js)
      ======================================================================== */
-  function showAuthAlert(msg, type = 'error') {
-    if (!dom.authAlert) return;
-    dom.authAlert.textContent = msg;
-    dom.authAlert.className = `auth-alert is-${type}`;
-    dom.authAlert.hidden = false;
-  }
-
-  function hideAuthAlert() {
-    if (!dom.authAlert) return;
-    dom.authAlert.hidden = true;
-    dom.authAlert.textContent = '';
-  }
-
-  function switchAuthTab(targetTab) {
-    hideAuthAlert();
-    const isLogin = targetTab === 'login';
-    if (dom.tabAuthLogin) dom.tabAuthLogin.classList.toggle('is-active', isLogin);
-    if (dom.tabAuthRegister) dom.tabAuthRegister.classList.toggle('is-active', !isLogin);
-    if (dom.formAuthLogin) dom.formAuthLogin.hidden = !isLogin;
-    if (dom.formAuthRegister) dom.formAuthRegister.hidden = isLogin;
-  }
-
-  async function checkAuthStatus() {
-    try {
-      const headers = {};
-      if (state.token) {
-        headers['X-Admin-Token'] = state.token;
-      }
-      const res = await fetch('/api/auth/status', { headers });
-      if (res.ok) {
-        const data = await res.json();
-        state.hasAdmin = Boolean(data.has_admin);
-        state.isAuthenticated = Boolean(data.authenticated);
-        if (state.isAuthenticated && data.username) {
-          state.adminUser = data.username;
-        } else if (!state.isAuthenticated && !state.token) {
-          state.adminUser = null;
-        }
-      }
-    } catch {
-      // Ignore network errors during auth check
-    }
-    syncAuthUI();
-  }
-
-  function syncAuthUI() {
-    const isAuthed = Boolean(state.isAuthenticated || state.token);
-    if (dom.authIndicator) {
-      dom.authIndicator.hidden = !isAuthed;
-    }
-    if (dom.adminToken && state.token) {
-      dom.adminToken.value = state.token;
-    }
+  document.addEventListener('admin-auth-change', ({ detail }) => {
+    state.isAuthenticated = detail.authenticated;
+    state.adminUser = detail.username;
     if (dom.uploadAuthBanner) {
-      dom.uploadAuthBanner.hidden = isAuthed;
+      dom.uploadAuthBanner.hidden = detail.authenticated;
     }
-
-    if (isAuthed) {
-      if (dom.authLoggedIn) dom.authLoggedIn.hidden = false;
-      if (dom.authLoggedOut) dom.authLoggedOut.hidden = true;
-      if (dom.authCurrentUser) {
-        dom.authCurrentUser.textContent = state.adminUser || 'Admin';
-      }
-      hideAuthAlert();
-    } else {
-      if (dom.authLoggedIn) dom.authLoggedIn.hidden = true;
-      if (dom.authLoggedOut) dom.authLoggedOut.hidden = false;
-
-      if (!state.hasAdmin) {
-        if (dom.tabAuthLogin) dom.tabAuthLogin.hidden = true;
-        if (dom.tabRegisterText) dom.tabRegisterText.textContent = 'Create Admin';
-        if (dom.authRegisterNotice) dom.authRegisterNotice.textContent = 'Enter username, password, and the server Master Key';
-        if (dom.regSetupKey) {
-          dom.regSetupKey.hidden = false;
-          dom.regSetupKey.required = true;
-        }
-        switchAuthTab('register');
-      } else {
-        if (dom.tabAuthLogin) dom.tabAuthLogin.hidden = false;
-        if (dom.tabRegisterText) dom.tabRegisterText.textContent = t('register');
-        if (dom.authRegisterNotice) dom.authRegisterNotice.textContent = 'Register an additional admin (requires active admin)';
-        if (dom.regSetupKey) {
-          dom.regSetupKey.hidden = true;
-          dom.regSetupKey.required = false;
-        }
-        switchAuthTab('login');
-      }
-    }
-  }
-
-  function openAdminModal() {
-    if (!dom.adminModal) return;
-    dom.adminModal.hidden = false;
-    dom.adminModal.setAttribute('aria-hidden', 'false');
-    if (dom.adminToggle) {
-      dom.adminToggle.classList.add('is-active');
-      dom.adminToggle.setAttribute('aria-expanded', 'true');
-    }
-    syncAuthUI();
-    setTimeout(() => {
-      if (dom.formAuthLogin && !dom.formAuthLogin.hidden && dom.loginUsername) {
-        dom.loginUsername.focus();
-      } else if (dom.formAuthRegister && !dom.formAuthRegister.hidden && dom.regUsername) {
-        dom.regUsername.focus();
-      }
-    }, 60);
-  }
-
-  function closeAdminModal() {
-    if (!dom.adminModal) return;
-    dom.adminModal.hidden = true;
-    dom.adminModal.setAttribute('aria-hidden', 'true');
-    if (dom.adminToggle) {
-      dom.adminToggle.classList.remove('is-active');
-      dom.adminToggle.setAttribute('aria-expanded', 'false');
-    }
-    hideAuthAlert();
-  }
-
-  function toggleAdminModal() {
-    if (!dom.adminModal) return;
-    if (dom.adminModal.hidden) {
-      openAdminModal();
-    } else {
-      closeAdminModal();
-    }
-  }
-
-  function syncTokenUI() {
-    syncAuthUI();
-  }
-
-  async function handleAuthLogin(e) {
-    e.preventDefault();
-    hideAuthAlert();
-    const username = dom.loginUsername.value.trim();
-    const password = dom.loginPassword.value;
-
-    if (!username || !password) {
-      showAuthAlert('Username and password are required', 'error');
-      return;
-    }
-
-    dom.btnLoginSubmit.disabled = true;
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        state.token = data.token;
-        state.isAuthenticated = true;
-        state.adminUser = data.username;
-        sessionStorage.setItem('admin_token', data.token);
-        dom.formAuthLogin.reset();
-        showAuthAlert(t('loginSuccess'), 'success');
-        setTimeout(() => {
-          syncAuthUI();
-          renderPanels();
-          closeAdminModal();
-        }, 500);
-      } else {
-        showAuthAlert(data.message || 'Invalid username or password', 'error');
-      }
-    } catch {
-      showAuthAlert(t('networkError'), 'error');
-    } finally {
-      dom.btnLoginSubmit.disabled = false;
-    }
-  }
-
-  async function handleAuthRegister(e) {
-    e.preventDefault();
-    hideAuthAlert();
-    const username = dom.regUsername.value.trim();
-    const password = dom.regPassword.value;
-    const confirm = dom.regConfirm.value;
-
-    if (!username || !password) {
-      showAuthAlert('All fields are required', 'error');
-      return;
-    }
-    if (password.length < 6) {
-      showAuthAlert(t('passwordTooShort'), 'error');
-      return;
-    }
-    if (password !== confirm) {
-      showAuthAlert(t('passwordsDoNotMatch'), 'error');
-      return;
-    }
-
-    const payload = { username, password };
-    if (!state.hasAdmin) {
-      const setupKey = (dom.regSetupKey && dom.regSetupKey.value.trim()) || '';
-      if (!setupKey) {
-        showAuthAlert('Master Setup Key is required to verify ownership', 'error');
-        return;
-      }
-      payload.setup_key = setupKey;
-    }
-
-    dom.btnRegisterSubmit.disabled = true;
-    try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (state.token) {
-        headers['X-Admin-Token'] = state.token;
-      }
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        state.token = data.token;
-        state.isAuthenticated = true;
-        state.adminUser = data.username;
-        state.hasAdmin = true;
-        sessionStorage.setItem('admin_token', data.token);
-        dom.formAuthRegister.reset();
-        showAuthAlert(t('adminCreated'), 'success');
-        setTimeout(() => {
-          syncAuthUI();
-          renderPanels();
-          closeAdminModal();
-        }, 600);
-      } else {
-        showAuthAlert(data.message || 'Registration failed', 'error');
-      }
-    } catch {
-      showAuthAlert(t('networkError'), 'error');
-    } finally {
-      dom.btnRegisterSubmit.disabled = false;
-    }
-  }
-
-  async function handleAuthLogout() {
-    try {
-      const headers = {};
-      if (state.token) {
-        headers['X-Admin-Token'] = state.token;
-      }
-      await fetch('/api/auth/logout', { method: 'POST', headers });
-    } catch {
-      // Ignore network errors on logout
-    }
-    state.token = '';
-    state.isAuthenticated = false;
-    state.adminUser = null;
-    sessionStorage.removeItem('admin_token');
-    if (dom.adminToken) dom.adminToken.value = '';
-    syncAuthUI();
     renderPanels();
-  }
+  });
 
   /* ========================================================================
      UPLOAD, POEM & DELETE HANDLERS
      ======================================================================== */
   async function deleteEntry(endpoint, id) {
-    const token = (dom.adminToken && dom.adminToken.value.trim()) || state.token;
-    if (!token && !state.isAuthenticated) {
-      showAuthAlert(t('loginRequired'), 'error');
-      openAdminModal();
+    if (!state.isAuthenticated && !window.adminAuth?.authenticated) {
+      window.adminAuth?.open();
       return;
     }
     if (!window.confirm('Delete this item?')) return;
 
-    const headers = {};
-    if (token) {
-      headers['X-Admin-Token'] = token;
-    }
-
-    const res = await fetch(`/api/${endpoint}/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers,
-    });
-
-    if (res.ok) {
-      fetchPortfolio();
-    } else {
-      window.alert(`Delete failed (${res.status})`);
+    try {
+      const res = await window.adminAuth.apiFetch(`/api/${endpoint}/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        fetchPortfolio();
+      } else if (res.status === 401) {
+        window.adminAuth?.open();
+      } else {
+        window.alert(`Delete failed (${res.status})`);
+      }
+    } catch (err) {
+      window.alert(`Delete failed: ${err.message}`);
     }
   }
 
@@ -1578,59 +1296,42 @@
     }
   }
 
-  function handleMediaUpload(e) {
+  async function handleMediaUpload(e) {
     e.preventDefault();
-    const token = (dom.adminToken && dom.adminToken.value.trim()) || state.token;
-    const file = dom.uploadFile.files[0];
-
-    if (!token && !state.isAuthenticated) {
+    if (!state.isAuthenticated && !window.adminAuth?.authenticated) {
       dom.uploadStatus.textContent = t('loginRequired');
-      showAuthAlert(t('loginRequired'), 'error');
-      openAdminModal();
+      window.adminAuth?.open();
       return;
     }
+    const file = dom.uploadFile.files[0];
     if (!file) {
       dom.uploadStatus.textContent = t('selectFile');
       return;
     }
-
-    if (token) {
-      state.token = token;
-      sessionStorage.setItem('admin_token', token);
-    }
-    syncAuthUI();
 
     const fd = new FormData();
     fd.append('file', file);
     fd.append('title', dom.uploadTitle.value.trim());
     fd.append('description', dom.uploadDesc.value.trim());
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload', true);
-    if (token) {
-      xhr.setRequestHeader('X-Admin-Token', token);
-    }
-
     dom.uploadSubmit.disabled = true;
     dom.uploadMeter.hidden = false;
     dom.uploadMeterFill.style.width = '0%';
     dom.uploadStatus.textContent = '0%';
 
-    // Pop up the footer loading bar for this upload!
     showFooterProgress(file, null, 'Sizing');
 
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) {
-        const pct = Math.round((ev.loaded / ev.total) * 100);
-        dom.uploadMeterFill.style.width = `${pct}%`;
-        dom.uploadStatus.textContent = `${pct}%`;
-        updateFooterProgress(pct, 'Working');
-      }
-    };
+    try {
+      updateFooterProgress(30, 'Uploading');
+      const res = await window.adminAuth.apiFetch('/api/upload', {
+        method: 'POST',
+        body: fd,
+      });
 
-    xhr.onload = async () => {
       dom.uploadSubmit.disabled = false;
-      if (xhr.status >= 200 && xhr.status < 300) {
+      if (res.ok) {
+        dom.uploadMeterFill.style.width = '100%';
+        dom.uploadStatus.textContent = '100%';
         dom.uploadForm.reset();
         updateDropPreview();
         dom.uploadStatus.textContent = t('uploaded');
@@ -1639,60 +1340,60 @@
           dom.uploadMeter.hidden = true;
         }, 600);
         await fetchPortfolio();
+      } else if (res.status === 401) {
+        dom.uploadStatus.textContent = t('loginRequired');
+        completeFooterProgress(t('loginRequired'));
+        window.adminAuth?.open();
       } else {
-        dom.uploadStatus.textContent = `Error ${xhr.status}`;
-        completeFooterProgress(`Error ${xhr.status}`);
+        dom.uploadStatus.textContent = `Error ${res.status}`;
+        completeFooterProgress(`Error ${res.status}`);
       }
-    };
-
-    xhr.onerror = () => {
+    } catch (err) {
       dom.uploadSubmit.disabled = false;
-      dom.uploadStatus.textContent = t('networkError');
-      completeFooterProgress(t('networkError'));
-    };
-
-    xhr.send(fd);
+      dom.uploadStatus.textContent = err.message || t('networkError');
+      completeFooterProgress(err.message || t('networkError'));
+    }
   }
 
   async function handlePoemUpload(e) {
     e.preventDefault();
-    const token = (dom.adminToken && dom.adminToken.value.trim()) || state.token;
-    if (!token && !state.isAuthenticated) {
+    if (!state.isAuthenticated && !window.adminAuth?.authenticated) {
       dom.poemStatus.textContent = t('loginRequired');
-      showAuthAlert(t('loginRequired'), 'error');
-      openAdminModal();
+      window.adminAuth?.open();
       return;
     }
 
-    if (token) {
-      state.token = token;
-      sessionStorage.setItem('admin_token', token);
+    const title = dom.poemTitle.value.trim();
+    const content = dom.poemContent.value.trim();
+    const mood = dom.poemMood.value;
+
+    if (!title || !content) {
+      dom.poemStatus.textContent = 'Title and content required';
+      return;
     }
-    syncAuthUI();
 
     dom.poemSubmit.disabled = true;
     dom.poemStatus.textContent = t('uploading');
 
     try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['X-Admin-Token'] = token;
-      }
-      const res = await fetch('/api/poems', {
+      const res = await window.adminAuth.apiFetch('/api/poems', {
         method: 'POST',
-        headers,
-        body: JSON.stringify({
-          title: dom.poemTitle.value.trim(),
-          content: dom.poemContent.value.trim(),
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content, mood }),
       });
 
-      if (!res.ok) throw new Error(res.status);
-      dom.poemForm.reset();
-      dom.poemStatus.textContent = t('uploaded');
-      await fetchPortfolio();
+      if (res.ok) {
+        dom.poemForm.reset();
+        dom.poemStatus.textContent = t('uploaded');
+        await fetchPortfolio();
+      } else if (res.status === 401) {
+        dom.poemStatus.textContent = t('loginRequired');
+        window.adminAuth?.open();
+      } else {
+        dom.poemStatus.textContent = `Error ${res.status}`;
+      }
     } catch (err) {
-      dom.poemStatus.textContent = `Error ${err.message}`;
+      dom.poemStatus.textContent = err.message || t('networkError');
     } finally {
       dom.poemSubmit.disabled = false;
     }
@@ -2134,13 +1835,16 @@
   async function init() {
     const savedTheme = localStorage.getItem('portfolio_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    const modalEl = document.getElementById('admin-modal');
+    if (modalEl) {
+      modalEl.setAttribute('data-login-theme', savedTheme);
+    }
 
     const savedLang = localStorage.getItem('portfolio_lang') || 'en';
 
     hydrateTextRolls();
     applyLanguage(savedLang);
     applyFilter('all', false);
-    syncTokenUI();
     initWorkspaceInteractions();
     initPanelTools();
 
@@ -2197,6 +1901,10 @@
       const next = cur === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('portfolio_theme', next);
+      const modalEl = document.getElementById('admin-modal');
+      if (modalEl) {
+        modalEl.setAttribute('data-login-theme', next);
+      }
     });
 
     dom.expandBtns.forEach((btn) => {
@@ -2209,48 +1917,10 @@
     dom.uploadToggle.addEventListener('click', () => toggleUploadDock());
     dom.uploadClose.addEventListener('click', () => toggleUploadDock(false));
 
-    // --- Admin Auth Event Listeners ---
-    if (dom.tabAuthLogin) {
-      dom.tabAuthLogin.addEventListener('click', () => switchAuthTab('login'));
-    }
-    if (dom.tabAuthRegister) {
-      dom.tabAuthRegister.addEventListener('click', () => switchAuthTab('register'));
-    }
-    if (dom.formAuthLogin) {
-      dom.formAuthLogin.addEventListener('submit', handleAuthLogin);
-    }
-    if (dom.formAuthRegister) {
-      dom.formAuthRegister.addEventListener('submit', handleAuthRegister);
-    }
-    if (dom.authLogoutBtn) {
-      dom.authLogoutBtn.addEventListener('click', handleAuthLogout);
-    }
-    if (dom.authAddBtn) {
-      dom.authAddBtn.addEventListener('click', () => {
-        if (dom.authLoggedIn) dom.authLoggedIn.hidden = true;
-        if (dom.authLoggedOut) dom.authLoggedOut.hidden = false;
-        if (dom.tabRegisterText) dom.tabRegisterText.textContent = '+ Add Admin';
-        switchAuthTab('register');
-      });
-    }
-    if (dom.authTokenToggle) {
-      dom.authTokenToggle.addEventListener('click', () => {
-        const isClosed = dom.tokenPillContainer.hidden;
-        dom.tokenPillContainer.hidden = !isClosed;
-        dom.authTokenToggle.classList.toggle('is-open', isClosed);
-      });
-    }
-
-    if (dom.saveToken) {
-      dom.saveToken.addEventListener('click', () => {
-        state.token = dom.adminToken.value.trim();
-        sessionStorage.setItem('admin_token', state.token);
-        syncTokenUI();
-        renderPanels();
-        setTextRoll(dom.saveToken, t('saved'));
-        setTimeout(() => {
-          setTextRoll(dom.saveToken, t('save'));
-        }, 1500);
+    if (dom.btnBannerAuth) {
+      dom.btnBannerAuth.addEventListener('click', () => {
+        toggleUploadDock(false);
+        window.adminAuth?.open();
       });
     }
 
@@ -2275,28 +1945,7 @@
     dom.lbPrev.addEventListener('click', () => stepLightbox(-1));
     dom.lbNext.addEventListener('click', () => stepLightbox(1));
 
-    // --- Admin Modal Event Listeners ---
-    if (dom.adminToggle) {
-      dom.adminToggle.addEventListener('click', () => toggleAdminModal());
-    }
-    if (dom.adminModalClose) {
-      dom.adminModalClose.addEventListener('click', () => closeAdminModal());
-    }
-    if (dom.adminModalBackdrop) {
-      dom.adminModalBackdrop.addEventListener('click', () => closeAdminModal());
-    }
-    if (dom.btnBannerAuth) {
-      dom.btnBannerAuth.addEventListener('click', () => {
-        toggleUploadDock(false);
-        openAdminModal();
-      });
-    }
-
     document.addEventListener('keydown', (e) => {
-      if (dom.adminModal && !dom.adminModal.hidden && e.key === 'Escape') {
-        closeAdminModal();
-        return;
-      }
       if (e.key === 'Escape') closeAllPanelPopovers();
       if (!dom.lightbox.hidden) {
         if (e.key === 'Escape') closeLightbox();
@@ -2310,7 +1959,6 @@
       }
     });
 
-    await checkAuthStatus();
     await fetchPortfolio();
   }
 
