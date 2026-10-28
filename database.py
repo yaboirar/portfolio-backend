@@ -9,6 +9,7 @@ Features:
 
 import sqlite3
 import os
+import json
 import datetime
 from pathlib import Path
 from contextlib import contextmanager
@@ -81,16 +82,23 @@ def init_db() -> None:
         );
         """)
 
-        # 4. Sessions table for authenticated token sessions
+        # 4. Activity Logs table for rolling 7-day input/output tracking
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            token TEXT PRIMARY KEY,
-            admin_id INTEGER NOT NULL,
-            created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL,
-            FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            epoch INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            ip TEXT DEFAULT '',
+            method TEXT NOT NULL,
+            endpoint TEXT NOT NULL,
+            status_code INTEGER NOT NULL,
+            input_data TEXT DEFAULT '',
+            output_data TEXT DEFAULT '',
+            error_message TEXT DEFAULT ''
         );
         """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_logs_epoch ON activity_logs(epoch);")
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_media_type ON media(media_type);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_media_status ON media(status);")
@@ -98,6 +106,15 @@ def init_db() -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_poems_created ON poems(created_at DESC);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_media_created ON media(created_at DESC);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_admins_username ON admins(username);")
+        # Legacy sessions table compatibility
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            admin_id INTEGER,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        );
+        """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);")
 
 
@@ -299,4 +316,87 @@ def get_admin_count() -> int:
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM admins")
         return cursor.fetchone()[0]
+
+
+# --- Rolling 7-Day Activity Audit Logs ---
+
+def log_activity(
+    action: str,
+    method: str,
+    endpoint: str,
+    status_code: int,
+    ip: str = "",
+    input_data: Any = "",
+    output_data: Any = "",
+    error_message: str = ""
+) -> None:
+    """Logs incoming inputs and outputs, automatically pruning entries older than 7 days."""
+    try:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        epoch = int(now.timestamp())
+        iso_time = now.isoformat()
+
+        # Format input string and sanitize any passwords
+        if isinstance(input_data, (dict, list)):
+            safe_input = json.dumps(input_data)
+        else:
+            safe_input = str(input_data or "")
+
+        if "password" in safe_input.lower():
+            try:
+                parsed = json.loads(safe_input)
+                if isinstance(parsed, dict):
+                    for k in list(parsed.keys()):
+                        if "password" in k.lower():
+                            parsed[k] = "******"
+                    safe_input = json.dumps(parsed)
+            except Exception:
+                pass
+
+        if isinstance(output_data, (dict, list)):
+            safe_output = json.dumps(output_data)
+        else:
+            safe_output = str(output_data or "")
+
+        with get_db() as conn:
+            conn.execute(
+                """INSERT INTO activity_logs (timestamp, epoch, action, ip, method, endpoint, status_code, input_data, output_data, error_message)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    iso_time,
+                    epoch,
+                    action,
+                    str(ip or "")[:64],
+                    method[:10],
+                    endpoint[:256],
+                    status_code,
+                    safe_input[:2048],
+                    safe_output[:2048],
+                    str(error_message or "")[:1024]
+                )
+            )
+
+            # Continuous loop cleanup: automatically delete logs older than 7 days (7 * 86,400 seconds)
+            cutoff_epoch = epoch - (7 * 86400)
+            conn.execute("DELETE FROM activity_logs WHERE epoch < ?", (cutoff_epoch,))
+    except Exception:
+        # Logging should never crash application requests
+        pass
+
+
+def get_recent_activity_logs(limit: int = 100) -> List[Dict[str, Any]]:
+    """Returns the most recent activity logs, pruning any older than 7 days first."""
+    cutoff_epoch = int(datetime.datetime.now(datetime.timezone.utc).timestamp()) - (7 * 86400)
+    with get_db() as conn:
+        conn.execute("DELETE FROM activity_logs WHERE epoch < ?", (cutoff_epoch,))
+        cursor = conn.cursor()
+        rows = cursor.execute(
+            """SELECT id, timestamp, epoch, action, ip, method, endpoint, status_code, input_data, output_data, error_message
+               FROM activity_logs
+               ORDER BY epoch DESC, id DESC
+               LIMIT ?""",
+            (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
 

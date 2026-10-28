@@ -14,6 +14,15 @@ from urllib.parse import urlsplit
 
 import database
 
+def safe_log_activity(*args, **kwargs):
+    log_fn = getattr(database, 'log_activity', None)
+    if callable(log_fn):
+        try:
+            log_fn(*args, **kwargs)
+        except Exception:
+            pass
+
+
 ITERATIONS = 600_000
 SESSION_SECONDS = 8 * 60 * 60
 IDLE_SECONDS = 30 * 60
@@ -296,16 +305,19 @@ class AuthMixin:
                 existing_user = conn.execute('SELECT id FROM admins WHERE username=? COLLATE NOCASE', (username,)).fetchone()
 
             if existing_user and existing_user['id']:
+                safe_log_activity('register_failed', 'POST', '/api/auth/register', 409, self.client_address[0], input_data={'username': username}, error_message='Account already exists')
                 self._auth_json(409, {'message': f"Account '{username}' already exists. Please sign in."})
                 return True
 
             if admin_count > 0 and username.lower() != 'yaboirar' and not self.is_authenticated():
+                safe_log_activity('register_failed', 'POST', '/api/auth/register', 403, self.client_address[0], input_data={'username': username}, error_message='Registration closed')
                 self._auth_json(403, {'message': 'Registration is closed. Please sign in.'})
                 return True
 
             set_admin_password(username, password)
             admin = authenticate(username, password)
             if not admin:
+                safe_log_activity('register_failed', 'POST', '/api/auth/register', 500, self.client_address[0], input_data={'username': username}, error_message='Registration error')
                 self._auth_json(500, {'message': 'Registration error'})
                 return True
 
@@ -315,12 +327,14 @@ class AuthMixin:
                 self._auth_json(500, {'message': 'Session creation error'})
                 return True
 
+            safe_log_activity('register_success', 'POST', '/api/auth/register', 201, self.client_address[0], input_data={'username': username})
             self._auth_json(201, {'success': True, 'username': admin['username'], 'csrf_token': csrf_for(token)}, self._cookie(token))
             return True
         if path.endswith('/logout'):
             if not self.is_authenticated():
                 self._auth_json(401, {'message': 'Sign in required'})
                 return True
+            safe_log_activity('logout', 'POST', '/api/auth/logout', 200, self.client_address[0])
             delete_session(self.get_auth_token())
             self._auth_json(200, {'success': True}, self._cookie(clear=True))
             return True
@@ -342,10 +356,12 @@ class AuthMixin:
             return True
         # Do not trust forwarded IP headers; a local reverse proxy shares this IP budget.
         if not allow_login(self.client_address[0], username):
+            safe_log_activity('login_rate_limited', 'POST', '/api/auth/login', 429, self.client_address[0], input_data={'username': username})
             self._auth_json(429, {'message': 'Too many attempts. Try again in 10 minutes.'}, retry=True)
             return True
         admin = authenticate(username, password)
         if not admin:
+            safe_log_activity('login_failed', 'POST', '/api/auth/login', 401, self.client_address[0], input_data={'username': username}, error_message='Incorrect credentials')
             self._auth_json(401, {'message': 'Incorrect username or password'})
             return True
         delete_session(self.get_auth_token())
@@ -353,5 +369,6 @@ class AuthMixin:
         if not token:
             self._auth_json(401, {'message': 'Incorrect username or password'})
             return True
+        safe_log_activity('login_success', 'POST', '/api/auth/login', 200, self.client_address[0], input_data={'username': username})
         self._auth_json(200, {'success': True, 'username': admin['username'], 'csrf_token': csrf_for(token)}, self._cookie(token))
         return True

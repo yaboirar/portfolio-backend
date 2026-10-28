@@ -32,6 +32,7 @@ def get_db():
 
 fake_database = types.ModuleType('database')
 fake_database.get_db = get_db
+fake_database.log_activity = lambda *args, **kwargs: None
 sys.modules['database'] = fake_database
 auth = importlib.import_module('auth')
 

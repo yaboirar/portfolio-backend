@@ -320,7 +320,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Range, X-Requested-With, X-CSRF-Token")
         self.send_header("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; media-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'")
+        self.send_header("Content-Security-Policy", "default-src 'none'; connect-src 'self'; media-src 'self' blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'")
         if self.close_connection:
             self.send_header("Connection", "close")
 
@@ -482,6 +482,18 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                 self.send_error_json(404, "Media not found")
             return
 
+        if path == "/api/admin/logs":
+            if not self.require_auth():
+                return
+            logs = database.get_recent_activity_logs(limit=150)
+            self.send_json(200, {
+                "success": True,
+                "count": len(logs),
+                "retention_days": 7,
+                "logs": logs
+            })
+            return
+
         if path.startswith("/uploads/"):
             rel_path = path[len("/uploads/"):].lstrip("/")
             safe_target = resolve_safe_path(UPLOADS_DIR, rel_path)
@@ -549,6 +561,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                 mood = body.get("mood", "reflective")
                 tags = body.get("tags", "")
                 created = database.create_poem(title, content, mood, tags)
+                database.log_activity("create_poem", "POST", path, 201, self.client_address[0], input_data={"title": title, "mood": mood, "tags": tags}, output_data=created)
                 self.send_json(201, created)
             except Exception as e:
                 self.send_error_json(400, f"Invalid request: {str(e)}")
@@ -605,6 +618,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                 tags = body.get("tags", "")
                 updated = database.update_poem(poem_id, title, content, mood, tags)
                 if updated:
+                    database.log_activity("update_poem", "PUT", path, 200, self.client_address[0], input_data={"poem_id": poem_id, "title": title, "mood": mood}, output_data=updated)
                     self.send_json(200, updated)
                 else:
                     self.send_error_json(404, "Poem not found")
@@ -636,6 +650,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                 return
             poem_id = int(poem_match.group(1))
             if database.delete_poem(poem_id):
+                database.log_activity("delete_poem", "DELETE", path, 200, self.client_address[0], input_data={"poem_id": poem_id})
                 self.send_json(200, {"success": True, "message": f"Poem {poem_id} deleted"})
             else:
                 self.send_error_json(404, "Poem not found")
@@ -674,11 +689,13 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                     except OSError as e:
                         # Unlink failed: item remains marked pending_delete (visitors cannot see it),
                         # but API returns 500 indicating unlinking retry needed
+                        database.log_activity("delete_media_failed", "DELETE", path, 500, self.client_address[0], input_data={"media_id": media_id}, error_message=str(e))
                         self.send_error_json(500, f"Disk unlinking failed: {str(e)}. Item marked for deletion retry.")
                         return
 
             # Step 3: File successfully unlinked -> permanently purge database row
             deleted_record = database.delete_media_final(media_id)
+            database.log_activity("delete_media", "DELETE", path, 200, self.client_address[0], input_data={"media_id": media_id}, output_data=deleted_record)
             self.send_json(200, {"success": True, "message": f"Media {media_id} permanently deleted", "item": deleted_record})
             return
 
@@ -909,17 +926,25 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                 raise db_err
 
             try:
+                database.log_activity(
+                    "upload_media", "POST", "/api/upload", 201, self.client_address[0],
+                    input_data={"title": title, "filename": original_filename, "size": final_size, "type": media_type},
+                    output_data={"id": record.get("id"), "url": rel_url}
+                )
                 self.send_json(201, record)
             except (BrokenPipeError, ConnectionResetError, OSError):
                 pass
 
         except ConnectionResetError as conn_err:
+            database.log_activity("upload_failed", "POST", "/api/upload", 400, self.client_address[0], error_message=str(conn_err))
             self.close_connection = True
             self.send_error_json(400, str(conn_err))
         except ValueError as val_err:
+            database.log_activity("upload_failed", "POST", "/api/upload", 400, self.client_address[0], error_message=str(val_err))
             self.close_connection = True
             self.send_error_json(400, str(val_err))
         except Exception as e:
+            database.log_activity("upload_failed", "POST", "/api/upload", 500, self.client_address[0], error_message=str(e))
             self.send_error_json(500, f"Upload failed: {str(e)}")
         finally:
             if tmp_path and tmp_path.is_file():

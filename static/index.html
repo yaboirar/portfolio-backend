@@ -6,7 +6,7 @@
   <title>Portfolio</title>
   <link rel="preload" href="/static/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css?v=admin-auth-v2">
-  <link rel="stylesheet" href="/static/auth-ui.css">
+  <link rel="stylesheet" href="/static/auth-ui.css?v=auth-v3">
 </head>
 <body>
   <!-- Ambient Background Glow & ASCII Art Canvas -->
@@ -593,7 +593,22 @@
           <p id="auth-logout-alert" class="auth-error-msg" role="alert" hidden></p>
           <div class="auth-logged-in-actions">
             <button id="auth-return-btn" class="auth-primary-btn" type="button">Back to Portfolio</button>
+            <button id="auth-toggle-logs-btn" class="auth-outline-btn" type="button">Activity Logs (7 Days)</button>
             <button id="auth-logout-btn" class="auth-secondary-btn" type="button">Sign out</button>
+          </div>
+
+          <!-- Activity Audit Log Viewer -->
+          <div id="auth-logs-section" class="auth-logs-section" hidden>
+            <div class="auth-logs-header">
+              <div class="auth-logs-header-info">
+                <span class="auth-logs-header-title">Recent Activity Logs</span>
+                <span id="auth-logs-counter" class="auth-logs-counter">7-day rolling window</span>
+              </div>
+              <button id="auth-refresh-logs-btn" class="auth-logs-refresh-btn" type="button" title="Refresh recent activity">↻ Refresh</button>
+            </div>
+            <div id="auth-logs-list" class="auth-logs-list" role="region" aria-live="polite">
+              <div class="auth-logs-empty">Loading logs…</div>
+            </div>
           </div>
         </div>
       </div>
@@ -601,8 +616,8 @@
   </div>
 
   <script src="/static/hls.min.js"></script>
-  <script src="/static/app.js?v=portfolio-v3"></script>
-  <script src="/static/auth-ui.js?v=auth-v2" defer></script>
+  <script src="/static/app.js?v=portfolio-v4"></script>
+  <script src="/static/auth-ui.js?v=auth-v3" defer></script>
 </body>
 </html>
 

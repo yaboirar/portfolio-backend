@@ -168,11 +168,65 @@
   }
 
   async function rawFetch(path, options = {}) {
+    const isUpload = options.body instanceof FormData || String(path).includes('/api/upload');
+    const timeoutMs = options.timeout !== undefined ? options.timeout : (isUpload ? 0 : 15000);
+    const signal = options.signal || (timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined);
     return fetch(path, {
       ...options,
       credentials: 'same-origin',
       cache: 'no-store',
-      signal: options.signal || AbortSignal.timeout(12000),
+      signal,
+    });
+  }
+
+  function uploadWithProgress(path, formData, onProgress) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (!csrf) await checkStatus();
+      } catch (err) {}
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', path, true);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('X-Requested-With', 'portfolio-admin');
+      if (csrf) xhr.setRequestHeader('X-CSRF-Token', csrf);
+      xhr.timeout = 15 * 60 * 1000; // 15-minute timeout for large media files
+
+      if (xhr.upload && typeof onProgress === 'function') {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            onProgress(pct, e.loaded, e.total);
+          }
+        });
+      }
+
+      xhr.onload = () => {
+        let data = {};
+        try {
+          data = JSON.parse(xhr.responseText || '{}');
+        } catch {}
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve({ ok: true, status: xhr.status, data });
+        } else {
+          resolve({
+            ok: false,
+            status: xhr.status,
+            data,
+            error: data.error || data.message || `HTTP ${xhr.status}`,
+          });
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Network error during upload'));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error('Upload timed out after 15 minutes. Check connection speed.'));
+      };
+
+      xhr.send(formData);
     });
   }
 
@@ -350,8 +404,91 @@
     }
   });
 
+  /* -------------------------------------------------------------
+     Activity Audit Trail (7 Days Rolling)
+  ------------------------------------------------------------- */
+  const toggleLogsBtn = document.getElementById('auth-toggle-logs-btn');
+  const logsSection = document.getElementById('auth-logs-section');
+  const logsList = document.getElementById('auth-logs-list');
+  const refreshLogsBtn = document.getElementById('auth-refresh-logs-btn');
+  const logsCounter = document.getElementById('auth-logs-counter');
+  const authContainer = document.querySelector('.auth-page__container');
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  async function loadActivityLogs() {
+    if (!logsList) return;
+    logsList.innerHTML = '<div class="auth-logs-empty">Fetching recent activity…</div>';
+    try {
+      const res = await apiFetch('/api/admin/logs');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const logs = data.logs || [];
+
+      if (logsCounter) {
+        logsCounter.textContent = `${logs.length} logged events (7-day window)`;
+      }
+
+      if (!logs.length) {
+        logsList.innerHTML = '<div class="auth-logs-empty">No activity recorded yet in the last 7 days.</div>';
+        return;
+      }
+
+      logsList.innerHTML = '';
+      logs.forEach((log) => {
+        const item = document.createElement('div');
+        const isErr = log.status_code >= 400;
+        item.className = `auth-log-item${isErr ? ' is-error' : ''}`;
+
+        let detailText = '';
+        if (log.input_data) detailText += `In: ${log.input_data}\n`;
+        if (log.error_message) detailText += `Error: ${log.error_message}\n`;
+        else if (log.output_data) detailText += `Out: ${log.output_data}\n`;
+
+        item.innerHTML = `
+          <div class="auth-log-head">
+            <div class="auth-log-badge-group">
+              <span class="auth-log-badge ${isErr ? 'badge-error' : 'badge-success'}">${log.status_code}</span>
+              <span class="auth-log-action">${escapeHtml(log.action)}</span>
+            </div>
+            <span class="auth-log-time">${escapeHtml(log.timestamp)}</span>
+          </div>
+          <div class="auth-log-route">${escapeHtml(log.method)} ${escapeHtml(log.endpoint)} &bull; ${escapeHtml(log.ip || 'local')}</div>
+          ${detailText ? `<div class="auth-log-detail">${escapeHtml(detailText.trim())}</div>` : ''}
+        `;
+        logsList.appendChild(item);
+      });
+    } catch (err) {
+      logsList.innerHTML = `<div class="auth-logs-empty auth-log-err">Failed to load logs: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  toggleLogsBtn?.addEventListener('click', () => {
+    if (logsSection.hidden) {
+      logsSection.hidden = false;
+      authContainer?.classList.add('has-logs');
+      toggleLogsBtn.textContent = 'Hide Activity Logs';
+      loadActivityLogs();
+    } else {
+      logsSection.hidden = true;
+      authContainer?.classList.remove('has-logs');
+      toggleLogsBtn.textContent = 'Activity Logs (7 Days)';
+    }
+  });
+
+  refreshLogsBtn?.addEventListener('click', loadActivityLogs);
+
   window.adminAuth = Object.freeze({
     apiFetch,
+    uploadWithProgress,
+    loadLogs: loadActivityLogs,
     refresh: checkStatus,
     open: (mode = 'login') => navigate(mode === 'register' ? '/register' : '/login'),
     navigate,

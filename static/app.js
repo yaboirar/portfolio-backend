@@ -1287,11 +1287,19 @@
       vid.controls = true;
       vid.muted = true;
       vid.playsInline = true;
+      vid.preload = 'metadata';
+      vid.style.maxWidth = '100%';
+      vid.style.maxHeight = '180px';
+      vid.style.borderRadius = '8px';
       dom.dropPreview.appendChild(vid);
     } else if (file.type.startsWith('image/')) {
       const img = document.createElement('img');
       img.src = blobUrl;
-      img.alt = '';
+      img.alt = file.name || 'Upload preview';
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '180px';
+      img.style.borderRadius = '8px';
+      img.style.objectFit = 'contain';
       dom.dropPreview.appendChild(img);
     }
   }
@@ -1319,14 +1327,29 @@
     dom.uploadMeterFill.style.width = '0%';
     dom.uploadStatus.textContent = '0%';
 
-    showFooterProgress(file, null, 'Sizing');
+    showFooterProgress(file, 0, 'Uploading');
 
     try {
-      updateFooterProgress(30, 'Uploading');
-      const res = await window.adminAuth.apiFetch('/api/upload', {
-        method: 'POST',
-        body: fd,
-      });
+      let res;
+      if (window.adminAuth?.uploadWithProgress) {
+        res = await window.adminAuth.uploadWithProgress('/api/upload', fd, (pct) => {
+          dom.uploadMeterFill.style.width = `${pct}%`;
+          if (pct >= 99) {
+            dom.uploadStatus.textContent = 'Processing & Transcoding…';
+            updateFooterProgress(99, 'Processing & Transcoding…');
+          } else {
+            dom.uploadStatus.textContent = `${pct}%`;
+            updateFooterProgress(pct, `Uploading ${pct}%`);
+          }
+        });
+      } else {
+        const fetchRes = await window.adminAuth.apiFetch('/api/upload', {
+          method: 'POST',
+          body: fd,
+        });
+        const data = await fetchRes.json();
+        res = { ok: fetchRes.ok, status: fetchRes.status, data };
+      }
 
       dom.uploadSubmit.disabled = false;
       if (res.ok) {
@@ -1345,8 +1368,9 @@
         completeFooterProgress(t('loginRequired'));
         window.adminAuth?.open();
       } else {
-        dom.uploadStatus.textContent = `Error ${res.status}`;
-        completeFooterProgress(`Error ${res.status}`);
+        const errMsg = res.error || (res.data && (res.data.error || res.data.message)) || `Error ${res.status}`;
+        dom.uploadStatus.textContent = errMsg;
+        completeFooterProgress(errMsg);
       }
     } catch (err) {
       dom.uploadSubmit.disabled = false;
