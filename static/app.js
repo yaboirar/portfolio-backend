@@ -215,7 +215,7 @@
     uploadDock: document.getElementById('upload-dock'),
     uploadClose: document.getElementById('upload-close'),
     uploadTabs: document.querySelectorAll('.upload-tab'),
-    adminModal: document.getElementById('admin-modal'),
+    adminModal: document.getElementById('auth-page'),
     uploadAuthBanner: document.getElementById('upload-auth-banner'),
     btnBannerAuth: document.getElementById('btn-banner-auth'),
 
@@ -1835,7 +1835,7 @@
   async function init() {
     const savedTheme = localStorage.getItem('portfolio_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    const modalEl = document.getElementById('admin-modal');
+    const modalEl = document.getElementById('auth-page');
     if (modalEl) {
       modalEl.setAttribute('data-login-theme', savedTheme);
     }
@@ -1901,7 +1901,7 @@
       const next = cur === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('portfolio_theme', next);
-      const modalEl = document.getElementById('admin-modal');
+      const modalEl = document.getElementById('auth-page');
       if (modalEl) {
         modalEl.setAttribute('data-login-theme', next);
       }

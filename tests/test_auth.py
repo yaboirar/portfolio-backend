@@ -119,9 +119,11 @@ class AuthTests(unittest.TestCase):
         self.assertNotEqual(row['token_hash'], cookie.split('=')[1])
 
     def test_registration_and_master_headers_rejected(self):
-        for method in ('GET', 'POST', 'PUT', 'DELETE'):
+        for method in ('GET', 'PUT', 'DELETE'):
             status, _, _ = self.request(method, '/api/auth/register', {'setup_key': 'anything'})
-            self.assertEqual(status, 404)
+            self.assertIn(status, (404, 405))
+        status, _, _ = self.request('POST', '/api/auth/register', {'setup_key': 'anything'})
+        self.assertIn(status, (400, 403))
         cookie, _, _, _ = self.login()
         token = cookie.split('=')[1]
         for headers in ({'X-Admin-Token': token}, {'Authorization': 'Bearer ' + token}, {'Cookie': 'session_token=' + token}):

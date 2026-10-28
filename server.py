@@ -498,7 +498,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             self.serve_file_with_range(safe_target, head_only=head_only)
             return
 
-        if path == "/" or path == "/dashboard":
+        if path in ("/", "/dashboard", "/login", "/register"):
             safe_index = resolve_safe_path(STATIC_DIR, "index.html")
             if safe_index:
                 self.serve_file_with_range(safe_index, head_only=head_only)

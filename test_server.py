@@ -551,12 +551,12 @@ def test_suite():
         assert st_data["username"] is None
         assert st_data["csrf_token"] is None
 
-        # 15b: Registration endpoints must be completely removed/disabled -> 404
+        # 15b: Registration by strangers blocked when admin exists -> 403
         reg_code, _, _ = http_post_json("/api/auth/register", {
             "username": "stranger",
             "password": "Password12345678"
         }, headers={"Origin": BASE_URL, "X-Requested-With": "portfolio-admin"})
-        assert reg_code == 404, f"Expected 404 for removed register route, got {reg_code}"
+        assert reg_code == 403, f"Expected 403 for stranger register route, got {reg_code}"
 
         # 15c: Legacy verify endpoint must be completely removed -> 404
         ver_code, _, _ = http_get("/api/auth/verify")
