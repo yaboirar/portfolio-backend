@@ -27,7 +27,7 @@ Explicitly verifies all audit findings and requirements:
 14. Content Security Policy: Includes connect-src 'self' for dashboard/API fetch compatibility.
 15. Cookie-only authentication, CSRF protection, and removal of master-token & browser registration:
     - Status check reports unauthenticated.
-    - Legacy /api/auth/register and /api/auth/verify endpoints return 404.
+    - Legacy /ventilover67adminlogin/api/auth/register and /ventilover67adminlogin/api/auth/verify endpoints return 404.
     - API write operations guard against cross-origin and missing CSRF tokens.
     - Login succeeds with correct credentials and returns HttpOnly SameSite cookie and CSRF token.
     - Authenticated write actions succeed with valid session and CSRF token.
@@ -109,7 +109,10 @@ def create_valid_test_jpeg() -> bytes:
     """Builds a real, decodable JPEG image."""
     im = Image.new('RGB', (100, 100), color=(50, 100, 150))
     buf = io.BytesIO()
-    im.save(buf, format='JPEG', quality=90)
+    exif = Image.Exif()
+    exif[274] = 6
+    exif[270] = 'Metadata preservation fixture'
+    im.save(buf, format='JPEG', quality=90, exif=exif)
     return buf.getvalue()
 
 
@@ -315,7 +318,11 @@ def test_suite():
             img_item = json.loads(resp.read().decode("utf-8"))
 
         saved_img = UPLOADS_DIR / "images" / img_item["filename"]
+        assert saved_img.read_bytes() == valid_jpeg_bytes, 'Original image bytes and metadata must be preserved'
+        assert img_item['original_filename'] == 'photo.jpg'
         with Image.open(saved_img) as decoded_im:
+            assert decoded_im.getexif()[274] == 6
+            assert decoded_im.getexif()[270] == 'Metadata preservation fixture'
             decoded_im.verify()
         saved_img.unlink()
         database.delete_media_final(img_item["id"])
@@ -454,9 +461,11 @@ def test_suite():
 
         v_id = v_item["id"]
         v_url = v_item["relative_url"]
+        assert v_url.endswith('.mp4'), 'Backend uploads must default to the original video, not HLS'
+        assert v_item['original_filename'] == 'myreel.mp4'
 
         # Before deletion, file URL serves 200
-        status, _, _ = http_get(v_url)
+        status, _, _ = http_get(v_url, headers=auth_headers())
         assert status == 200
 
         # Simulate disk unlink failure
@@ -474,12 +483,12 @@ def test_suite():
 
         # Verify status is pending_delete:
         # 1. Public catalog hides it
-        pub_status, _, pub_body = http_get("/api/media")
+        pub_status, _, pub_body = http_get("/api/media", headers=auth_headers())
         pub_data = json.loads(pub_body.decode("utf-8"))
         assert not any(m["id"] == v_id for m in pub_data["media"])
 
         # 2. Direct file URL returns 404 (file access blocked)
-        file_status, _, _ = http_get(v_url)
+        file_status, _, _ = http_get(v_url, headers=auth_headers())
         assert file_status == 404, f"Pending delete asset must return 404, got {file_status}"
 
         # 3. Retry deletion succeeds and purges record
@@ -511,14 +520,22 @@ def test_suite():
 
         try:
             # Suffix range
-            s_code, _, b = http_get("/uploads/videos/range_test.mp4", headers={"Range": "bytes=-3"})
+            s_code, _, b = http_get("/uploads/videos/range_test.mp4", headers=auth_headers({"Range": "bytes=-3"}))
             assert s_code == 206 and b == b"789"
             # Capped range
-            s_code, _, b = http_get("/uploads/videos/range_test.mp4", headers={"Range": "bytes=0-999"})
+            s_code, _, b = http_get("/uploads/videos/range_test.mp4", headers=auth_headers({"Range": "bytes=0-999"}))
             assert s_code == 206 and len(b) == 10
             # 416 with Content-Length: 0
-            s_code, h, _ = http_get("/uploads/videos/range_test.mp4", headers={"Range": "bytes=20-30"})
+            s_code, h, _ = http_get("/uploads/videos/range_test.mp4", headers=auth_headers({"Range": "bytes=20-30"}))
             assert s_code == 416 and h.get("Content-Length") == "0"
+            code, cache_headers, original_body = http_get('/uploads/videos/range_test.mp4', headers=auth_headers())
+            assert code == 200 and 'private' in cache_headers['Cache-Control'] and 'no-cache' in cache_headers['Cache-Control']
+            etag = cache_headers['ETag']
+            cached_code, _, cached_body = http_get('/uploads/videos/range_test.mp4', headers=auth_headers({'If-None-Match': etag}))
+            assert cached_code == 304 and cached_body == b''
+            assert http_get('/uploads/videos/range_test.mp4', headers={'If-None-Match': etag})[0] == 401
+            stale_code, _, stale_body = http_get('/uploads/videos/range_test.mp4', headers=auth_headers({'Range': 'bytes=0-2', 'If-Range': '"old"'}))
+            assert stale_code == 200 and stale_body == original_body
             print("  ✓ Test 12: RFC 9110 ranges verified (suffix range, capped end, 416 with Content-Length: 0)")
         finally:
             test_file.unlink()
@@ -527,7 +544,7 @@ def test_suite():
         # =====================================================================
         # TEST 13: Path Traversal & Symlink Attacks
         # =====================================================================
-        status, _, _ = http_get("/uploads/../uploads_private/probe.txt")
+        status, _, _ = http_get("/uploads/../uploads_private/probe.txt", headers=auth_headers())
         assert status == 404
         print("  ✓ Test 13: Path traversal strictly blocked with 404")
 
@@ -540,26 +557,65 @@ def test_suite():
         assert headers.get("X-Content-Type-Options") == "nosniff"
         print("  ✓ Test 14: CSP and security headers verified")
 
+        # Public placeholder and private admin routes are separate documents.
+        code, _, page = http_get("/")
+        assert code == 200 and b'Frames &amp;' in page and b'form-auth-login' not in page
+        assert b'ventilover67adminlogin' not in page and b'Connect API' not in page
+        for path in ("/dashboard", "/login", "/register", "/api/auth/status", auth.ADMIN_PREFIX + '/dashboard'):
+            code, headers, _ = http_get(path)
+            assert code == 404 and not headers.get('Location'), f"Old route disclosed admin location: {path}"
+        old_login_code, _, _ = http_post_json('/api/auth/login', {'username': test_username, 'password': test_password}, headers={'Origin': BASE_URL, 'X-Requested-With': 'portfolio-admin'})
+        assert old_login_code == 404
+        for path in (auth.ADMIN_PREFIX, '/MILV67'):
+            code, _, page = http_get(path)
+            assert code == 200 and b'data-page="login"' in page
+            assert b'panel-media' not in page and b'/static/app.js' not in page
+        for path in ("/api/media", "/api/media/1", "/api/poems", "/api/poems/1", "/api/stats", "/api/admin/logs", "/uploads/images/probe.jpg", "/static/index.html", "/static/%69ndex.html", "/static/app.js"):
+            code, _, _ = http_get(path)
+            assert code in (401, 404), f"Private path exposed: {path} -> {code}"
+        for path in ("/api/media", "/api/poems", "/api/stats", "/api/admin/logs", '/MILV67'):
+            code, protected_headers, _ = http_get(path, headers=auth_headers())
+            assert code == 200, f"Authenticated access failed: {path} -> {code}"
+            assert 'no-store' in protected_headers.get('Cache-Control', '')
+        for path in (auth.ADMIN_PREFIX + '/assets/auth-ui.css', auth.ADMIN_PREFIX + '/assets/auth-ui.js'):
+            assert http_get(path)[0] == 200
+        for path in ('/public/app.js', '/public/style.css'):
+            code, _, asset = http_get(path)
+            assert code == 200 and b'ventilover67adminlogin' not in asset
+        assert http_get('/api/admin/easter-egg/status')[0] == 401
+        with mock.patch('server.easter_egg.check_connection', return_value={'configured': True, 'connected': True, 'status': 'connected'}), mock.patch('server.easter_egg.get_account_summary', return_value={'status': 'connected', 'username': 'Example', 'user_id': 7, 'favorite_count': 42}):
+            code, secret_headers, secret_body = http_get('/api/admin/easter-egg/status', headers=auth_headers())
+            page_code, _, check_page = http_get(auth.ADMIN_PREFIX + '/easter-egg', headers=auth_headers())
+            assert page_code == 200 and b'id="easter-dialog"' in check_page and b'<title>MILV67</title>' in check_page
+        assert http_get(auth.ADMIN_PREFIX + '/easter-egg')[0] == 401
+        assert code == 200 and set(json.loads(secret_body)) == {'configured', 'connected', 'status'}
+        assert isinstance(json.loads(secret_body)['configured'], bool)
+        assert secret_headers.get('Cache-Control') == 'no-store'
+        print("  ✓ Public placeholder and private admin: old routes removed, protected reads/media/dashboard, authenticated access preserved")
+        code, _, workspace = http_get('/MILV67', headers=auth_headers())
+        assert code == 200 and b'/static/files.js' in workspace
+        assert b'hls.min.js' not in workspace and b'<video' not in workspace and b'ambient-stage' not in workspace
+
         # =====================================================================
         # TEST 15: Cookie-Only Auth, CSRF Guards, Removal of Master Token & Browser Registration
         # =====================================================================
         # 15a: Initial unauthenticated status check
-        st_code, _, st_raw = http_get("/api/auth/status")
+        st_code, _, st_raw = http_get("/ventilover67adminlogin/api/auth/status")
         assert st_code == 200
         st_data = json.loads(st_raw)
         assert st_data["authenticated"] is False
         assert st_data["username"] is None
         assert st_data["csrf_token"] is None
 
-        # 15b: Registration by strangers blocked when admin exists -> 403
-        reg_code, _, _ = http_post_json("/api/auth/register", {
+        # 15b: Browser registration is removed entirely -> 404
+        reg_code, _, _ = http_post_json("/ventilover67adminlogin/api/auth/register", {
             "username": "stranger",
             "password": "Password12345678"
         }, headers={"Origin": BASE_URL, "X-Requested-With": "portfolio-admin"})
-        assert reg_code == 403, f"Expected 403 for stranger register route, got {reg_code}"
+        assert reg_code == 404, f"Expected 404 for removed register route, got {reg_code}"
 
         # 15c: Legacy verify endpoint must be completely removed -> 404
-        ver_code, _, _ = http_get("/api/auth/verify")
+        ver_code, _, _ = http_get("/ventilover67adminlogin/api/auth/verify")
         assert ver_code == 404, f"Expected 404 for removed verify route, got {ver_code}"
 
         # 15d: Write operation rejected when cross-origin or missing custom header -> 403
@@ -570,7 +626,7 @@ def test_suite():
         assert bad_origin_code == 403
 
         # 15e: Write operation with valid session but missing CSRF token rejected -> 401
-        no_csrf_code, _, _ = http_post_json("/api/poems", {
+        no_csrf_code, no_csrf_headers, _ = http_post_json("/api/poems", {
             "title": "No CSRF Poem",
             "content": "CSRF test payload"
         }, headers={
@@ -579,16 +635,17 @@ def test_suite():
             "X-Requested-With": "portfolio-admin"
         })
         assert no_csrf_code == 401
+        assert no_csrf_headers.get("Connection", "").lower() == "close", "Rejected write must close the connection with unread body"
 
         # 15f: Login with bad credentials fails with 401
-        bad_login_code, _, _ = http_post_json("/api/auth/login", {
+        bad_login_code, _, _ = http_post_json("/ventilover67adminlogin/api/auth/login", {
             "username": test_username,
             "password": "WrongPassword12345"
         }, headers={"Origin": BASE_URL, "X-Requested-With": "portfolio-admin"})
         assert bad_login_code == 401
 
         # 15g: Login with valid credentials succeeds, sets HttpOnly cookie and returns CSRF token
-        login_code, login_headers, login_raw = http_post_json("/api/auth/login", {
+        login_code, login_headers, login_raw = http_post_json("/ventilover67adminlogin/api/auth/login", {
             "username": test_username,
             "password": test_password
         }, headers={"Origin": BASE_URL, "X-Requested-With": "portfolio-admin"})
@@ -611,7 +668,7 @@ def test_suite():
         fresh_session_token = m.group(1)
 
         # 15h: Status check returns authenticated with matching username and csrf_token
-        auth_st_code, _, auth_st_raw = http_get("/api/auth/status", headers={
+        auth_st_code, _, auth_st_raw = http_get("/ventilover67adminlogin/api/auth/status", headers={
             "Cookie": f"{cookie_name}={fresh_session_token}"
         })
         assert auth_st_code == 200
@@ -633,8 +690,32 @@ def test_suite():
         assert poem_code == 201
         poem_id = json.loads(poem_raw)["id"]
 
+        # Metadata editing must require auth/CSRF and preserve original-file fields.
+        edit_fixture = database.create_media('Before', 'Original description', 'image', 'edit-fixture.png', '/uploads/images/edit-fixture.png', 1234, 'image/png', 'Camera original.png')
+        patch_url = BASE_URL + '/api/media/' + str(edit_fixture['id'])
+        edit_headers = {"Cookie": f"{cookie_name}={fresh_session_token}", "Origin": BASE_URL, "X-Requested-With": "portfolio-admin", "X-CSRF-Token": login_csrf, "Content-Type": "application/json"}
+        def patch_metadata(payload, headers):
+            request = urllib.request.Request(patch_url, data=json.dumps(payload).encode(), method='PATCH', headers=headers)
+            try:
+                with urllib.request.urlopen(request) as response:
+                    return response.status, json.loads(response.read())
+            except urllib.error.HTTPError as error:
+                return error.code, json.loads(error.read())
+        assert patch_metadata({'title': 'Blocked'}, {})[0] in (401, 403)
+        assert patch_metadata({'title': 'Blocked'}, {key:value for key,value in edit_headers.items() if key != 'X-CSRF-Token'})[0] in (401, 403)
+        for invalid in ([], {'title':''}, {'title':'x'*201}, {'title':'Valid', 'description':42}):
+            assert patch_metadata(invalid, edit_headers)[0] == 400
+        edit_code, edited = patch_metadata({'title':'After', 'description':'Updated description'}, edit_headers)
+        assert edit_code == 200 and edited['title'] == 'After' and edited['description'] == 'Updated description'
+        for field in ('filename','original_filename','file_size','mime_type','relative_url','created_at','status'):
+            assert edited[field] == edit_fixture[field], field
+        database.mark_media_pending_delete(edit_fixture['id'])
+        assert patch_metadata({'title':'Hidden'}, edit_headers)[0] == 404
+        database.delete_media_final(edit_fixture['id'])
+        print('  ✓ Media edit authentication, CSRF, validation, and original metadata preservation verified')
+
         # 15j: Logout revokes session and clears cookie
-        logout_code, logout_headers, _ = http_post_json("/api/auth/logout", {}, headers={
+        logout_code, logout_headers, _ = http_post_json("/ventilover67adminlogin/api/auth/logout", {}, headers={
             "Cookie": f"{cookie_name}={fresh_session_token}",
             "Origin": BASE_URL,
             "X-Requested-With": "portfolio-admin",

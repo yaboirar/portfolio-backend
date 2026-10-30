@@ -101,7 +101,7 @@ class AuthTests(unittest.TestCase):
         return result
 
     def login(self):
-        status, headers, data = self.request('POST', '/api/auth/login', {'username': 'owner', 'password': 'a long private password 123'})
+        status, headers, data = self.request('POST', '/ventilover67adminlogin/api/auth/login', {'username': 'owner', 'password': 'a long private password 123'})
         self.assertEqual(status, 200)
         return headers['Set-Cookie'].split(';')[0], data['csrf_token'], headers, data
 
@@ -111,7 +111,7 @@ class AuthTests(unittest.TestCase):
         for flag in ('HttpOnly', 'Secure', 'SameSite=Strict', 'Path=/'):
             self.assertIn(flag, headers['Set-Cookie'])
         self.assertTrue(cookie.startswith('__Host-admin_session='))
-        status, _, data = self.request('GET', '/api/auth/status', cookie=cookie)
+        status, _, data = self.request('GET', '/ventilover67adminlogin/api/auth/status', cookie=cookie)
         self.assertEqual(status, 200)
         self.assertTrue(data['authenticated'])
         self.assertEqual(data['csrf_token'], csrf)
@@ -121,15 +121,66 @@ class AuthTests(unittest.TestCase):
 
     def test_registration_and_master_headers_rejected(self):
         for method in ('GET', 'PUT', 'DELETE'):
-            status, _, _ = self.request(method, '/api/auth/register', {'setup_key': 'anything'})
+            status, _, _ = self.request(method, '/ventilover67adminlogin/api/auth/register', {'setup_key': 'anything'})
             self.assertIn(status, (404, 405))
-        status, _, _ = self.request('POST', '/api/auth/register', {'setup_key': 'anything'})
-        self.assertIn(status, (400, 403))
+        status, _, _ = self.request('POST', '/ventilover67adminlogin/api/auth/register', {'setup_key': 'anything'})
+        self.assertEqual(status, 404)
         cookie, _, _, _ = self.login()
         token = cookie.split('=')[1]
         for headers in ({'X-Admin-Token': token}, {'Authorization': 'Bearer ' + token}, {'Cookie': 'session_token=' + token}):
             status, _, _ = self.request('GET', '/api/private', extra=headers)
             self.assertEqual(status, 401)
+
+    def test_registration_cannot_create_first_admin(self):
+        # Exercise the former public bootstrap and special-username exceptions.
+        with get_db() as conn:
+            saved = [dict(row) for row in conn.execute('SELECT * FROM admins')]
+            conn.execute('DELETE FROM admins')
+        try:
+            for username in ('stranger', 'yaboirar'):
+                status, headers, _ = self.request('POST', '/ventilover67adminlogin/api/auth/register', {
+                    'username': username, 'password': 'a long attacker password 123'})
+                self.assertEqual(status, 404)
+                self.assertNotIn('Set-Cookie', headers)
+            with get_db() as conn:
+                self.assertEqual(conn.execute('SELECT COUNT(*) FROM admins').fetchone()[0], 0)
+                self.assertEqual(conn.execute('SELECT COUNT(*) FROM auth_sessions').fetchone()[0], 0)
+        finally:
+            with get_db() as conn:
+                for row in saved:
+                    columns = ','.join(row)
+                    placeholders = ','.join('?' for _ in row)
+                    conn.execute(f'INSERT INTO admins ({columns}) VALUES ({placeholders})', tuple(row.values()))
+
+    def test_registration_cannot_reset_or_create_accounts_when_authenticated(self):
+        cookie, csrf, _, _ = self.login()
+        with get_db() as conn:
+            before = [tuple(row) for row in conn.execute('SELECT * FROM admins ORDER BY id')]
+        for username in ('owner', 'yaboirar', 'stranger'):
+            for session in (None, cookie):
+                status, headers, _ = self.request('POST', '/ventilover67adminlogin/api/auth/register', {
+                    'username': username, 'password': 'a long attacker password 123'},
+                    cookie=session, extra={'X-CSRF-Token': csrf})
+                self.assertEqual(status, 404)
+                self.assertNotIn('Set-Cookie', headers)
+        with get_db() as conn:
+            self.assertEqual([tuple(row) for row in conn.execute('SELECT * FROM admins ORDER BY id')], before)
+        self.assertEqual(self.request('GET', '/api/private', cookie=cookie)[0], 200)
+
+    def test_public_status_does_not_disclose_account_count(self):
+        status, headers, data = self.request('GET', '/ventilover67adminlogin/api/auth/status')
+        self.assertEqual(status, 200)
+        self.assertEqual(headers['Cache-Control'], 'no-store')
+        self.assertEqual(data, {'authenticated': False, 'username': None, 'csrf_token': None})
+
+    def test_legacy_auth_routes_do_not_accept_credentials_or_disclose_new_path(self):
+        for path in ('/api/auth/login', '/api/auth/logout', '/api/auth/register', '/api/auth/status'):
+            for method in ('GET', 'POST'):
+                status, headers, _ = self.request(method, path, {
+                    'username': 'owner', 'password': 'a long private password 123'})
+                self.assertEqual(status, 404)
+                self.assertNotIn('Location', headers)
+                self.assertNotIn('Set-Cookie', headers)
 
     def test_csrf_and_origin_enforced_on_every_write_method(self):
         cookie, csrf, _, _ = self.login()
@@ -137,20 +188,20 @@ class AuthTests(unittest.TestCase):
             self.assertEqual(self.request(method, '/api/private', cookie=cookie)[0], 401)
             self.assertEqual(self.request(method, '/api/private', cookie=cookie, extra={'X-CSRF-Token': csrf})[0], 200)
             self.assertEqual(self.request(method, '/api/private', cookie=cookie, extra={'X-CSRF-Token': csrf}, origin='https://evil.example')[0], 403)
-        self.assertEqual(self.request('POST', '/api/auth/login', {'username': 'owner', 'password': 'x'}, origin='https://evil.example')[0], 403)
+        self.assertEqual(self.request('POST', '/ventilover67adminlogin/api/auth/login', {'username': 'owner', 'password': 'x'}, origin='https://evil.example')[0], 403)
         self.assertEqual(self.request('POST', '/api/private', cookie=cookie, extra={'X-CSRF-Token': '\xe9'})[0], 401)
 
     def test_logout_revokes_cookie(self):
         cookie, csrf, _, _ = self.login()
-        status, headers, _ = self.request('POST', '/api/auth/logout', cookie=cookie, extra={'X-CSRF-Token': csrf})
+        status, headers, _ = self.request('POST', '/ventilover67adminlogin/api/auth/logout', cookie=cookie, extra={'X-CSRF-Token': csrf})
         self.assertEqual(status, 200)
         self.assertIn('Max-Age=0', headers['Set-Cookie'])
         self.assertEqual(self.request('GET', '/api/private', cookie=cookie)[0], 401)
 
     def test_rate_limit_persistent(self):
         for _ in range(6):
-            self.assertEqual(self.request('POST', '/api/auth/login', {'username': 'missing', 'password': 'incorrect'})[0], 401)
-        status, headers, _ = self.request('POST', '/api/auth/login', {'username': 'missing', 'password': 'incorrect'})
+            self.assertEqual(self.request('POST', '/ventilover67adminlogin/api/auth/login', {'username': 'missing', 'password': 'incorrect'})[0], 401)
+        status, headers, _ = self.request('POST', '/ventilover67adminlogin/api/auth/login', {'username': 'missing', 'password': 'incorrect'})
         self.assertEqual(status, 429)
         self.assertEqual(headers['Retry-After'], '600')
         auth.init_auth()
@@ -161,7 +212,7 @@ class AuthTests(unittest.TestCase):
         with get_db() as conn:
             conn.execute('INSERT INTO admins(username,password_hash,salt,created_at,password_iterations) VALUES(?,?,?,?,?)',
                          ('legacy', digest, salt, 'old', 200_000))
-        status, _, _ = self.request('POST', '/api/auth/login', {'username': 'legacy', 'password': 'legacy secret'})
+        status, _, _ = self.request('POST', '/ventilover67adminlogin/api/auth/login', {'username': 'legacy', 'password': 'legacy secret'})
         self.assertEqual(status, 200)
         with get_db() as conn:
             row = conn.execute('SELECT password_iterations,password_hash FROM admins WHERE username=?', ('legacy',)).fetchone()
@@ -188,11 +239,11 @@ class AuthTests(unittest.TestCase):
 
     def test_input_limits_and_generic_errors(self):
         for body in ([], {'username': 1, 'password': 'x'}, {'username': 'owner', 'password': 'x'*129}):
-            self.assertEqual(self.request('POST', '/api/auth/login', body)[0], 400)
-        status, _, _ = self.request('POST', '/api/auth/login', {'username': 'owner', 'password': 'x'*5000})
+            self.assertEqual(self.request('POST', '/ventilover67adminlogin/api/auth/login', body)[0], 400)
+        status, _, _ = self.request('POST', '/ventilover67adminlogin/api/auth/login', {'username': 'owner', 'password': 'x'*5000})
         self.assertEqual(status, 413)
         for name in ('owner', 'nobody'):
-            status, _, data = self.request('POST', '/api/auth/login', {'username': name, 'password': 'incorrect'})
+            status, _, data = self.request('POST', '/ventilover67adminlogin/api/auth/login', {'username': name, 'password': 'incorrect'})
             self.assertEqual(status, 401)
             self.assertEqual(data['message'], 'Incorrect username or password')
 

@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import time
+import ipaddress
 from http.cookies import SimpleCookie, CookieError
 from urllib.parse import urlsplit
 
@@ -24,6 +25,7 @@ def safe_log_activity(*args, **kwargs):
 
 
 ITERATIONS = 600_000
+ADMIN_PREFIX = '/ventilover67adminlogin'
 SESSION_SECONDS = 8 * 60 * 60
 IDLE_SECONDS = 30 * 60
 MAX_BODY = 4096
@@ -66,7 +68,7 @@ def validate_origin():
         raise RuntimeError('Set PUBLIC_ORIGIN to the exact site origin, e.g. https://example.com')
     is_ip = bool(re.fullmatch(r'\d+\.\d+\.\d+\.\d+', parsed.hostname))
     is_local = parsed.hostname in ('localhost', '127.0.0.1', '::1')
-    allow_insecure = os.environ.get('ALLOW_INSECURE_HTTP') == '1' or is_ip
+    allow_insecure = os.environ.get('ALLOW_INSECURE_HTTP') == '1'
     if parsed.scheme == 'http' and not (is_local or allow_insecure):
         raise RuntimeError('HTTPS is required outside localhost')
     return origin
@@ -167,7 +169,8 @@ def validate_session(token):
         if row['expires_at'] <= now or row['last_seen'] <= now-IDLE_SECONDS:
             conn.execute('DELETE FROM auth_sessions WHERE token_hash=?', (digest_token(token),))
             return None
-        conn.execute('UPDATE auth_sessions SET last_seen=? WHERE token_hash=?', (now, digest_token(token)))
+        if row['last_seen'] <= now - 60:
+            conn.execute('UPDATE auth_sessions SET last_seen=? WHERE token_hash=?', (now, digest_token(token)))
         return dict(row)
 
 
@@ -198,6 +201,14 @@ def allow_login(ip, username):
 
 class AuthMixin:
     """Put first in your HTTP request handler's base classes."""
+    def client_ip(self):
+        peer=self.client_address[0]
+        try:
+            if ipaddress.ip_address(peer).is_loopback:
+                forwarded=self.headers.get('X-Forwarded-For','').split(',')[-1].strip()
+                if forwarded:return str(ipaddress.ip_address(forwarded))
+        except ValueError:pass
+        return peer
     def _cookie_name(self):
         return '__Host-admin_session' if validate_origin().startswith('https://') else 'admin_session_local'
 
@@ -259,9 +270,16 @@ class AuthMixin:
     def handle_auth(self):
         """At top of GET/POST (and other methods). True means handled."""
         path = urlsplit(self.path).path
+        if path.startswith(ADMIN_PREFIX + '/api/auth/'):
+            path = path[len(ADMIN_PREFIX):]
+        elif path.startswith('/api/auth/'):
+            self._auth_json(404, {'message': 'Not found'})
+            return True
+        else:
+            return False
         if not path.startswith('/api/auth/'):
             return False
-        if path not in ('/api/auth/status', '/api/auth/login', '/api/auth/logout', '/api/auth/register'):
+        if path not in ('/api/auth/status', '/api/auth/login', '/api/auth/logout'):
             self._auth_json(404, {'message': 'Not found'})
             return True
         method = 'GET' if path.endswith('/status') else 'POST'
@@ -270,65 +288,11 @@ class AuthMixin:
             return True
         if method == 'GET':
             user = self.get_authenticated_user()
-            with database.get_db() as conn:
-                admin_count = conn.execute('SELECT COUNT(*) as c FROM admins').fetchone()['c']
             self._auth_json(200, {'authenticated': bool(user), 'username': user['username'] if user else None,
-                                 'csrf_token': csrf_for(self.get_auth_token()) if user else None,
-                                 'admin_count': admin_count})
+                                 'csrf_token': csrf_for(self.get_auth_token()) if user else None})
             return True
         if not self._origin_ok():
             self._auth_json(403, {'message': 'Request not allowed'})
-            return True
-        if path.endswith('/register'):
-            if (self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/json'
-                    or self.headers.get('Transfer-Encoding')):
-                self._auth_json(415, {'message': 'JSON required'})
-                return True
-            try:
-                length = int(self.headers.get('Content-Length', '0'))
-                if not 0 < length <= MAX_BODY:
-                    self._auth_json(413, {'message': 'Invalid request size'})
-                    return True
-                body = json.loads(self.rfile.read(length))
-                if not isinstance(body, dict):
-                    raise ValueError()
-                username, password = validate_credentials(body.get('username'), body.get('password'), True)
-            except ValueError as err:
-                self._auth_json(400, {'message': str(err) or 'Invalid registration request'})
-                return True
-            except UnicodeError:
-                self._auth_json(400, {'message': 'Invalid character encoding'})
-                return True
-
-            with database.get_db() as conn:
-                admin_count = conn.execute('SELECT COUNT(*) as c FROM admins').fetchone()['c']
-                existing_user = conn.execute('SELECT id FROM admins WHERE username=? COLLATE NOCASE', (username,)).fetchone()
-
-            if existing_user and existing_user['id']:
-                safe_log_activity('register_failed', 'POST', '/api/auth/register', 409, self.client_address[0], input_data={'username': username}, error_message='Account already exists')
-                self._auth_json(409, {'message': f"Account '{username}' already exists. Please sign in."})
-                return True
-
-            if admin_count > 0 and username.lower() != 'yaboirar' and not self.is_authenticated():
-                safe_log_activity('register_failed', 'POST', '/api/auth/register', 403, self.client_address[0], input_data={'username': username}, error_message='Registration closed')
-                self._auth_json(403, {'message': 'Registration is closed. Please sign in.'})
-                return True
-
-            set_admin_password(username, password)
-            admin = authenticate(username, password)
-            if not admin:
-                safe_log_activity('register_failed', 'POST', '/api/auth/register', 500, self.client_address[0], input_data={'username': username}, error_message='Registration error')
-                self._auth_json(500, {'message': 'Registration error'})
-                return True
-
-            delete_session(self.get_auth_token())
-            token = create_session(admin['id'], admin['password_hash'])
-            if not token:
-                self._auth_json(500, {'message': 'Session creation error'})
-                return True
-
-            safe_log_activity('register_success', 'POST', '/api/auth/register', 201, self.client_address[0], input_data={'username': username})
-            self._auth_json(201, {'success': True, 'username': admin['username'], 'csrf_token': csrf_for(token)}, self._cookie(token))
             return True
         if path.endswith('/logout'):
             if not self.is_authenticated():
@@ -354,8 +318,8 @@ class AuthMixin:
         except (ValueError, UnicodeError):
             self._auth_json(400, {'message': 'Invalid login request'})
             return True
-        # Do not trust forwarded IP headers; a local reverse proxy shares this IP budget.
-        if not allow_login(self.client_address[0], username):
+        # Only the loopback-bound trusted reverse proxy may supply the client IP.
+        if not allow_login(self.client_ip(), username):
             safe_log_activity('login_rate_limited', 'POST', '/api/auth/login', 429, self.client_address[0], input_data={'username': username})
             self._auth_json(429, {'message': 'Too many attempts. Try again in 10 minutes.'}, retry=True)
             return True

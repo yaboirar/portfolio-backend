@@ -4,6 +4,7 @@ import os
 import getpass
 import sqlite3
 import sys
+import argparse
 
 os.environ.setdefault('PUBLIC_ORIGIN', 'http://localhost:8000')
 
@@ -14,14 +15,13 @@ import auth
 def main():
     database.init_db()
     auth.init_auth()
-    if len(sys.argv) >= 3:
-        username = sys.argv[1].strip()
-        password = sys.argv[2]
-    else:
-        username = input('Username: ').strip()
-        password = getpass.getpass('Password (15–128 characters): ')
-        if password != getpass.getpass('Confirm password: '):
-            raise ValueError('Passwords do not match')
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('username',nargs='?',help='Account name; prompted when omitted')
+    args=parser.parse_args()
+    username = (args.username or input('Username: ')).strip()
+    password = getpass.getpass('Password (15–128 characters): ')
+    if password != getpass.getpass('Confirm password: '):
+        raise ValueError('Passwords do not match')
     auth.set_admin_password(username, password)
     print(f"Account '{username}' saved. Sign in on the website.")
 

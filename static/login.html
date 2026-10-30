@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Login</title>
+  <link rel="stylesheet" href="/ventilover67adminlogin/assets/auth-ui.css?v=auth-v8">
+  <script src="/ventilover67adminlogin/assets/auth-ui.js?v=auth-v8" defer></script>
+</head>
+<body class="login-shell" data-page="login">
+  <main id="auth-page" class="auth-page" aria-label="Login">
+    <div class="auth-page__container">
+      <section class="auth-card" aria-labelledby="auth-card-title">
+        <div id="auth-logged-out">
+          <header class="auth-card__header">
+            <h1 class="auth-card__title" id="auth-card-title">Login</h1>
+          </header>
+          <form id="form-auth-login" class="auth-form">
+            <div class="auth-form__group">
+              <label for="login-username">Username</label>
+              <input id="login-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" required>
+            </div>
+            <div class="auth-form__group">
+              <label for="login-password">Password</label>
+              <input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+            </div>
+            <p id="auth-alert" class="auth-error-msg" role="alert" hidden></p>
+            <button id="btn-login-submit" class="auth-primary-btn" type="submit">Login</button>
+          </form>
+          <noscript><p class="auth-error-msg">Enable JavaScript to log in.</p></noscript>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

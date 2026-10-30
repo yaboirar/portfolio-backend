@@ -1,13 +1,24 @@
 # Security & Secret Tokens
 .admin_token
 *.env
+.env*
+*.pem
+*.key
+*credentials*
+*secret*.json
+backups/
+portfolio-backups/
 
 # SQLite Database & Write-Ahead Logs
 *.db
 *.db-wal
 *.db-shm
+*.db.*
 
 # Media Uploads & Temporary Parsing Cache
+uploads/**
+!uploads/images/
+!uploads/videos/
 uploads/videos/*
 !uploads/videos/.gitkeep
 uploads/images/*
