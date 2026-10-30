@@ -59,11 +59,23 @@ class ConnectionTests(unittest.TestCase):
         opener.assert_not_called()
 
     def test_profile_returns_identity_and_count_only(self):
-        profile = {'id': 7, 'username': 'Example', 'avatar_url': 'https://private.invalid/avatar', 'email': 'private@example.invalid', 'about': 'Not exposed'}
+        profile = {'id': 7, 'username': 'Example', 'avatar_url': 'https://private.invalid/avatar', 'email': 'private@example.invalid', 'about': '  Example profile bio  '}
         favorites = {'total': 42, 'result': [{'title': 'Private title', 'url': 'https://private.invalid/file'}]}
         with patch.object(easter_egg, '_account_json', side_effect=[profile, favorites]) as request:
             result = easter_egg.get_account_summary()
-            self.assertEqual(result, {'status': 'connected', 'username': 'Example', 'user_id': 7, 'favorite_count': 42})
+            self.assertEqual(result, {'status': 'connected', 'username': 'Example', 'user_id': 7, 'favorite_count': 42, 'about': 'Example profile bio'})
             self.assertEqual(easter_egg.get_account_summary(), result)
             self.assertEqual(request.call_count, 2)
         self.assertNotIn('private', json.dumps(result).lower())
+
+    def test_profile_bio_is_bounded_and_non_text_values_are_ignored(self):
+        for raw,expected in [(' x '*400,(' x '*400)[:500].strip()),(None,''),({'html':'not accepted'},'')]:
+            easter_egg._summary_cache.clear()
+            with patch.object(easter_egg,'_account_json',side_effect=[{'id':7,'username':'Example','about':raw},{'total':0}]):
+                result=easter_egg.get_account_summary()
+            self.assertEqual(result['about'],expected)
+            self.assertEqual(set(result),{'status','username','user_id','favorite_count','about'})
+
+    def test_boolean_account_id_is_rejected(self):
+        with patch.object(easter_egg,'_account_json',return_value={'id':True,'username':'Example'}):
+            self.assertEqual(easter_egg.get_account_summary(),{'status':'unavailable'})

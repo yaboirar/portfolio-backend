@@ -1,4 +1,4 @@
-"""Server-only authentication check. Never fetch or return service content."""
+"""Server-only account summary; no galleries or external media are returned."""
 import hashlib
 import json
 from pathlib import Path
@@ -12,6 +12,14 @@ CHECK_URL = 'https://nhentai.net/api/v2/user'
 _lock = threading.Lock()
 _cache = {}
 _summary_cache = {}
+
+def _load_key():
+    try:
+        config = json.loads(CONFIG_PATH.read_text(encoding='utf-8'))
+        key = config.get('api_key', '') if isinstance(config, dict) else ''
+    except (OSError, ValueError):
+        return ''
+    return key if isinstance(key, str) and key else ''
 
 def _account_json(path, key):
     request = urllib.request.Request('https://nhentai.net/api/v2/' + path, headers={
@@ -29,13 +37,9 @@ def _account_json(path, key):
         return result
 
 def get_account_summary():
-    """Return only account identity and a count; never expose galleries or media."""
-    try:
-        config = json.loads(CONFIG_PATH.read_text(encoding='utf-8'))
-        key = config.get('api_key', '') if isinstance(config, dict) else ''
-    except (OSError, ValueError):
-        key = ''
-    if not isinstance(key, str) or not key:
+    """Return text profile fields and a count; never expose galleries or media."""
+    key = _load_key()
+    if not key:
         return {'status': 'not_configured'}
     fingerprint = hashlib.sha256(key.encode()).hexdigest()
     with _lock:
@@ -45,9 +49,9 @@ def get_account_summary():
             profile = _account_json('user', key)
             username = profile.get('username')
             user_id = profile.get('id')
-            if not isinstance(username, str) or not isinstance(user_id, int):
+            if not isinstance(username, str) or not isinstance(user_id, int) or isinstance(user_id, bool):
                 raise ValueError('Unexpected account response')
-            result = {'status': 'connected', 'username': username[:128], 'user_id': user_id, 'favorite_count': None}
+            result = {'status': 'connected', 'username': username[:128], 'user_id': user_id, 'favorite_count': None, 'about': profile.get('about', '')[:500].strip() if isinstance(profile.get('about'), str) else ''}
             try:
                 favorites = _account_json('favorites?page=1', key)
                 total = favorites.get('total')
@@ -71,12 +75,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 def check_connection():
-    try:
-        config = json.loads(CONFIG_PATH.read_text(encoding='utf-8'))
-        key = config.get('api_key', '') if isinstance(config, dict) else ''
-    except (OSError, ValueError):
-        key = ''
-    if not isinstance(key, str) or not key:
+    key = _load_key()
+    if not key:
         return {'configured': False, 'connected': False, 'status': 'not_configured'}
     fingerprint = hashlib.sha256(key.encode()).hexdigest()
     with _lock:

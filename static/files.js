@@ -539,6 +539,7 @@
       const account=await api('/api/admin/easter-egg/profile');
       if(account.status!=='connected') throw new Error({invalid_key:'The service rejected the API key.',rate_limited:'Please wait before trying again.',not_configured:'No API key configured.'}[account.status]||'The service is unavailable. Try again shortly.');
       $('easter-name').textContent=account.username; $('easter-id').textContent=account.user_id;
+      const about=$('easter-about');about.textContent=typeof account.about==='string'?account.about:'';about.hidden=!about.textContent.trim();
       $('easter-count').textContent=account.favorite_count===null?'Unavailable':Number(account.favorite_count).toLocaleString();
       $('easter-account').querySelector('.profile-monogram').textContent=(account.username||'?').slice(0,1).toUpperCase();
       $('easter-account').hidden=false; $('easter-status').hidden=true;
