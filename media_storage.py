@@ -29,3 +29,5 @@ def remove_files(item,uploads):
         derived=_inside(root,'videos/'+Path(filename).stem)
         if derived.is_dir():shutil.rmtree(derived)
     video_thumbnails.remove_thumbnail(item['id'])
+    import clean_downloads
+    clean_downloads.remove(item['id'])

@@ -82,6 +82,14 @@ def init_db() -> None:
         for field,kind in (('duration_seconds','REAL'),('width','INTEGER'),('height','INTEGER')):
             if field not in cols:cursor.execute(f'ALTER TABLE media ADD COLUMN {field} {kind}')
         cursor.execute('CREATE TABLE IF NOT EXISTS media_shares (media_id INTEGER PRIMARY KEY REFERENCES media(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER)')
+        if 'allow_details' not in [c[1] for c in cursor.execute('PRAGMA table_info(media_shares)')]:
+            cursor.execute('ALTER TABLE media_shares ADD COLUMN allow_details INTEGER NOT NULL DEFAULT 0')
+            # One-time retirement of the old test links, requested with /share/ migration.
+            cursor.execute('DELETE FROM media_shares')
+        cursor.execute('CREATE TABLE IF NOT EXISTS poem_shares (media_id INTEGER PRIMARY KEY REFERENCES poems(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER, allow_details INTEGER NOT NULL DEFAULT 0)')
+        for table in ('media_shares','poem_shares'):
+            if 'strip_metadata' not in [c[1] for c in cursor.execute(f'PRAGMA table_info({table})')]:
+                cursor.execute(f'ALTER TABLE {table} ADD COLUMN strip_metadata INTEGER NOT NULL DEFAULT 0')
         cursor.execute('CREATE TABLE IF NOT EXISTS share_egress (day TEXT PRIMARY KEY, bytes INTEGER NOT NULL DEFAULT 0)')
         for table in ('media', 'poems'):
             if 'folder_id' not in [row[1] for row in cursor.execute(f'PRAGMA table_info({table})')]:
@@ -318,22 +326,32 @@ def save_media_metadata(media_id, values):
         conn.execute("UPDATE media SET width=?, height=?, duration_seconds=? WHERE id=? AND status='active'",(values.get('width'),values.get('height'),values.get('duration_seconds'),media_id))
 
 
-def create_media_share(media_id, expires_in=604800):
+def _share_table(kind):
+    if kind not in ('media','poem'):raise ValueError('Invalid file kind')
+    return 'poem_shares' if kind=='poem' else 'media_shares'
+
+
+def create_media_share(media_id, expires_in=604800, allow_details=False, kind='media', strip_metadata=False):
+    table=_share_table(kind)
+    if type(allow_details) is not bool or type(strip_metadata) is not bool:raise ValueError('Invalid share settings')
+    if strip_metadata and not allow_details:raise ValueError('Enable details and download before metadata removal')
     if type(expires_in) is not int or expires_in not in (0,86400,604800,2592000):raise ValueError('Choose a valid expiry')
     token=secrets.token_urlsafe(24)
     now=int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
-        item=conn.execute("SELECT id FROM media WHERE id=? AND media_type='video' AND status='active'",(media_id,)).fetchone()
-        if not item:raise ValueError('Video not found')
+        query="SELECT id FROM poems WHERE id=?" if kind=='poem' else "SELECT id FROM media WHERE id=? AND status='active'"
+        item=conn.execute(query,(media_id,)).fetchone()
+        if not item:raise ValueError('File not found')
         expires_at=now+expires_in if expires_in else None
-        conn.execute('INSERT INTO media_shares VALUES (?,?,?,?) ON CONFLICT(media_id) DO UPDATE SET token_hash=excluded.token_hash, created_at=excluded.created_at, expires_at=excluded.expires_at',(media_id,hashlib.sha256(token.encode()).hexdigest(),now,expires_at))
+        conn.execute(f'INSERT INTO {table} (media_id,token_hash,created_at,expires_at,allow_details,strip_metadata) VALUES (?,?,?,?,?,?) ON CONFLICT(media_id) DO UPDATE SET token_hash=excluded.token_hash, created_at=excluded.created_at, expires_at=excluded.expires_at, allow_details=excluded.allow_details, strip_metadata=excluded.strip_metadata',(media_id,hashlib.sha256(token.encode()).hexdigest(),now,expires_at,int(allow_details),int(strip_metadata)))
     return {'token':token,'expires_at':expires_at,'created_at':now}
 
 
-def get_media_share(media_id):
+def get_media_share(media_id, kind='media'):
+    table=_share_table(kind)
     with get_db() as conn:
-        row=conn.execute('SELECT created_at, expires_at FROM media_shares WHERE media_id=?',(media_id,)).fetchone()
+        row=conn.execute(f'SELECT created_at, expires_at, allow_details, strip_metadata FROM {table} WHERE media_id=?',(media_id,)).fetchone()
     now=int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     return dict(row) if row and (row['expires_at'] is None or row['expires_at']>now) else None
 
@@ -342,12 +360,21 @@ def resolve_media_share(token):
     if not isinstance(token,str) or not re.fullmatch(r'[A-Za-z0-9_-]{32}',token):return None
     now=int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     with get_db() as conn:
-        row=conn.execute("SELECT m.* FROM media_shares s JOIN media m ON m.id=s.media_id WHERE s.token_hash=? AND (s.expires_at IS NULL OR s.expires_at>?) AND m.status='active' AND m.media_type='video'",(hashlib.sha256(token.encode()).hexdigest(),now)).fetchone()
+        digest=hashlib.sha256(token.encode()).hexdigest()
+        row=conn.execute("SELECT m.*, s.allow_details, s.strip_metadata FROM media_shares s JOIN media m ON m.id=s.media_id WHERE s.token_hash=? AND (s.expires_at IS NULL OR s.expires_at>?) AND m.status='active'",(digest,now)).fetchone()
+        if not row:
+            row=conn.execute("SELECT p.*, 'poem' AS media_type, s.allow_details, s.strip_metadata FROM poem_shares s JOIN poems p ON p.id=s.media_id WHERE s.token_hash=? AND (s.expires_at IS NULL OR s.expires_at>?)",(digest,now)).fetchone()
     return dict(row) if row else None
 
 
-def revoke_media_share(media_id):
-    with get_db() as conn:conn.execute('DELETE FROM media_shares WHERE media_id=?',(media_id,))
+def list_media_shares():
+    with get_db() as conn:
+        return [dict(row) for row in conn.execute("SELECT s.media_id, m.title, s.created_at, s.expires_at, s.allow_details, 'media' AS item_kind FROM media_shares s JOIN media m ON m.id=s.media_id WHERE m.status='active' UNION ALL SELECT s.media_id, p.title, s.created_at, s.expires_at, s.allow_details, 'poem' AS item_kind FROM poem_shares s JOIN poems p ON p.id=s.media_id ORDER BY 3 DESC")]
+
+
+def revoke_media_share(media_id, kind='media'):
+    table=_share_table(kind)
+    with get_db() as conn:conn.execute(f'DELETE FROM {table} WHERE media_id=?',(media_id,))
 
 
 def reserve_share_bytes(amount, limit):

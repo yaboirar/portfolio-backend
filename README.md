@@ -30,10 +30,10 @@ Changing a route is not an authentication defense.
 - List/grid views, selection, details menus, image zoom, custom video player.
 - Duration/dimension metadata, bounded thumbnail and metadata workers.
 - Storage meter with a default 10 GiB system reserve enforced on uploads.
-- Opt-in video sharing: video actions → Share video → Create link. Default expiry
+- Opt-in file sharing: file actions → Share file → Create link. Default expiry
   is seven days; alternatives are one day, thirty days, or no expiry. Disable
   Shared view to revoke. Creating a replacement invalidates the previous link.
-- Anonymous share pages expose only the chosen video, player, title and description.
+- Anonymous share pages expose only the chosen file, player, title and description.
   Private APIs, folders, deletion and editing remain authenticated. Share tokens
   have 192 random bits and are stored only as hashes. Existing URLs cannot be
   recovered from the database; keep the copied link or generate a replacement.
@@ -71,3 +71,48 @@ Run in a disposable copy, never against the production working directory:
 ```
 
 Tests use generated images and test-pattern video, not private media.
+
+## Sharing interface update
+
+Share is available from the video preview toolbar and its context menu. Enabling
+the switch only prepares the form; Create link explicitly publishes access.
+Details and download is an optional per-link setting, off by default. When enabled,
+the shared viewer's single details icon exposes only title, type, formatted
+duration, dimensions and a download link. Original filename, timestamps, IDs and
+raw duration seconds are not returned in public metadata. The download endpoint
+rechecks the same token/expiry/permission and uses a generic video filename.
+Settings → Shared links lists generated access grants and allows revocation.
+The old test route is removed; existing test grants are revoked once during this
+migration. New grants survive subsequent restarts.
+
+## Image, video and poem sharing; optional privacy copies
+
+Sharing supports every individual file type in this workspace: images, videos
+and poems. Each file has its own expiring/revocable grant. Media owner routes are
+`/api/media/<id>/share`; poems use `/api/poems/<id>/share`. Shared pages use `/share/`.
+The list in Settings → Shared links contains both kinds. Download is an icon with
+an accessible label, and only appears inside the optional public details panel.
+Folders remain organizational containers; no catalog is made public by a file link.
+
+With Details and download enabled, Remove embedded metadata can be selected.
+For images and video this serves a separately prepared cleaned copy through BOTH
+the public playback/file and download endpoints. The private original remains
+unchanged and its private URL is never exposed by the shared metadata API.
+Poems download as plain UTF-8 text, without embedded media tags.
+
+Install FFmpeg/FFprobe and `libimage-exiftool-perl` from Ubuntu packages. Video
+cleanup remuxes the main video/audio tracks with stream copy, excluding data tracks,
+chapters, global/stream descriptive tags; it does not re-encode. Images use
+ExifTool `-all=`, preserving only orientation for correct display. Standard
+EXIF/GPS/XMP/IPTC and supported software/author/date/comment tags are removed.
+Structural information needed to decode the media, such as dimensions and codec,
+remains. This is not guaranteed forensic anonymity: visible or audible identifying
+content and unsupported proprietary metadata are not promised removed.
+See [ExifTool documentation](https://exiftool.org/exiftool_pod.html) for format limits.
+
+Preparation is asynchronous: one bounded worker, queue size eight, shared native
+process gate/resource limits, 45-second process timeout, 2 GiB cache budget and
+disk-reserve checks. The viewer shows a preparation message and polls briefly.
+Failure never falls back to exposing the original on a privacy-enabled link.
+Deleting the original cancels/removes its cleaned variants; temporary partial
+outputs are removed on failure and startup. Exclusions cover all upload caches.

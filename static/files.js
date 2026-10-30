@@ -273,6 +273,7 @@
     $('preview-title').textContent = item.title;
     $('preview-error').hidden = true;
     const content = $('preview-content');
+    $('preview-share').hidden=kind(item)==='folder';
     $('download-file').hidden = kind(item) === 'poem';
     if (kind(item) === 'poem') content.append(node('pre', '', item.content || ''));
     else {
@@ -312,7 +313,7 @@
 
   document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => {
     state.filter = button.dataset.filter;
-    closeCategories();$('category-label').textContent=labels[state.filter];
+    $('category-label').textContent='All files';
     state.currentFolderId = null;
     renderFolderShortcuts();
     document.querySelectorAll('[data-filter]').forEach(el => { if (el === button) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current'); });
@@ -499,7 +500,7 @@
     const menu=$('file-menu'),rect=button.getBoundingClientRect();
     const moveBtn = menu.querySelector('[data-action="move"]');
     if (moveBtn) moveBtn.hidden = isFolder;
-    menu.querySelector('[data-action="share"]').hidden=kind(item)!=='video';
+    menu.querySelector('[data-action="share"]').hidden=kind(item)==='folder';
     const editBtn = menu.querySelector('[data-action="edit"]');
     if (editBtn) editBtn.textContent = 'Edit';
     menu.hidden=false;
@@ -1007,20 +1008,51 @@
     previous.pending=true;previous.attempt++;technicalRequests.set(item.id,previous);
     setTimeout(async()=>{try{const latest=await api('/api/media/'+item.id);Object.assign(item,latest);const stored=state.items.find(value=>kind(value)===kind(item)&&value.id===item.id);if(stored)Object.assign(stored,latest);document.querySelectorAll(`[data-item-key="${key(item)}"]`).forEach(row=>{row.querySelectorAll('.video-duration').forEach(el=>el.textContent=durationText(latest.duration_seconds));row.querySelectorAll('.duration-meta').forEach(el=>el.textContent=' · '+durationText(latest.duration_seconds));});if(detailItem&&key(detailItem)===key(item))renderDetails(item);}catch{}finally{previous.pending=false;if(!item.duration_seconds&&state.items.some(value=>key(value)===key(item)))refreshTechnical(item);}},previous.attempt===1?700:2500);
   }
-  async function loadStorage(){try{const usage=await api('/api/storage'),gb=value=>(value/1e9).toFixed(1)+' GB';$('storage-percent').textContent=usage.used_percent+'%';$('storage-fill').style.width=usage.used_percent+'%';$('storage-meter').querySelector('[role="progressbar"]').setAttribute('aria-valuenow',String(usage.used_percent));$('storage-summary').textContent=gb(usage.used_bytes)+' of '+gb(usage.capacity_bytes)+' used';$('storage-reserve').textContent=(usage.reserved_bytes/1024**3).toFixed(0)+' GiB reserved for the service';$('storage-meter').title='Includes the operating system and other VPS files. Uploads stop before the reserve is consumed.';$('storage-meter').classList.toggle('storage-low',usage.used_percent>=90);}catch{$('storage-summary').textContent='Storage temporarily unavailable';}}
+  async function loadStorage(){try{const usage=await api('/api/storage'),gb=value=>(value/1e9).toFixed(1)+' GB';$('storage-percent').textContent=usage.used_percent+'%';$('storage-fill').style.width=usage.used_percent+'%';$('storage-meter').querySelector('[role="progressbar"]').setAttribute('aria-valuenow',String(usage.used_percent));$('storage-summary').textContent=gb(usage.used_bytes)+' of '+gb(usage.capacity_bytes)+' used';$('storage-reserve').textContent=(usage.reserved_bytes/1024**3).toFixed(0)+' GiB reserved for the service';$('storage-reserve').textContent+='; the meter includes the operating system and other VPS files. Uploads stop before this reserve is consumed.';$('storage-meter').classList.toggle('storage-low',usage.used_percent>=90);}catch{$('storage-summary').textContent='Storage temporarily unavailable';}}
   function detailsEntries(item){
     const folder=kind(item)==='folder';return [['Name',item.title||item.name],['Type',typeNames[kind(item)]||item.mime_type],['Original filename',folder?null:item.original_filename],['Size',folder?null:bytes(item)?size(bytes(item))+' ('+bytes(item).toLocaleString()+' bytes)':null],['Duration',kind(item)==='video'?durationText(item.duration_seconds):null],['Dimensions',item.width&&item.height?item.width+' × '+item.height:null],['Items',folder?String(item.item_count||0):null],['Tag',item.tag||item.tags],['Description',item.description],['Color',folder?folderColor(item.color):null],['Added',item.created_at?new Date(item.created_at).toLocaleString():null],['Updated',item.updated_at?new Date(item.updated_at).toLocaleString():null],['Folder',!folder&&item.folder_id?state.folders.find(value=>value.id===item.folder_id)?.name:null],['Characters',kind(item)==='poem'?String((item.content||'').length):null]];
   }
   function renderDetails(item){$('details-title').textContent=item.title||item.name||'Details';$('details-fields').replaceChildren();detailsEntries(item).forEach(([label,value])=>{if(value!==undefined&&value!==null&&value!=='')$('details-fields').append(node('dt','',label),node('dd','',String(value)));});}
   async function openDetails(item){detailItem=item;renderDetails(item);$('details-status').textContent='';$('details-dialog').showModal();try{let latest;if(kind(item)==='folder'){const result=await api('/api/folders');latest=result.folders.find(value=>value.id===item.id);if(latest)latest={...latest,title:latest.name,media_type:'folder'};}else latest=await api(`/api/${kind(item)==='poem'?'poems':'media'}/${item.id}`);if(latest&&detailItem===item){Object.assign(item,latest);renderDetails(item);if(kind(item)==='video'&&!item.duration_seconds)refreshTechnical(item);}}catch(error){$('details-status').textContent=error.message;}}
-  function closeCategories(){ $('category-menu').hidden=true;$('category-toggle').setAttribute('aria-expanded','false'); }
-  async function openSharing(item){shareItem=item;$('share-title').textContent=item.title;$('share-link-row').hidden=true;$('share-link').value='';$('share-error').hidden=true;$('share-status').textContent='Loading sharing settings…';$('share-dialog').showModal();try{const result=await api(`/api/media/${item.id}/share`);if(shareItem!==item)return;$('share-enabled').checked=result.shared;$('share-create').textContent=result.shared?'Create new link':'Create link';$('share-status').textContent=result.shared?'Shared view is enabled. Creating a new link replaces the previous one.':'Only you can access this video.';}catch(error){$('share-status').textContent=error.message;}}
-  async function createShareLink(){if(!shareItem)return;const item=shareItem;$('share-create').disabled=true;$('share-enabled').disabled=true;$('share-error').hidden=true;try{const result=await api(`/api/media/${item.id}/share`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expires_in:Number($('share-expiry').value)})});$('share-enabled').checked=true;$('share-create').textContent='Create new link';$('share-link').value=new URL(result.path,location.origin).href;$('share-link-row').hidden=false;$('share-status').textContent=result.expires_at?'Anyone with the link can watch until '+new Date(result.expires_at*1000).toLocaleString()+'.':'Anyone with the link can watch. Revoke access whenever you want.';}catch(error){$('share-error').textContent=error.message;$('share-error').hidden=false;}finally{$('share-create').disabled=false;$('share-enabled').disabled=false;}}
+  function setCategories(open){const menu=$('category-menu');menu.inert=!open;menu.setAttribute('aria-hidden',String(!open));menu.closest('.category-control').classList.toggle('expanded',open);$('category-toggle').setAttribute('aria-expanded',String(open));}
+  function closeCategories(){setCategories(false);}
+  const shareEndpoint=item=>`/api/${kind(item)==='poem'?'poems':'media'}/${item.id}/share`;
+  let sharingActive=false;
+  async function openSharing(item){
+    shareItem=item;sharingActive=false;$('share-title').textContent=item.title;$('share-link-row').hidden=true;$('share-link').value='';$('share-error').hidden=true;$('share-enabled').checked=false;$('share-details').checked=false;$('share-clean').checked=false;$('share-clean-row').hidden=true;$('share-expiry').value='604800';$('share-create').textContent='Create link';$('share-create').disabled=true;$('share-enabled').disabled=true;$('share-status').textContent='Loading sharing settings…';$('share-dialog').showModal();
+    try{const result=await api(shareEndpoint(item));if(shareItem!==item)return;sharingActive=result.shared;$('share-enabled').checked=result.shared;$('share-details').checked=!!result.share?.allow_details;$('share-clean').checked=!!result.share?.strip_metadata;$('share-clean-row').hidden=!$('share-details').checked;$('share-create').textContent=result.shared?'Create new link':'Create link';$('share-create').disabled=!result.shared;$('share-status').textContent=result.shared?'Shared view is enabled. Creating a new link replaces the previous one.':'Turn on Shared view, choose your options, then create a link.';}
+    catch(error){$('share-status').textContent=error.message;}
+    finally{if(shareItem===item)$('share-enabled').disabled=false;}
+  }
+  async function createShareLink(){
+    if(!shareItem||!$('share-enabled').checked)return;const item=shareItem;$('share-create').disabled=true;$('share-enabled').disabled=true;$('share-error').hidden=true;
+    try{const result=await api(shareEndpoint(item),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expires_in:Number($('share-expiry').value),allow_details:$('share-details').checked,strip_metadata:$('share-details').checked&&$('share-clean').checked})});if(shareItem!==item)return;sharingActive=true;$('share-create').textContent='Create new link';$('share-link').value=new URL(result.path,location.origin).href;$('share-link-row').hidden=false;$('share-status').textContent=result.expires_at?'Anyone with the link can view until '+new Date(result.expires_at*1000).toLocaleString()+'.':'Anyone with the link can view. Revoke access whenever you want.';}
+    catch(error){if(shareItem===item){$('share-error').textContent=error.message;$('share-error').hidden=false;}}
+    finally{if(shareItem===item){$('share-create').disabled=!$('share-enabled').checked;$('share-enabled').disabled=false;}}
+  }
+  async function loadSharedLinks(){
+    const list=$('shared-links-list');list.replaceChildren(node('p','muted','Loading…'));
+    try{const result=await api('/api/shares');list.replaceChildren();for(const share of result.shares){const row=node('div','shared-link-entry'),info=node('div','shared-link-info');info.append(node('strong','',share.title));const expired=share.expires_at&&share.expires_at*1000<Date.now();info.append(node('small','muted',expired?'Expired':share.expires_at?'Expires '+new Date(share.expires_at*1000).toLocaleDateString():'No expiry'));const revoke=node('button','icon-button danger');revoke.type='button';revoke.setAttribute('aria-label','Revoke link for '+share.title);revoke.title='Revoke link';revoke.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg>';revoke.addEventListener('click',async()=>{revoke.disabled=true;try{await api(`/api/${share.item_kind==='poem'?'poems':'media'}/${share.media_id}/share`,{method:'DELETE'});row.remove();if(!list.children.length)list.append(node('p','muted','No shared links.'));}catch(error){revoke.disabled=false;const message=node('p','error-text',error.message);row.append(message);}});row.append(info,revoke);list.append(row);}if(!result.shares.length)list.append(node('p','muted','No shared links.'));}
+    catch(error){list.replaceChildren(node('p','error-text',error.message));}
+  }
   function initializeStorageFeatures(){
-    $('category-toggle').addEventListener('click',()=>{const open=$('category-menu').hidden;$('category-menu').hidden=!open;$('category-toggle').setAttribute('aria-expanded',String(open));});
-    document.addEventListener('pointerdown',event=>{if(!event.target.closest('.category-control'))closeCategories();});$('category-menu').addEventListener('keydown',event=>{if(event.key==='Escape'){closeCategories();$('category-toggle').focus();}});
+    $('category-toggle').addEventListener('click',()=>setCategories($('category-toggle').getAttribute('aria-expanded')!=='true'));
+    $('category-menu').addEventListener('keydown',event=>{if(event.key==='Escape'){closeCategories();$('category-toggle').focus();}});
+    $('preview-share').addEventListener('click',()=>{if(state.selected&&kind(state.selected)!=='folder')openSharing(state.selected);});
     $('details-dialog').addEventListener('close',()=>detailItem=null);$('share-dialog').addEventListener('close',()=>shareItem=null);
-    $('share-create').addEventListener('click',createShareLink);$('share-enabled').addEventListener('change',async event=>{if(event.target.checked){await createShareLink();return;}if(!shareItem)return;try{await api(`/api/media/${shareItem.id}/share`,{method:'DELETE'});$('share-link-row').hidden=true;$('share-link').value='';$('share-create').textContent='Create link';$('share-status').textContent='Access revoked. Previous links no longer work.';}catch(error){$('share-enabled').checked=true;$('share-error').textContent=error.message;$('share-error').hidden=false;}});
+    $('manage-shares').addEventListener('click',()=>{$('shared-links-dialog').showModal();loadSharedLinks();});
+    $('share-create').addEventListener('click',createShareLink);
+    $('share-enabled').addEventListener('change',async event=>{
+      const item=shareItem;if(!item)return;$('share-error').hidden=true;
+      if(event.target.checked){$('share-create').disabled=false;$('share-status').textContent='Ready. Click Create link to enable shared access.';return;}
+      $('share-create').disabled=true;
+      if(!sharingActive){$('share-status').textContent='Only you can access this video.';return;}
+      event.target.disabled=true;try{await api(shareEndpoint(item),{method:'DELETE'});if(shareItem!==item)return;sharingActive=false;$('share-link-row').hidden=true;$('share-link').value='';$('share-create').textContent='Create link';$('share-status').textContent='Access revoked. Previous links no longer work.';}
+      catch(error){if(shareItem===item){$('share-enabled').checked=true;$('share-create').disabled=false;$('share-error').textContent=error.message;$('share-error').hidden=false;}}
+      finally{if(shareItem===item)$('share-enabled').disabled=false;}
+    });
+    $('share-details').addEventListener('change',()=>{$('share-clean-row').hidden=!$('share-details').checked;if(!$('share-details').checked)$('share-clean').checked=false;});
+    ['share-expiry','share-details','share-clean'].forEach(id=>$(id).addEventListener('change',()=>{if(sharingActive)$('share-status').textContent='Create a new link to apply these options and replace the previous link.';}));
     $('share-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('share-link').value);$('share-copy').textContent='Copied';setTimeout(()=>$('share-copy').textContent='Copy link',1600);}catch{$('share-link').select();}});
     setInterval(()=>{if(document.visibilityState==='visible'&&window.adminAuth.authenticated)loadStorage();},60000);
   }

@@ -65,3 +65,48 @@ may retain old material; this update does not rewrite history or purge backups.
 References: [Pillow security](https://pillow.readthedocs.io/en/stable/handbook/security.html),
 [Pillow 13 release notes](https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html),
 [Werkzeug changes](https://werkzeug.palletsprojects.com/en/stable/changes/).
+
+## Sharing and sidebar refinements — 2026-10-30
+
+Current assets: sharing-9. Live source/SQLite backup before the final generic-file
+and privacy update: /home/azureuser/portfolio-backups/auth-20261030T042914Z. Earlier
+UI backups: auth-20261030T041038Z and auth-20261030T041348Z.
+
+Share file is available in the preview toolbar and context menu for videos, images
+and poems. The switch prepares the form; Create link explicitly publishes access.
+Canonical routes use /share/<random-token>. The old test route is removed and its
+grants were revoked once. Settings → Shared links lists grants and supports
+revocation. New grants survive restarts. No folder/library catalog is public.
+
+Optional Details and download exposes only title/type, formatted duration where
+applicable, dimensions where applicable, and an icon-only Download link. Original
+filename, IDs, added date/time and raw duration seconds are absent from public
+metadata. The viewer fits the viewport and opens details in a dark glass side
+panel, without pushing media below the screen. Images and poems have matching
+read-only viewers. Native save controls/right-click remain hidden as UI behavior.
+
+Optional Remove embedded metadata creates a separate copy, used for public viewing
+AND downloading. Stored originals are unchanged. Videos are remuxed with stream
+copy; images use ExifTool with orientation preserved. A bounded worker, eight-job
+queue, native resource gate, 45s process timeout, 2 GiB derivative cache and disk
+reserve checks limit work. Failed preparation does not expose the original. File
+deletion cancels/removes cleaned variants. Poems are plain UTF-8 text.
+
+This removes supported standard metadata, not identifying content or all possible
+proprietary tags. Structural dimensions/codecs remain. ExifTool format limits:
+https://exiftool.org/exiftool_pod.html
+
+Storage sits at the bottom of the sidebar; the reserve explanation is a focusable
+circle-question tooltip beside the usage figure. Categories expand inline, with
+animated height and connecting branch lines. The supplied image is the favicon on
+the workspace, login, public placeholder and shared pages.
+
+Validation: 21 unit tests and 15 consolidated regression groups passed. Additional
+pipeline checks passed for image/video/poem sharing, exact public-field allowlist,
+download permission, revoke/expiry, one-time migration, preserved original bytes,
+cleaned derivative deletion, and fail-closed preparation. Generated JPEG GPS,
+author, editing software and capture-date tags were removed. Video test author,
+comment and creation time were removed while its compressed packet hash remained
+identical. A live synthetic HTTPS privacy preparation/download/cleanup check
+passed under systemd limits. Observed service MemoryPeak after that check was
+80,031,744 bytes, current 52,510,720 bytes; this is a sample, not a universal bound.

@@ -315,7 +315,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         self.connection.settimeout(15.0)
 
     def log_message(self, format, *args):
-        clean_path = re.sub(r'(/videoshared/)[^/]+',r'\1[redacted]',urllib.parse.urlparse(self.path).path)
+        clean_path = re.sub(r'(/(?:share|videoshared)/)[^/]+',r'\1[redacted]',urllib.parse.urlparse(self.path).path)
         sys.stdout.write(f"[{self.log_date_time_string()}] {self.command} {clean_path} -> {args[1] if len(args) > 1 else ''}\n")
         sys.stdout.flush()
 
@@ -377,7 +377,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         raw = self.rfile.read(content_length)
         return json.loads(raw.decode("utf-8"))
 
-    def serve_file_with_range(self, filepath: Path, head_only: bool = False, budget=None):
+    def serve_file_with_range(self, filepath: Path, head_only: bool = False, budget=None, attachment_name=None):
         stat = filepath.stat()
         total_size = stat.st_size
         mime_type = {'.ts': 'video/mp2t', '.m3u8': 'application/vnd.apple.mpegurl'}.get(filepath.suffix.lower())
@@ -413,6 +413,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         self.send_cors_headers()
         self.send_header('Content-Type', mime_type)
         self.send_header('Content-Length', str(length))
+        if attachment_name:self.send_header('Content-Disposition','attachment; filename="'+attachment_name+'"')
         self.send_header('Accept-Ranges', 'bytes')
         self.send_header('Cache-Control', cache)
         self.send_header('ETag', etag)
@@ -475,6 +476,8 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             return
 
         if share_access.handle_owner(self,path):return
+        if path == '/api/shares':
+            self.send_json(200,{'shares':database.list_media_shares()});return
         if path == '/api/storage':
             self.send_json(200,storage_guard.stats());return
         if path == "/api/stats":
@@ -1153,6 +1156,8 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
 def run_server(port: int = 8000, host: str = "127.0.0.1"):
     database.init_db()
     auth.init_auth()
+    import clean_downloads
+    clean_downloads.cleanup_temporary()
     # Startup persistence recovery
     cleaned_tmp = cleanup_orphaned_tmp_files(TMP_DIR)
     cleaned_del = database.cleanup_unfinished_deletions(UPLOADS_DIR)
