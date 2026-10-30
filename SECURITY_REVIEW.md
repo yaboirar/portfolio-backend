@@ -42,8 +42,8 @@ This is a focused engineering review, not a penetration-test certification.
 ## Capacity and limits
 
 The VM has approximately 0.88 GB RAM, two logical CPUs and 65.4 GB disk. The default
-10 GiB disk reserve leaves around 54.7 decimal GB of usable capacity. Proposed
-deployed service guardrails: MemoryHigh 384 MiB, MemoryMax 512 MiB, swap max 512 MiB,
+10 GiB disk reserve leaves around 54.7 decimal GB of usable capacity. Deployed
+service guardrails: MemoryHigh 384 MiB, MemoryMax 512 MiB, swap max 512 MiB,
 CPU quota 150%, 80 tasks and 2,048 descriptors. Caddy body size/timeouts are bounded.
 UFW is enabled with inbound SSH, HTTP and HTTPS allowed; the backend remains
 loopback-only. A synthetic production HTTPS upload/share/range/revoke/delete smoke
