@@ -582,15 +582,9 @@ def test_suite():
         for path in ('/public/app.js', '/public/style.css'):
             code, _, asset = http_get(path)
             assert code == 200 and b'ventilover67adminlogin' not in asset
-        assert http_get('/api/admin/easter-egg/status')[0] == 401
-        with mock.patch('server.easter_egg.check_connection', return_value={'configured': True, 'connected': True, 'status': 'connected'}), mock.patch('server.easter_egg.get_account_summary', return_value={'status': 'connected', 'username': 'Example', 'user_id': 7, 'favorite_count': 42}):
-            code, secret_headers, secret_body = http_get('/api/admin/easter-egg/status', headers=auth_headers())
-            page_code, _, check_page = http_get(auth.ADMIN_PREFIX + '/easter-egg', headers=auth_headers())
-            assert page_code == 200 and b'id="easter-dialog"' in check_page and b'<title>MILV67</title>' in check_page
-        assert http_get(auth.ADMIN_PREFIX + '/easter-egg')[0] == 401
-        assert code == 200 and set(json.loads(secret_body)) == {'configured', 'connected', 'status'}
-        assert isinstance(json.loads(secret_body)['configured'], bool)
-        assert secret_headers.get('Cache-Control') == 'no-store'
+        for removed in ['/api/admin/easter-egg/status','/api/admin/easter-egg/profile','/MILV67/easter-egg']:
+            assert http_get(removed,headers=auth_headers())[0]==404
+
         print("  ✓ Public placeholder and private admin: old routes removed, protected reads/media/dashboard, authenticated access preserved")
         code, _, workspace = http_get('/MILV67', headers=auth_headers())
         assert code == 200 and b'/static/files.js' in workspace

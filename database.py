@@ -212,11 +212,19 @@ def save_folder(name, folder_id=None, tag=None, description=None, color=None):
         raise ValueError('A folder with this name already exists') from None
 
 
-def delete_folder(folder_id):
-    # Only the container is removed. ON DELETE SET NULL preserves every file.
+def delete_folder(folder_id, include_contents=False):
+    if type(include_contents) is not bool:raise ValueError('Choose whether to delete the folder contents')
     with get_db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
         validate_folder(conn, folder_id)
+        items=[];poem_count=0
+        if include_contents:
+            items=[dict(row) for row in conn.execute('SELECT * FROM media WHERE folder_id=?',(folder_id,))]
+            conn.execute("UPDATE media SET status='pending_delete' WHERE folder_id=?",(folder_id,))
+            conn.execute('DELETE FROM media_shares WHERE media_id IN (SELECT id FROM media WHERE folder_id=?)',(folder_id,))
+            poem_count=conn.execute('DELETE FROM poems WHERE folder_id=?',(folder_id,)).rowcount
         conn.execute('DELETE FROM folders WHERE id = ?', (folder_id,))
+        return {'items':items,'media_count':len(items),'poem_count':poem_count}
 
 
 def move_folder_items(items, folder_id):

@@ -281,7 +281,7 @@
         const url = mediaURL(item);
         const media = node(kind(item) === 'video' ? 'video' : 'img');
         if (kind(item) === 'video') { media.controls = false; media.removeAttribute('controls'); media.preload = 'metadata'; media.playsInline = true; }
-        else { media.alt = item.title; media.draggable = false; media.addEventListener('dblclick',()=>setZoom(zoom.scale>1?1:2)); }
+        else { media.classList.add('preview-image-pending');media.alt = item.title; media.draggable = false; media.addEventListener('dblclick',()=>setZoom(zoom.scale>1?1:2)); }
         media.addEventListener('error', () => {
           $('preview-error').textContent = media.error?.code === 2 ? 'The connection was interrupted. Reopen the preview to retry, or download the file.' : media.error?.code === 3 || media.error?.code === 4 ? 'This browser cannot play this format. Download the original to open it in another app.' : 'The preview could not load. Reopen it to retry, or download the original.';
           $('preview-error').hidden = false;
@@ -441,6 +441,9 @@
     deletingFolder = folder;
     $('delete-folder-message').textContent = `Are you sure you want to delete folder “${folder.name}”?`;
     $('delete-folder-error').hidden = true;
+    $('delete-folder-contents').checked=false;
+    $('delete-folder-explanation').textContent='Files will be kept in All files.';
+    $('confirm-delete-folder').textContent='Delete folder';
     $('delete-folder-dialog').showModal();
   }
 
@@ -482,7 +485,7 @@
     const canvas=$('preview-content'),image=canvas.querySelector('img');
     if(image){
       const padding=getComputedStyle(canvas);
-      if(image.naturalWidth&&image.naturalHeight){const fit=Math.min((canvas.clientWidth-parseFloat(padding.paddingLeft)-parseFloat(padding.paddingRight))/image.naturalWidth,(canvas.clientHeight-parseFloat(padding.paddingTop)-parseFloat(padding.paddingBottom))/image.naturalHeight);if(fit>0){image.style.width=Math.round(image.naturalWidth*fit)+'px';image.style.height=Math.round(image.naturalHeight*fit)+'px';}}
+      if(image.naturalWidth&&image.naturalHeight){const fit=Math.min((canvas.clientWidth-parseFloat(padding.paddingLeft)-parseFloat(padding.paddingRight))/image.naturalWidth,(canvas.clientHeight-parseFloat(padding.paddingTop)-parseFloat(padding.paddingBottom))/image.naturalHeight);if(fit>0){image.style.width=Math.round(image.naturalWidth*fit)+'px';image.style.height=Math.round(image.naturalHeight*fit)+'px';image.classList.remove('preview-image-pending');}}
       const maxX=Math.max(0,(image.clientWidth*zoom.scale-canvas.clientWidth+parseFloat(padding.paddingLeft)+parseFloat(padding.paddingRight))/2);
       const maxY=Math.max(0,(image.clientHeight*zoom.scale-canvas.clientHeight+parseFloat(padding.paddingTop)+parseFloat(padding.paddingBottom))/2);
       zoom.x=Math.max(-maxX,Math.min(maxX,zoom.x));zoom.y=Math.max(-maxY,Math.min(maxY,zoom.y));
@@ -510,6 +513,8 @@
   }
   function requestDelete(items) {
     if(!items.length)return;
+    if(items.length===1&&kind(items[0])==='folder'){openDeleteFolderDialog(state.folders.find(folder=>folder.id===items[0].id));return;}
+    $('bulk-folder-delete-row').hidden=!items.some(item=>kind(item)==='folder');$('bulk-folder-delete-contents').checked=false;
     deleting=items;
     $('delete-message').textContent=items.length===1?`Delete “${items[0].title}”?`:`Delete ${items.length} selected items?`;
     $('delete-dialog').querySelector('.muted').textContent=items.some(item=>kind(item)==='folder')?'Selected files are permanently deleted. Removing a folder keeps its remaining files in All files.':'This permanently removes the selected files and their metadata.';
@@ -532,24 +537,6 @@
     $('default-density').checked=state.density==='compact';
     try { localStorage.setItem('files-view',state.view);localStorage.setItem('files-density',state.density); }catch{}
     render();
-  }
-  async function loadEaster() {
-    $('easter-status').textContent='Connecting…'; $('easter-status').hidden=false; $('easter-account').hidden=true; $('retry-easter').disabled=true;
-    try {
-      const account=await api('/api/admin/easter-egg/profile');
-      if(account.status!=='connected') throw new Error({invalid_key:'The service rejected the API key.',rate_limited:'Please wait before trying again.',not_configured:'No API key configured.'}[account.status]||'The service is unavailable. Try again shortly.');
-      $('easter-name').textContent=account.username; $('easter-id').textContent=account.user_id;
-      const about=$('easter-about');about.textContent=typeof account.about==='string'?account.about:'';about.hidden=!about.textContent.trim();
-      $('easter-count').textContent=account.favorite_count===null?'Unavailable':Number(account.favorite_count).toLocaleString();
-      $('easter-account').querySelector('.profile-monogram').textContent=(account.username||'?').slice(0,1).toUpperCase();
-      $('easter-account').hidden=false; $('easter-status').hidden=true;
-    }catch(error){$('easter-status').textContent=error.message;}
-    finally{$('retry-easter').disabled=false;}
-  }
-  function openEaster(push=true) {
-    if(!$('auth-page').hidden)$('admin-toggle').click();
-    if(push&&location.pathname!=='/MILV67/easter-egg')history.pushState({},'','/MILV67/easter-egg');
-    if(!$('easter-dialog').open)$('easter-dialog').showModal(); loadEaster();
   }
   function initializeManager() {
     $('bulk-delete').innerHTML=icon('trash'); $('delete-file').innerHTML=icon('trash'); $('download-file').innerHTML=icon('download')+'<span>Download original</span>'; $('metadata-toggle').innerHTML=icon('details'); $('view-list').innerHTML=icon('list'); $('view-grid').innerHTML=icon('grid');
@@ -595,23 +582,26 @@
       }
     });
 
+    $('delete-folder-contents').addEventListener('change',event=>{$('delete-folder-explanation').textContent=event.target.checked?'Videos, images, and poems in this folder will be permanently deleted. Shared links will stop working.':'Files will be kept in All files.';$('confirm-delete-folder').textContent=event.target.checked?'Delete folder and files':'Delete folder';});
     if ($('delete-folder-form')) $('delete-folder-form').addEventListener('submit', async event => {
       event.preventDefault();
       if (!deletingFolder) return;
-      const button = $('confirm-delete-folder');
+      const button = $('confirm-delete-folder'),includeContents=$('delete-folder-contents').checked;
+      $('delete-folder-contents').disabled=true;
       button.disabled = true;
       try {
-        await api(`/api/folders/${deletingFolder.id}`, { method: 'DELETE' });
+        const result=await api(`/api/folders/${deletingFolder.id}`, { method: 'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({include_contents:includeContents}) });
         if (state.currentFolderId === deletingFolder.id) {
           state.currentFolderId = null;
         }
-        recordNotification('Folder removed',deletingFolder.name+' · Files kept in All files.');
+        recordNotification('Folder removed',deletingFolder.name+(includeContents?' · Folder contents deleted.':' · Files kept in All files.')+(result.cleanup_pending?' '+result.cleanup_pending+' files are inaccessible and awaiting cleanup.':''),result.cleanup_pending?'info':'success');
         $('delete-folder-dialog').close();
         await load();
       } catch (err) {
         $('delete-folder-error').textContent = err.message;
         $('delete-folder-error').hidden = false;
       } finally {
+        $('delete-folder-contents').disabled=false;
         button.disabled = false;
       }
     });
@@ -660,15 +650,18 @@
     document.addEventListener('pointerdown',event=>{if(!$('file-menu').contains(event.target)&&!event.target.closest('.more-button'))$('file-menu').hidden=true;});
     document.addEventListener('scroll',()=>$('file-menu').hidden=true,true);
     document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$ (button.dataset.close).close()));
+    $('bulk-folder-delete-contents').addEventListener('change',event=>{$('delete-dialog').querySelector('.muted').textContent=event.target.checked?'Selected folders and everything inside them will be permanently deleted. Shared links will stop working.':'Selected files are permanently deleted. Removing a folder keeps its remaining files in All files.';});
     $('delete-form').addEventListener('submit',async event=>{
       event.preventDefault();const controls=Array.from($('delete-form').querySelectorAll('button'));controls.forEach(button=>button.disabled=true);
-      const deletionCount=deleting.length;
+      const deletionCount=deleting.length,includeContents=$('bulk-folder-delete-contents').checked;
+      $('bulk-folder-delete-contents').disabled=true;
+      if(includeContents){const folders=new Set(deleting.filter(item=>kind(item)==='folder').map(item=>item.id));deleting=deleting.filter(item=>kind(item)==='folder'||!folders.has(item.folder_id));}
       $('delete-dialog').dataset.busy='true';
       try {
-        while(deleting.length){const item=deleting[0];if(kind(item)==='folder'){await api(`/api/folders/${item.id}`,{method:'DELETE'});}else{await api(`/api/${kind(item)==='poem'?'poems':'media'}/${item.id}`,{method:'DELETE'});}state.selection.delete(key(item));deleting.shift();if(state.selected&&key(state.selected)===key(item))$('preview-dialog').close();}
+        while(deleting.length){const item=deleting[0];if(kind(item)==='folder'){await api(`/api/folders/${item.id}`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({include_contents:includeContents})});}else{await api(`/api/${kind(item)==='poem'?'poems':'media'}/${item.id}`,{method:'DELETE'});}state.selection.delete(key(item));deleting.shift();if(state.selected&&key(state.selected)===key(item))$('preview-dialog').close();}
         $('delete-dialog').close();recordNotification('Items removed',`${deletionCount} ${deletionCount===1?'item':'items'} removed.`);
       }catch(error){$('delete-error').textContent=`${error.message} ${deleting.length} item(s) remain.`;$('delete-error').hidden=false;}
-      finally{controls.forEach(button=>button.disabled=false);$('delete-dialog').dataset.busy='false';await load();}
+      finally{$('bulk-folder-delete-contents').disabled=false;controls.forEach(button=>button.disabled=false);$('delete-dialog').dataset.busy='false';await load();}
     });
     $('delete-dialog').addEventListener('cancel',event=>{if($('delete-dialog').dataset.busy==='true')event.preventDefault();});
     $('edit-form').addEventListener('submit',async event=>{
@@ -698,11 +691,6 @@
     document.querySelectorAll('[data-folder-color]').forEach(button=>button.addEventListener('click',()=>setFolderColor(button.dataset.folderColor)));
     $('dismiss-transfer').addEventListener('click',()=>$('transfer-toast').hidden=true);
     $('open-preferences').addEventListener('click',()=>{$('admin-toggle').click();$('preferences-dialog').showModal();});
-    $('easter-egg-btn').addEventListener('click',()=>openEaster()); $('retry-easter').addEventListener('click',loadEaster);
-    $('close-easter').addEventListener('click',()=>$('easter-dialog').close());
-    $('easter-dialog').addEventListener('close',()=>{if(location.pathname==='/MILV67/easter-egg')history.replaceState({},'','/MILV67');});
-    window.addEventListener('popstate',()=>{if(location.pathname==='/MILV67/easter-egg')openEaster(false);else if($('easter-dialog').open)$('easter-dialog').close();});
-    if(location.pathname==='/MILV67/easter-egg')openEaster(false);
     const widths={}; try{Object.assign(widths,JSON.parse(localStorage.getItem('files-columns')||'{}'));}catch{}
     const saveWidths=()=>{try{localStorage.setItem('files-columns',JSON.stringify(widths));}catch{}};
     document.querySelectorAll('.column-resizer').forEach(handle=>{
@@ -1036,7 +1024,26 @@
     try{const result=await api('/api/shares');list.replaceChildren();for(const share of result.shares){const row=node('div','shared-link-entry'),info=node('div','shared-link-info');info.append(node('strong','',share.title));const expired=share.expires_at&&share.expires_at*1000<Date.now();info.append(node('small','muted',expired?'Expired':share.expires_at?'Expires '+new Date(share.expires_at*1000).toLocaleDateString():'No expiry'));const revoke=node('button','icon-button danger');revoke.type='button';revoke.setAttribute('aria-label','Revoke link for '+share.title);revoke.title='Revoke link';revoke.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg>';revoke.addEventListener('click',async()=>{revoke.disabled=true;try{await api(`/api/${share.item_kind==='poem'?'poems':'media'}/${share.media_id}/share`,{method:'DELETE'});row.remove();if(!list.children.length)list.append(node('p','muted','No shared links.'));}catch(error){revoke.disabled=false;const message=node('p','error-text',error.message);row.append(message);}});row.append(info,revoke);list.append(row);}if(!result.shares.length)list.append(node('p','muted','No shared links.'));}
     catch(error){list.replaceChildren(node('p','error-text',error.message));}
   }
+  function initializeStorageTooltip(){
+    const button=document.querySelector('.storage-info'),tip=$('storage-reserve');
+    tip.className='storage-tooltip';tip.hidden=true;document.body.append(tip);let hideTimer;
+    function hide(){tip.hidden=true;}
+    function show(){
+      clearTimeout(hideTimer);if(!tip.textContent.trim())tip.textContent='Free disk space is reserved to keep the service running.';
+      tip.style.width=Math.min(244,innerWidth-24)+'px';tip.hidden=false;
+      const anchor=button.getBoundingClientRect(),box=tip.getBoundingClientRect();
+      tip.style.left=Math.max(12,Math.min(innerWidth-box.width-12,anchor.right-box.width))+'px';
+      const above=anchor.top-box.height-10;
+      tip.style.top=Math.max(12,Math.min(innerHeight-box.height-12,above>=12?above:anchor.bottom+10))+'px';
+    }
+    const scheduleHide=()=>{hideTimer=setTimeout(()=>{if(document.activeElement!==button)hide();},100);};
+    button.addEventListener('pointerenter',show);button.addEventListener('pointerleave',scheduleHide);button.addEventListener('focus',show);button.addEventListener('blur',scheduleHide);
+    tip.addEventListener('pointerenter',()=>clearTimeout(hideTimer));tip.addEventListener('pointerleave',scheduleHide);
+    button.addEventListener('keydown',event=>{if(event.key==='Escape')hide();});window.addEventListener('resize',hide);window.addEventListener('scroll',hide,true);
+  }
+
   function initializeStorageFeatures(){
+    initializeStorageTooltip();
     $('category-toggle').addEventListener('click',()=>setCategories($('category-toggle').getAttribute('aria-expanded')!=='true'));
     $('category-menu').addEventListener('keydown',event=>{if(event.key==='Escape'){closeCategories();$('category-toggle').focus();}});
     $('preview-share').addEventListener('click',()=>{if(state.selected&&kind(state.selected)!=='folder')openSharing(state.selected);});

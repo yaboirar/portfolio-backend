@@ -116,3 +116,13 @@ disk-reserve checks. The viewer shows a preparation message and polls briefly.
 Failure never falls back to exposing the original on a privacy-enabled link.
 Deleting the original cancels/removes its cleaned variants; temporary partial
 outputs are removed on failure and startup. Exclusions cover all upload caches.
+
+## Folder deletion choice
+
+The confirmation dialog defaults to keeping folder contents in All files. Select
+Also delete everything inside to permanently delete its images, videos and poems,
+including their sharing grants, original files and derived caches. Bulk deletion
+also asks whether to include contents of selected folders. Failed filesystem
+cleanup stays inaccessible and pending for retry at startup.
+
+Additional checks: `python test_folder_delete.py` and `node tests/preview_fit.js`.

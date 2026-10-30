@@ -37,8 +37,11 @@ Deletion marks media pending, revokes sharing, removes its original, JPEG thumbn
 variants and matching legacy HLS directory, then purges the record. Failed file
 cleanup leaves a private pending record for startup retry. Thumbnail jobs check
 the active record before publishing, preventing deleted thumbnails reappearing.
-Folder deletion returns contents to the library; it does not delete contained
-files. Historical backups are independent retention copies and require separate
+Folder deletion defaults to returning contents to All files. Its confirmation
+can instead include the contents: media is marked pending, sharing grants revoked,
+poems removed and the container deleted in one transaction; originals and caches
+are then removed before media records are purged. Failed file cleanup remains
+inaccessible for startup retry. Historical backups are independent retention copies and require separate
 retention management; deleting a live file does not purge historical backups.
 
 ## Authentication and secrets

@@ -31,7 +31,6 @@ from upload_parser import parse_upload
 
 import database
 import auth
-import easter_egg
 import video_thumbnails
 import storage_guard
 import media_jobs
@@ -464,12 +463,6 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             self.send_json(200, {"status": "ok", "service": "Portfolio Creative Backend", "version": "2.0.0"})
             return
 
-        if path == auth.ADMIN_PREFIX + "/easter-egg":
-            if not self.require_auth():
-                return
-            self.redirect_page("/MILV67/easter-egg")
-            return
-
         # The backend is private. Publishing read endpoints for a future public
         # portfolio must be an explicit decision, including direct media URLs.
         if path.startswith(("/api/", "/uploads/")) and not self.require_auth():
@@ -543,18 +536,6 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                 self.send_error_json(404, "Media not found")
             return
 
-        if path == "/api/admin/easter-egg/status":
-            if not self.require_auth():
-                return
-            self.send_json(200, easter_egg.check_connection())
-            return
-
-        if path == "/api/admin/easter-egg/profile":
-            if not self.require_auth():
-                return
-            self.send_json(200, easter_egg.get_account_summary())
-            return
-
         if path == "/api/admin/logs":
             if not self.require_auth():
                 return
@@ -609,7 +590,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             self.serve_file_with_range(login_assets[path], head_only=head_only)
             return
 
-        if path in (admin_login, admin_dashboard, admin_dashboard + "/easter-egg"):
+        if path in (admin_login, admin_dashboard):
             user = self.get_authenticated_user()
             if path.startswith(admin_dashboard) and not user:
                 self.redirect_page(admin_login)
@@ -645,8 +626,18 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         folder_id = int(match.group(1)) if match else None
         try:
             if self.command == 'DELETE' and match:
-                database.delete_folder(folder_id)
-                result, status = {'success': True}, 200
+                body=self.parse_json_body()
+                if not isinstance(body,dict):raise ValueError('Invalid folder deletion options')
+                include_contents=body.get('include_contents',False)
+                deletion=database.delete_folder(folder_id,include_contents)
+                pending=0
+                for item in deletion['items']:
+                    try:
+                        media_storage.remove_files(item,UPLOADS_DIR)
+                        database.delete_media_final(item['id'])
+                    except (OSError,ValueError):
+                        pending+=1
+                result, status = {'success':True,'contents_deleted':include_contents,'media_count':deletion['media_count'],'poem_count':deletion['poem_count'],'cleanup_pending':pending}, 200
             elif self.command == 'POST' and path == '/api/folders/move':
                 body = self.parse_json_body()
                 if not isinstance(body, dict) or 'folder_id' not in body:
