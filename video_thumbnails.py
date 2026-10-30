@@ -31,7 +31,7 @@ def _worker():
                                 '-filter_threads', '1', '-protocol_whitelist', 'file,pipe',
                                 '-ss', seek, '-i', str(source), '-frames:v', '1',
                                 '-vf', 'scale=384:216:force_original_aspect_ratio=decrease',
-                                '-an', '-sn', '-dn', '-threads', '1', '-q:v', '4', str(temp)],
+                                '-an', '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1', '-threads', '1', '-q:v', '4', str(temp)],
                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL, check=True, timeout=30)
                 if temp.is_file() and temp.stat().st_size:

@@ -37,6 +37,8 @@ import media_jobs
 import media_metadata
 import media_storage
 import share_access
+import document_files
+import folder_sharing
 
 # Configure Pillow limits to protect against decompression bombs
 Image.MAX_IMAGE_PIXELS = 50_000_000
@@ -65,7 +67,7 @@ MAX_GLOBAL_UPLOAD = 550 * 1024 * 1024   # 550 MB
 MAX_FIELD_LEN = 10 * 1024               # 10 KB per text field
 MAX_PARTS = 10                          # Max multipart form fields
 MAX_PART_HEADER_LEN = 4096              # Max header bytes per part
-CHUNK_SIZE = 64 * 1024                  # 64 KB streaming buffer
+CHUNK_SIZE = 256 * 1024                  # 64 KB streaming buffer
 
 mimetypes.init()
 mimetypes.add_type("video/mp4", ".mp4")
@@ -92,7 +94,7 @@ def validate_and_sanitize_image(input_path: Path, output_path: Path, ext: str) -
             if width > 8192 or height > 8192 or width * height > Image.MAX_IMAGE_PIXELS:
                 raise ValueError('Image dimensions exceed the supported limit')
             image.verify()
-        shutil.copyfile(input_path, output_path)
+        input_path.replace(output_path)
         return output_path.stat().st_size, width, height
     except (OSError, SyntaxError, ValueError, Image.DecompressionBombError) as error:
         raise ValueError('Corrupt or unsupported image') from error
@@ -107,7 +109,7 @@ def validate_video_file(file_path: Path, ext: str, metadata=None) -> float:
                "-of", "json", str(file_path)]
     try:
         with tempfile.TemporaryFile() as output:
-            result = media_jobs.run(command, stdout=output, stderr=subprocess.DEVNULL, timeout=15, check=False)
+            result = media_jobs.run(command, priority=True, stdout=output, stderr=subprocess.DEVNULL, timeout=15, check=False)
             output.seek(0)
             result.stdout = output.read(1024 * 1024 + 1)
     except FileNotFoundError as exc:
@@ -314,8 +316,10 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         self.connection.settimeout(15.0)
 
     def log_message(self, format, *args):
-        clean_path = re.sub(r'(/(?:share|videoshared)/)[^/]+',r'\1[redacted]',urllib.parse.urlparse(self.path).path)
-        sys.stdout.write(f"[{self.log_date_time_string()}] {self.command} {clean_path} -> {args[1] if len(args) > 1 else ''}\n")
+        raw_path = getattr(self, 'path', '') or ''
+        clean_path = re.sub(r'(/(?:share|videoshared)/)[^/]+',r'\1[redacted]',urllib.parse.urlparse(raw_path).path)
+        cmd = getattr(self, 'command', '-') or '-'
+        sys.stdout.write(f"[{self.log_date_time_string()}] {cmd} {clean_path} -> {args[1] if len(args) > 1 else ''}\n")
         sys.stdout.flush()
 
     def do_OPTIONS(self):
@@ -381,6 +385,8 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         total_size = stat.st_size
         mime_type = {'.ts': 'video/mp2t', '.m3u8': 'application/vnd.apple.mpegurl'}.get(filepath.suffix.lower())
         mime_type = mime_type or mimetypes.guess_type(str(filepath))[0] or 'application/octet-stream'
+        if filepath.resolve().is_relative_to((UPLOADS_DIR/'documents').resolve()):
+            mime_type='application/octet-stream';attachment_name=attachment_name or 'file'+filepath.suffix.lower()
         html = filepath.suffix.lower() in {'.html', '.htm'}
         cache = 'private, no-store' if html else 'private, no-cache, must-revalidate'
         etag = f'"{stat.st_mtime_ns:x}-{total_size:x}"'
@@ -435,9 +441,10 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
 
     def media_payload(self, item):
         result = dict(item)
-        root=VIDEOS_DIR if item['media_type']=='video' else IMAGES_DIR
+        if result.get('media_type')=='other':result['media_type']='document'
+        root=VIDEOS_DIR if item['media_type']=='video' else IMAGES_DIR if item['media_type']=='image' else UPLOADS_DIR/'documents'
         original=resolve_safe_path(root,item['filename']) if Path(item['filename']).name==item['filename'] else None
-        if original:media_metadata.schedule(item,original)
+        if original and item['media_type'] in ('video','image'):media_metadata.schedule(item,original)
         if result.get('media_type') == 'video':
             filename = result.get('filename', '')
             original = resolve_safe_path(VIDEOS_DIR, filename) if filename and Path(filename).name == filename else None
@@ -468,9 +475,12 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         if path.startswith(("/api/", "/uploads/")) and not self.require_auth():
             return
 
+        if path=='/api/poems' or path.startswith('/api/poems/'):
+            if self.require_auth():self.send_error_json(410,'Text entry is no longer supported. Upload a document file instead.')
+            return
         if share_access.handle_owner(self,path):return
         if path == '/api/shares':
-            self.send_json(200,{'shares':database.list_media_shares()});return
+            self.send_json(200,{'shares':database.list_media_shares()+folder_sharing.listing()});return
         if path == '/api/storage':
             self.send_json(200,storage_guard.stats());return
         if path == "/api/stats":
@@ -503,6 +513,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
 
         if path == "/api/media":
             media_type = query.get("type", [None])[0]
+            if media_type=="document":media_type="other"
             items = [self.media_payload(item) for item in database.get_all_media(media_type=media_type)]
             self.send_json(200, {"count": len(items), "media": items})
             return
@@ -669,6 +680,9 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
+        if path=='/api/poems' or path.startswith('/api/poems/'):
+            if self.require_auth():self.send_error_json(410,'Text entry is no longer supported. Upload a document file instead.')
+            return
         if share_access.handle_owner(self,path):return
         if self.handle_folder_write(path):
             return
@@ -756,31 +770,10 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        poem_match = re.match(r"^/api/poems/(\d+)$", path)
-        if poem_match:
-            if not self.require_auth():
-                return
-            poem_id = int(poem_match.group(1))
-            try:
-                body = self.parse_json_body()
-                title = body.get("title")
-                content = body.get("content")
-                if not title or not content:
-                    self.send_error_json(400, "Fields 'title' and 'content' are required")
-                    return
-                mood = body.get("mood", "reflective")
-                tags = body.get("tags", "")
-                updated = database.update_poem(poem_id, title, content, mood, tags)
-                if updated:
-                    database.log_activity("update_poem", "PUT", path, 200, self.client_address[0], input_data={"poem_id": poem_id, "title": title, "mood": mood}, output_data=updated)
-                    self.send_json(200, updated)
-                else:
-                    self.send_error_json(404, "Poem not found")
-            except Exception as e:
-                self.send_error_json(400, f"Invalid request: {str(e)}")
+        if path=='/api/poems' or path.startswith('/api/poems/'):
+            if self.require_auth():self.send_error_json(410,'Text entry is no longer supported. Upload a document file instead.')
             return
-
-        self.send_error_json(404, f"Endpoint {path} not found")
+        self.send_error_json(405,'Method not allowed')
 
     def do_PATCH(self):
         self.close_connection = True
@@ -789,6 +782,9 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         if not self.guard_api_write():
             return
         path = urllib.parse.urlparse(self.path).path
+        if path=='/api/poems' or path.startswith('/api/poems/'):
+            if self.require_auth():self.send_error_json(410,'Text entry is no longer supported. Upload a document file instead.')
+            return
         if share_access.handle_owner(self,path):return
         if self.handle_folder_write(path):
             return
@@ -825,6 +821,9 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+        if path=='/api/poems' or path.startswith('/api/poems/'):
+            if self.require_auth():self.send_error_json(410,'Text entry is no longer supported. Upload a document file instead.')
+            return
         if share_access.handle_owner(self,path):return
         if self.handle_folder_write(path):
             return
@@ -874,6 +873,10 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         save_path = None
         technical = {}
         try:
+            try:
+                self.connection.settimeout(300.0)
+            except Exception:
+                pass
             cl_header = self.headers.get("Content-Length")
             if not cl_header:
                 self.close_connection = True
@@ -889,16 +892,10 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             with database.get_db() as conn:
                 database.validate_folder(conn, folder_id)
             original_filename = query.get("filename", ["asset.dat"])[0]
-            ext = os.path.splitext(original_filename)[1].lower()
-
-            if ext not in ALLOWED_EXTS:
-                self.close_connection = True
-                self.send_error_json(400, f"Unsupported file format '{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTS))}")
-                return
-
+            ext = document_files.extension(original_filename)
             is_video = ext in ALLOWED_VIDEO_EXTS
-            media_type = "video" if is_video else "image"
-            max_limit = MAX_VIDEO_SIZE if is_video else MAX_IMAGE_SIZE
+            media_type = 'video' if is_video else 'image' if ext in ALLOWED_IMAGE_EXTS else 'other'
+            max_limit = MAX_VIDEO_SIZE if is_video else MAX_IMAGE_SIZE if media_type=='image' else document_files.MAX_DOCUMENT_SIZE
 
             if content_length > max_limit:
                 self.close_connection = True
@@ -908,7 +905,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             title = query.get("title", ["Untitled Project"])[0]
             desc = query.get("description", [""])[0]
 
-            subfolder = "videos" if is_video else "images"
+            subfolder = 'videos' if is_video else 'images' if media_type=='image' else 'documents'
             target_dir = UPLOADS_DIR / subfolder
             target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -930,6 +927,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             if media_type == "image":
                 try:
                     final_size, width, height = validate_and_sanitize_image(tmp_path, save_path, ext)
+                    tmp_path = None
                 except ValueError as err:
                     self.send_error_json(400, f"Invalid image file: {str(err)}")
                     return
@@ -939,7 +937,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                         tmp_path = None
             else:
                 try:
-                    validate_video_file(tmp_path, ext, technical)
+                    if is_video:validate_video_file(tmp_path, ext, technical)
                 except ValueError as err:
                     self.send_error_json(400, f"Invalid video file: {str(err)}")
                     return
@@ -982,6 +980,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             if not technical and media_type=='image':technical={'width':width,'height':height}
             database.save_media_metadata(record['id'],technical)
             record.update(technical)
+            record=self.media_payload(record)
             try:
                 self.send_json(201, record)
             except (BrokenPipeError, ConnectionResetError, OSError):
@@ -994,6 +993,10 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         except Exception:
             self.send_error_json(500,"Upload could not be completed")
         finally:
+            try:
+                self.connection.settimeout(15.0)
+            except Exception:
+                pass
             if tmp_path and tmp_path.is_file():
                 try:
                     tmp_path.unlink()
@@ -1006,6 +1009,10 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
         save_path = None
         technical = {}
         try:
+            try:
+                self.connection.settimeout(300.0)
+            except Exception:
+                pass
             cl_header = self.headers.get("Content-Length")
             if not cl_header:
                 self.close_connection = True
@@ -1027,6 +1034,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                     self.rfile, self.headers.get("Content-Type", ""), content_length, tmp,
                     video_exts=ALLOWED_VIDEO_EXTS, image_exts=ALLOWED_IMAGE_EXTS,
                     video_limit=MAX_VIDEO_SIZE, image_limit=MAX_IMAGE_SIZE,
+                    document_limit=document_files.MAX_DOCUMENT_SIZE,
                     field_limit=MAX_FIELD_LEN, header_limit=MAX_PART_HEADER_LEN,
                     part_limit=MAX_PARTS, chunk_size=CHUNK_SIZE,
                 )
@@ -1034,21 +1042,17 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             folder_id = int(fields['folder_id']) if fields.get('folder_id') else None
             with database.get_db() as conn:
                 database.validate_folder(conn, folder_id)
-            ext = os.path.splitext(original_filename)[1].lower()
-            if ext not in ALLOWED_EXTS:
-                self.send_error_json(400, f"Unsupported file format '{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTS))}")
-                return
-
+            ext = document_files.extension(original_filename)
             is_video = ext in ALLOWED_VIDEO_EXTS
-            media_type = "video" if is_video else "image"
-            max_limit = MAX_VIDEO_SIZE if is_video else MAX_IMAGE_SIZE
+            media_type = 'video' if is_video else 'image' if ext in ALLOWED_IMAGE_EXTS else 'other'
+            max_limit = MAX_VIDEO_SIZE if is_video else MAX_IMAGE_SIZE if media_type=='image' else document_files.MAX_DOCUMENT_SIZE
 
             file_size = tmp_path.stat().st_size
             if file_size > max_limit:
                 self.send_error_json(413, f"File exceeds maximum allowed size of {max_limit // (1024*1024)}MB")
                 return
 
-            subfolder = "videos" if is_video else "images"
+            subfolder = 'videos' if is_video else 'images' if media_type=='image' else 'documents'
             target_dir = UPLOADS_DIR / subfolder
             target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1059,6 +1063,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             if media_type == "image":
                 try:
                     final_size, width, height = validate_and_sanitize_image(tmp_path, save_path, ext)
+                    tmp_path = None
                 except ValueError as err:
                     self.send_error_json(400, f"Invalid image file: {str(err)}")
                     return
@@ -1068,7 +1073,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                         tmp_path = None
             else:
                 try:
-                    validate_video_file(tmp_path, ext, technical)
+                    if is_video:validate_video_file(tmp_path, ext, technical)
                 except ValueError as err:
                     self.send_error_json(400, f"Invalid video file: {str(err)}")
                     return
@@ -1115,6 +1120,7 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
                 technical={'width':width,'height':height}
             database.save_media_metadata(record['id'],technical)
             record.update(technical)
+            record=self.media_payload(record)
             try:
                 database.log_activity(
                     "upload_media", "POST", "/api/upload", 201, self.client_address[0],
@@ -1137,6 +1143,10 @@ class PortfolioHandler(auth.AuthMixin, BaseHTTPRequestHandler):
             database.log_activity("upload_failed", "POST", "/api/upload", 500, self.client_address[0], error_message=str(e))
             self.send_error_json(500, f"Upload failed: {str(e)}")
         finally:
+            try:
+                self.connection.settimeout(15.0)
+            except Exception:
+                pass
             if tmp_path and tmp_path.is_file():
                 try:
                     tmp_path.unlink()

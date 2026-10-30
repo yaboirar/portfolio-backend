@@ -90,6 +90,8 @@ def init_db() -> None:
         for table in ('media_shares','poem_shares'):
             if 'strip_metadata' not in [c[1] for c in cursor.execute(f'PRAGMA table_info({table})')]:
                 cursor.execute(f'ALTER TABLE {table} ADD COLUMN strip_metadata INTEGER NOT NULL DEFAULT 0')
+        cursor.execute("CREATE TABLE IF NOT EXISTS folder_shares (folder_id INTEGER PRIMARY KEY REFERENCES folders(id) ON DELETE CASCADE,token_hash TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,expires_at INTEGER,allow_details INTEGER NOT NULL DEFAULT 0,strip_metadata INTEGER NOT NULL DEFAULT 0,scope TEXT NOT NULL DEFAULT 'selected')")
+        cursor.execute('CREATE TABLE IF NOT EXISTS folder_share_items (folder_id INTEGER NOT NULL REFERENCES folder_shares(folder_id) ON DELETE CASCADE,media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,public_key TEXT NOT NULL UNIQUE,PRIMARY KEY(folder_id,media_id))')
         cursor.execute('CREATE TABLE IF NOT EXISTS share_egress (day TEXT PRIMARY KEY, bytes INTEGER NOT NULL DEFAULT 0)')
         for table in ('media', 'poems'):
             if 'folder_id' not in [row[1] for row in cursor.execute(f'PRAGMA table_info({table})')]:

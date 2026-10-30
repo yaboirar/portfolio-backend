@@ -22,7 +22,7 @@ def remove_files(item,uploads):
         if target.parent!=expected:raise ValueError('Invalid derived media path')
         if expected.exists():shutil.rmtree(expected)
     elif target.is_file() or target.is_symlink():target.unlink(missing_ok=True)
-    original=_inside(root,('videos/' if item['media_type']=='video' else 'images/')+filename)
+    original=_inside(root,('videos/' if item['media_type']=='video' else 'images/' if item['media_type']=='image' else 'documents/')+filename)
     original.unlink(missing_ok=True)
     # Older HLS exports may retain a derived directory even after the URL moved.
     if item['media_type']=='video':

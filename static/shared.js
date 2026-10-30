@@ -3,9 +3,9 @@
   const title=document.getElementById('shared-title'),status=document.getElementById('shared-status'),content=document.getElementById('shared-content');
   const path=location.pathname.replace(/\/$/,'');
   const pause=()=>new Promise(resolve=>setTimeout(resolve,1500));
-  async function metadata(){
+  async function metadata(page=1){
     for(let attempt=0;attempt<100;attempt++){
-      const response=await fetch(path+'/metadata',{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer'});
+      const response=await fetch(path+'/metadata?page='+page,{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer'});
       if(response.status===202){status.hidden=false;status.textContent='Preparing a copy with embedded metadata removed…';await pause();continue;}
       if(!response.ok)throw new Error(response.status===503?'The cleaned copy could not be prepared. Please try again later.':'This link has expired, was revoked, or is temporarily unavailable.');
       return response.json();
@@ -18,16 +18,51 @@
     for(const [key,label] of [['title','Title'],['type','Type'],['duration','Duration'],['dimensions','Dimensions']]){
       if(!item.details[key])continue;const term=document.createElement('dt'),value=document.createElement('dd');term.textContent=label;value.textContent=item.details[key];fields.append(term,value);
     }
-    const download=document.getElementById('shared-download');download.href=path+'/download';let busy=false;
+    const download=document.getElementById('shared-download');download.hidden=item.kind==='folder';download.href=path+'/download';let busy=false;
     download.addEventListener('click',async event=>{event.preventDefault();if(busy)return;busy=true;download.setAttribute('aria-busy','true');try{await metadata();status.hidden=true;const link=document.createElement('a');link.href=path+'/download';link.download='';document.body.append(link);link.click();link.remove();}catch(error){status.hidden=false;status.textContent=error.message;}finally{busy=false;download.removeAttribute('aria-busy');}});
     toggle.hidden=false;toggle.addEventListener('click',()=>{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidden){panel.hidden=true;toggle.setAttribute('aria-expanded','false');toggle.focus();}});
   }
+  function renderSharedFolder(item){
+    content.classList.add('shared-folder-content');
+    const list=document.createElement('div');list.className='shared-folder';content.append(list);
+    const views=document.createElement('div');views.className='shared-folder-views';views.setAttribute('role','group');views.setAttribute('aria-label','Folder view');
+    let view='grid';try{view=localStorage.getItem('shared-folder-view')==='list'?'list':'grid';}catch{}
+    const icons={list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'};
+    function setView(value){view=value;list.dataset.view=value;for(const button of views.children)button.setAttribute('aria-pressed',String(button.dataset.view===value));try{localStorage.setItem('shared-folder-view',value);}catch{}}
+    for(const value of ['list','grid']){const button=document.createElement('button');button.type='button';button.dataset.view=value;button.setAttribute('aria-label',value==='list'?'List view':'Gallery view');button.title=value==='list'?'List view':'Gallery view';button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'+icons[value]+'</svg>';button.addEventListener('click',()=>setView(value));views.append(button);}
+    document.querySelector('body>header').insertBefore(views,document.getElementById('shared-details-toggle'));setView(view);
+    let page=item.page||1,loading=false;
+    const more=document.createElement('button');more.type='button';more.className='shared-folder-more';more.textContent='Show more';
+    function add(result){
+      more.remove();
+      for(const entry of result.items){
+        const link=document.createElement('a');link.className='shared-folder-file';link.href=path+'/item/'+entry.key;
+        const art=document.createElement('span');art.className='shared-folder-art';
+        if(['image','video'].includes(entry.kind)){
+          const image=document.createElement('img');image.alt='';image.loading='lazy';image.decoding='async';let retries=0;
+          image.addEventListener('error',()=>{if(retries++<10)setTimeout(()=>{if(image.isConnected)image.src=link.href+'/thumbnail?retry='+retries;},2000);else image.remove();});
+          image.src=link.href+'/thumbnail';art.append(image);
+          if(entry.kind==='video'){const play=document.createElement('span');play.className='shared-folder-play';play.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m9 5 11 7-11 7z"/></svg>';art.append(play);}
+        }else art.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h6"/></svg>';
+        const info=document.createElement('span');info.className='shared-folder-info';const name=document.createElement('span'),type=document.createElement('small');name.textContent=entry.title;type.textContent={image:'Image',video:'Video',document:'Document'}[entry.kind]||'File';info.append(name,type);link.append(art,info);list.append(link);
+      }
+      if(!list.children.length){const empty=document.createElement('p');empty.className='shared-folder-empty';empty.textContent='No files are shared in this folder.';list.append(empty);}
+      if(result.more)list.append(more);
+    }
+    add(item);more.addEventListener('click',async()=>{if(loading)return;loading=true;more.disabled=true;try{const result=await metadata(page+1);page++;add(result);}catch(error){status.hidden=false;status.textContent=error.message;}finally{loading=false;more.disabled=false;}});
+  }
+
   metadata().then(async item=>{
     title.textContent=item.title;document.title=item.title;renderDetails(item);
     const description=document.getElementById('shared-description');description.textContent=item.description||'';description.hidden=!item.description;
-    if(item.kind==='image'){
+    if(item.folder_path){const back=document.createElement('a');back.className='shared-folder-back';back.href=item.folder_path;back.textContent='‹ '+item.folder_title;document.querySelector('body>header>div').prepend(back);}
+    if(item.kind==='folder'){renderSharedFolder(item);}
+    else if(item.kind==='image'){
       const image=document.createElement('img');image.className='shared-image';image.alt=item.title;image.src=path+'/file';image.addEventListener('contextmenu',event=>event.preventDefault());image.addEventListener('error',()=>{status.hidden=false;status.textContent='The image could not load. Reopen the link to retry.';});content.append(image);
+    }else if(item.kind==='document'){
+      if(item.text_preview){const response=await fetch(path+'/file',{credentials:'omit',cache:'no-store',headers:{Range:'bytes=0-131071'}});if(!response.ok)throw new Error('Document unavailable.');const pre=document.createElement('pre');pre.className='shared-poem';pre.textContent=await response.text();content.append(pre);}
+      else{const card=document.createElement('p');card.className='shared-poem';card.textContent=item.details_enabled?'Preview isn’t available for this file type. Use the download icon in details.':'Preview isn’t available for this file type.';content.append(card);}
     }else if(item.kind==='poem'){
       const response=await fetch(path+'/file',{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer'});if(!response.ok)throw new Error('This file is unavailable.');const poem=document.createElement('pre');poem.className='shared-poem';poem.textContent=await response.text();content.append(poem);
     }else{

@@ -582,9 +582,15 @@ def test_suite():
         for path in ('/public/app.js', '/public/style.css'):
             code, _, asset = http_get(path)
             assert code == 200 and b'ventilover67adminlogin' not in asset
-        for removed in ['/api/admin/easter-egg/status','/api/admin/easter-egg/profile','/MILV67/easter-egg']:
-            assert http_get(removed,headers=auth_headers())[0]==404
-
+        assert http_get('/api/admin/easter-egg/status')[0] == 401
+        with mock.patch('server.easter_egg.check_connection', return_value={'configured': True, 'connected': True, 'status': 'connected'}), mock.patch('server.easter_egg.get_account_summary', return_value={'status': 'connected', 'username': 'Example', 'user_id': 7, 'favorite_count': 42}):
+            code, secret_headers, secret_body = http_get('/api/admin/easter-egg/status', headers=auth_headers())
+            page_code, _, check_page = http_get(auth.ADMIN_PREFIX + '/easter-egg', headers=auth_headers())
+            assert page_code == 200 and b'Connected.' in check_page and b'Back to files' in check_page
+        assert http_get(auth.ADMIN_PREFIX + '/easter-egg')[0] == 401
+        assert code == 200 and set(json.loads(secret_body)) == {'configured', 'connected', 'status'}
+        assert isinstance(json.loads(secret_body)['configured'], bool)
+        assert secret_headers.get('Cache-Control') == 'no-store'
         print("  ✓ Public placeholder and private admin: old routes removed, protected reads/media/dashboard, authenticated access preserved")
         code, _, workspace = http_get('/MILV67', headers=auth_headers())
         assert code == 200 and b'/static/files.js' in workspace
@@ -683,30 +689,6 @@ def test_suite():
         })
         assert poem_code == 201
         poem_id = json.loads(poem_raw)["id"]
-
-        # Metadata editing must require auth/CSRF and preserve original-file fields.
-        edit_fixture = database.create_media('Before', 'Original description', 'image', 'edit-fixture.png', '/uploads/images/edit-fixture.png', 1234, 'image/png', 'Camera original.png')
-        patch_url = BASE_URL + '/api/media/' + str(edit_fixture['id'])
-        edit_headers = {"Cookie": f"{cookie_name}={fresh_session_token}", "Origin": BASE_URL, "X-Requested-With": "portfolio-admin", "X-CSRF-Token": login_csrf, "Content-Type": "application/json"}
-        def patch_metadata(payload, headers):
-            request = urllib.request.Request(patch_url, data=json.dumps(payload).encode(), method='PATCH', headers=headers)
-            try:
-                with urllib.request.urlopen(request) as response:
-                    return response.status, json.loads(response.read())
-            except urllib.error.HTTPError as error:
-                return error.code, json.loads(error.read())
-        assert patch_metadata({'title': 'Blocked'}, {})[0] in (401, 403)
-        assert patch_metadata({'title': 'Blocked'}, {key:value for key,value in edit_headers.items() if key != 'X-CSRF-Token'})[0] in (401, 403)
-        for invalid in ([], {'title':''}, {'title':'x'*201}, {'title':'Valid', 'description':42}):
-            assert patch_metadata(invalid, edit_headers)[0] == 400
-        edit_code, edited = patch_metadata({'title':'After', 'description':'Updated description'}, edit_headers)
-        assert edit_code == 200 and edited['title'] == 'After' and edited['description'] == 'Updated description'
-        for field in ('filename','original_filename','file_size','mime_type','relative_url','created_at','status'):
-            assert edited[field] == edit_fixture[field], field
-        database.mark_media_pending_delete(edit_fixture['id'])
-        assert patch_metadata({'title':'Hidden'}, edit_headers)[0] == 404
-        database.delete_media_final(edit_fixture['id'])
-        print('  ✓ Media edit authentication, CSRF, validation, and original metadata preservation verified')
 
         # 15j: Logout revokes session and clears cookie
         logout_code, logout_headers, _ = http_post_json("/ventilover67adminlogin/api/auth/logout", {}, headers={

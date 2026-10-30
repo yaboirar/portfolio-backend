@@ -53,8 +53,8 @@ class StrictDecoder(MultipartDecoder):
 
 
 def parse_upload(stream, content_type, content_length, output, *, video_exts,
-                 image_exts, video_limit, image_limit, field_limit=10240,
-                 header_limit=4096, part_limit=10, chunk_size=65536):
+                 image_exts, video_limit, image_limit, document_limit=None, field_limit=10240,
+                 header_limit=4096, part_limit=10, chunk_size=262144):
     """Consume exactly Content-Length; stream one file and return (fields, filename)."""
     kind, options = parse_options_header(content_type)
     boundary = options.get('boundary', '')
@@ -99,9 +99,9 @@ def parse_upload(stream, content_type, content_length, output, *, video_exts,
                         raise ValueError('Multiple files not permitted. Upload files one at a time.')
                     filename = event.filename
                     ext = os.path.splitext(filename)[1].lower()
-                    if ext not in video_exts | image_exts:
+                    if ext not in video_exts | image_exts and document_limit is None:
                         raise ValueError('Unsupported file format')
-                    file_limit = video_limit if ext in video_exts else image_limit
+                    file_limit = video_limit if ext in video_exts else image_limit if ext in image_exts else document_limit
             elif isinstance(event, Data):
                 if isinstance(current, File):
                     file_size += len(event.data)

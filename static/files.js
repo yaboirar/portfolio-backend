@@ -25,9 +25,9 @@
   $('motion-toggle').addEventListener('change', event => applyMotion(event.target.checked ? 'full' : 'reduced'));
   let listAnimation;
   const state = { items: [], folders: [], currentFolderId: null, filter: 'all', query: '', sort: 'newest', selected: null, uploading: false, autoTitle: '', selection: new Set(), visible: [], anchor: null, view: 'list', density: 'normal', filters: {type:'all',date:'all',size:'all'} };
-  const labels = { all: 'All files', folder: 'Folders', video: 'Videos', image: 'Images', poem: 'Poems' };
-  const typeNames = { folder: 'Folder', video: 'Video', image: 'Image', poem: 'Poem' };
-  const kind = item => item.media_type || 'poem';
+  const labels = { all: 'All files', folder: 'Folders', video: 'Videos', image: 'Images', document: 'Documents' };
+  const typeNames = { folder: 'Folder', video: 'Video', image: 'Image', document: 'Document' };
+  const kind = item => item.media_type==='other'?'document':item.media_type||'document';
   const bytes = item => item.original_size ?? item.file_size ?? 0;
   const size = value => !value ? '—' : value < 1024 ? `${value} B` : value < 1024 * 1024 ? `${(value / 1024).toFixed(1)} KB` : value < 1024 ** 3 ? `${(value / 1024 ** 2).toFixed(1)} MB` : `${(value / 1024 ** 3).toFixed(2)} GB`;
   const node = (tag, className, text) => { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; };
@@ -52,7 +52,7 @@
     $('load-error').hidden = true;
     $('retry-load').hidden = true;
     try {
-      const [media, poems, folders] = await Promise.all([api('/api/media'), api('/api/poems'), api('/api/folders')]);
+      const [media, folders] = await Promise.all([api('/api/media'), api('/api/folders')]);
       state.folders = folders.folders || [];
       if(state.currentFolderId!==null&&!state.folders.some(folder=>folder.id===state.currentFolderId))state.currentFolderId=null;
       renderFolderShortcuts();
@@ -68,8 +68,7 @@
       }));
       state.items = [
         ...folderItems,
-        ...media.media,
-        ...poems.poems.map(item => ({ ...item, media_type: 'poem' }))
+        ...media.media
       ];
       render();
       loadStorage();
@@ -93,7 +92,7 @@
     details:'<path d="M4 6h16M4 12h12M4 18h9"/>',
     image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/>',
     video:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m10 8 6 4-6 4z"/>',
-    poem:'<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h5"/>'
+    document:'<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h5"/>'
   };
   function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]}</svg>`; }
   function updateSelection() {
@@ -238,7 +237,7 @@
         ? 'Upload files or move items into this folder.'
         : state.filter === 'folder'
           ? 'Click “＋ New folder” to create a folder.'
-          : 'Upload files or create a poem to get started.';
+          : 'Upload files or upload a document to get started.';
 
     const filterCount = Object.values(filters).filter(value => value !== 'all').length;
     $('filter-toggle').setAttribute('aria-label', filterCount ? `Filter files (${filterCount} active)` : 'Filter files');
@@ -260,6 +259,15 @@
     state.selected = null;
   }
 
+  async function renderDocumentPreview(item,content){
+    const url=mediaURL(item);$('download-file').href=url;$('download-file').download=item.original_filename||item.title||'document';
+    const ext=(item.original_filename||item.filename||'').split('.').pop().toLowerCase();
+    if(['txt','md','csv','json','log','yaml','yml','xml'].includes(ext)){
+      const loading=node('p','muted','Opening document…');content.append(loading);
+      try{const response=await fetch(url,{credentials:'same-origin',headers:{Range:'bytes=0-131071'}});if(!response.ok)throw new Error('Document preview unavailable.');const text=await response.text();if(state.selected!==item)return;const pre=node('pre','document-text',text+(bytes(item)>131072?'\n\nPreview limited to the first 128 KB. Download the file for its complete contents.':''));content.replaceChildren(pre);}catch(error){if(state.selected===item)content.replaceChildren(node('p','muted',error.message));}
+    }else{const card=node('div','document-preview');card.innerHTML=icon('document');card.append(node('strong','',item.title),node('p','','Preview isn’t available for this file type. Open details to download it.'));content.append(card);}
+  }
+
   function preview(item) {
     if (kind(item) === 'folder') {
       openFolder(item.id);
@@ -275,7 +283,8 @@
     const content = $('preview-content');
     $('preview-share').hidden=kind(item)==='folder';
     $('download-file').hidden = kind(item) === 'poem';
-    if (kind(item) === 'poem') content.append(node('pre', '', item.content || ''));
+    if(kind(item)==='document'){renderDocumentPreview(item,content);}
+    else if (kind(item) === 'poem') content.append(node('pre', '', item.content || ''));
     else {
       try {
         const url = mediaURL(item);
@@ -301,7 +310,7 @@
     }
     const details = $('preview-details');
     details.replaceChildren();
-    const fields = [['Title', item.title], ['Original filename', item.original_filename || item.filename], ['Type', item.mime_type || 'Poem'], ['Duration', item.duration_seconds?durationText(item.duration_seconds):null], ['Size', bytes(item) ? `${size(bytes(item))} (${bytes(item).toLocaleString()} bytes)` : null], ['Added', new Date(item.created_at).toLocaleString()], ['Description', item.description], ['Mood', item.mood], ['Tags', item.tags], ['File ID', String(item.id)]];
+    const fields = [['Title', item.title], ['Original filename', item.original_filename || item.filename], ['Type', item.mime_type || 'Document'], ['Duration', item.duration_seconds?durationText(item.duration_seconds):null], ['Size', bytes(item) ? `${size(bytes(item))} (${bytes(item).toLocaleString()} bytes)` : null], ['Added', new Date(item.created_at).toLocaleString()], ['Description', item.description], ['Mood', item.mood], ['Tags', item.tags], ['File ID', String(item.id)]];
     fields.forEach(([label, value]) => { if (value) details.append(node('dt', '', label), node('dd', '', value)); });
     updatePreviewNavigation();
     if(!$('preview-dialog').open)$('preview-dialog').showModal();
@@ -362,23 +371,33 @@
   });
   document.addEventListener('pointerdown', event => { if (!$('sort-control').contains(event.target)) closeSort(); });
   $('retry-load').addEventListener('click', load);
-  $('open-upload').addEventListener('click', () => { if(!state.uploading) $('upload-dialog').showModal(); });
-  $('close-upload').addEventListener('click', () => { if (!state.uploading) $('upload-dialog').close(); });
-  $('upload-dialog').addEventListener('cancel', event => { if (state.uploading) event.preventDefault(); });
-  [$('preview-dialog'), $('upload-dialog')].forEach(dialog => dialog.addEventListener('click', event => {
-    if (event.target !== dialog || (dialog === $('upload-dialog') && state.uploading)) return;
-    const rect = dialog.getBoundingClientRect();
-    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
-  }));
-  function mode(poem) {
-    if (state.uploading) return;
-    $('file-upload-form').hidden = poem;
-    $('poem-upload-form').hidden = !poem;
-    $('mode-file').setAttribute('aria-pressed', String(!poem));
-    $('mode-poem').setAttribute('aria-pressed', String(poem));
+  let draftNoticeTimer;
+  function showBubble(id,visible){
+    const bubble=$(id);
+    if(!visible){if(bubble.hidePopover)try{bubble.hidePopover();}catch{}bubble.hidden=true;return;}
+    bubble.hidden=false;
+    if(bubble.showPopover)try{bubble.showPopover();}catch{}
   }
-  $('mode-file').addEventListener('click', () => mode(false));
-  $('mode-poem').addEventListener('click', () => mode(true));
+  $('open-upload').addEventListener('click', () => { if(!state.uploading){showBubble('upload-close-warning',false);$('upload-dialog').showModal();} });
+  function hasUploadDraft(){return $('upload-file').files.length>0||!!$('upload-title').value.trim()||!!$('upload-description').value.trim();}
+  function warnUploadClose(){
+    $('upload-close-message').textContent='Draft kept. Open Upload to continue.';
+    clearTimeout(draftNoticeTimer);showBubble('upload-close-warning',true);
+    draftNoticeTimer=setTimeout(()=>showBubble('upload-close-warning',false),5000);
+  }
+  function requestUploadClose(){
+    $('upload-dialog').close();
+    if(state.uploading)showBubble('transfer-toast',true);
+    else if(hasUploadDraft())warnUploadClose();
+  }
+  $('close-upload').addEventListener('click',requestUploadClose);
+  $('dismiss-upload-warning').addEventListener('click',()=>showBubble('upload-close-warning',false));
+  $('upload-dialog').addEventListener('cancel', event => { event.preventDefault();requestUploadClose(); });
+  [$('preview-dialog'), $('upload-dialog')].forEach(dialog => dialog.addEventListener('click', event => {
+    if(event.target!==dialog)return;
+    const rect = dialog.getBoundingClientRect();
+    if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom){if(dialog===$('upload-dialog'))requestUploadClose();else dialog.close();}
+  }));
   function selection() {
     const files = $('upload-file').files;
     $('file-selection').textContent = files.length ? files.length === 1 ? files[0].name : `${files.length} files selected` : 'Choose files or drop them here';
@@ -395,33 +414,31 @@
   $('file-drop').addEventListener('dragover', event => { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect='copy'; $('file-drop').classList.add('dragging'); });
   $('file-drop').addEventListener('dragleave', () => $('file-drop').classList.remove('dragging'));
   $('file-drop').addEventListener('drop', event => { event.preventDefault(); $('file-drop').classList.remove('dragging'); if (state.uploading) return; event.stopPropagation(); $('upload-file').files = event.dataTransfer.files; selection(); });
+  window.addEventListener('beforeunload',event=>{if(state.uploading||hasUploadDraft()){event.preventDefault();event.returnValue='';}});
   function busy(value) {
     state.uploading = value;
-    ['upload-submit', 'poem-submit', 'mode-file', 'mode-poem', 'upload-file', 'upload-description', 'poem-title', 'poem-content', 'poem-mood', 'poem-tags'].forEach(id => $(id).disabled = value);
+    ['upload-submit', 'upload-file', 'upload-description'].forEach(id => $(id).disabled = value);
     $('upload-title').disabled = value || $('upload-file').files.length > 1;
     $('upload-progress').hidden = false;
     $('open-upload').disabled = value;
-    if(value) { clearTimeout(transferAutoCloseTimer); $('upload-status').dataset.state = ''; setTransferProgress(0); $('transfer-title').textContent='Uploading'; $('transfer-toast').hidden=false; $('dismiss-transfer').hidden=true; $('upload-dialog').close(); }
-    else { $('dismiss-transfer').hidden=false; const failed=$('upload-status').dataset.state==='error'; $('transfer-title').textContent=failed?'Upload needs attention':'Upload complete'; recordNotification($('transfer-title').textContent,$('upload-status').textContent,failed?'error':'success'); transferAutoCloseTimer=setTimeout(()=>{if(!state.uploading)$('transfer-toast').hidden=true;},failed?8000:3500); }
+    if(value) {
+      clearTimeout(transferAutoCloseTimer);showBubble('upload-close-warning',false);
+      $('upload-dialog').close();
+      $('upload-status').dataset.state='';setTransferProgress(0);
+      $('transfer-title').textContent='Uploading';$('dismiss-transfer').hidden=true;
+      showBubble('transfer-toast',true);
+    } else {
+      $('dismiss-transfer').hidden=false;
+      const failed=$('upload-status').dataset.state==='error';
+      $('transfer-title').textContent=failed?'Upload needs attention':'Upload complete';
+      recordNotification($('transfer-title').textContent,$('upload-status').textContent,failed?'error':'success');
+      transferAutoCloseTimer=setTimeout(()=>{if(!state.uploading)showBubble('transfer-toast',false);},failed?8000:3500);
+    }
   }
   $('file-upload-form').addEventListener('submit', event => {
     event.preventDefault();
     uploadFiles(Array.from($('upload-file').files), {folderId:state.currentFolderId,title:$('upload-title').value.trim(),description:$('upload-description').value});
   });
-  $('poem-upload-form').addEventListener('submit', async event => {
-    event.preventDefault();
-    if (state.uploading) return;
-    busy(true);
-    try {
-      await api('/api/poems', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: $('poem-title').value, content: $('poem-content').value, mood: $('poem-mood').value || 'reflective', tags: $('poem-tags').value, ...(state.currentFolderId !== null ? { folder_id: state.currentFolderId } : {}) }) });
-      $('poem-upload-form').reset();
-      $('upload-status').textContent = 'Poem saved.'; setTransferProgress(100);
-      await load();
-    } catch (error) { $('upload-status').dataset.state = 'error'; $('upload-status').textContent = error.message; }
-    finally { busy(false); }
-  });
-
-  
   let editingFolder = null;
   let deletingFolder = null;
   let movingItems = [];
@@ -501,9 +518,9 @@
     menuItem=item;
     const isFolder = kind(item) === 'folder';
     const menu=$('file-menu'),rect=button.getBoundingClientRect();
-    const moveBtn = menu.querySelector('[data-action="move"]');
+    const moveBtn = $('file-more-menu').querySelector('[data-action="move"]');
     if (moveBtn) moveBtn.hidden = isFolder;
-    menu.querySelector('[data-action="share"]').hidden=kind(item)==='folder';
+    $('file-more-menu').querySelector('[data-action="share"]').textContent=kind(item)==='folder'?'Share folder':'Share file';$('file-more-menu').hidden=true;$('file-more-toggle').setAttribute('aria-expanded','false');
     const editBtn = menu.querySelector('[data-action="edit"]');
     if (editBtn) editBtn.textContent = 'Edit';
     menu.hidden=false;
@@ -582,7 +599,7 @@
       }
     });
 
-    $('delete-folder-contents').addEventListener('change',event=>{$('delete-folder-explanation').textContent=event.target.checked?'Videos, images, and poems in this folder will be permanently deleted. Shared links will stop working.':'Files will be kept in All files.';$('confirm-delete-folder').textContent=event.target.checked?'Delete folder and files':'Delete folder';});
+    $('delete-folder-contents').addEventListener('change',event=>{$('delete-folder-explanation').textContent=event.target.checked?'Videos, images, and documents in this folder will be permanently deleted. Shared links will stop working.':'Files will be kept in All files.';$('confirm-delete-folder').textContent=event.target.checked?'Delete folder and files':'Delete folder';});
     if ($('delete-folder-form')) $('delete-folder-form').addEventListener('submit', async event => {
       event.preventDefault();
       if (!deletingFolder) return;
@@ -634,21 +651,15 @@
     document.addEventListener('keydown',event=>{
       if(event.target.closest('input:not([type="checkbox"]),textarea,select,[contenteditable="true"]')||document.querySelector('dialog[open]'))return;
       if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='a'){event.preventDefault();state.selection=new Set(state.visible.map(key));updateSelection();}
-      if(event.key==='Escape'){state.selection.clear();updateSelection();$('file-menu').hidden=true;}
+      if(event.key==='Escape'){state.selection.clear();updateSelection();closeFileMenus();}
       if(event.key==='Delete'&&state.selection.size){event.preventDefault();requestDelete(state.items.filter(item=>state.selection.has(key(item))));}
     });
-    $('file-menu').addEventListener('click',event=>{
-      const button=event.target.closest('[data-action]');if(!button||!menuItem)return;
-      $('file-menu').hidden=true;
-      ({open:()=>preview(menuItem),edit:()=>openEdit(menuItem),move:()=>openMoveDialog([key(menuItem)]),details:()=>openDetails(menuItem),share:()=>openSharing(menuItem),select:()=>selectItem(menuItem,{toggle:true}),delete:()=>kind(menuItem)==='folder'?openDeleteFolderDialog(state.folders.find(folder=>folder.id===menuItem.id)):requestDelete([menuItem])})[button.dataset.action]();
-    });
-    $('file-menu').addEventListener('keydown',event=>{
-      const buttons=Array.from($('file-menu').querySelectorAll('button')).filter(button=>!button.hidden),index=buttons.indexOf(document.activeElement);
-      if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();buttons[(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();}
-      if(event.key==='Escape'||event.key==='Tab')$('file-menu').hidden=true;
-    });
-    document.addEventListener('pointerdown',event=>{if(!$('file-menu').contains(event.target)&&!event.target.closest('.more-button'))$('file-menu').hidden=true;});
-    document.addEventListener('scroll',()=>$('file-menu').hidden=true,true);
+    for(const id of ['file-menu','file-more-menu']){
+      $(id).addEventListener('click',handleFileAction);
+      $(id).addEventListener('keydown',event=>{const buttons=Array.from($(id).querySelectorAll('button')).filter(button=>!button.hidden),index=buttons.indexOf(document.activeElement);if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();buttons[(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();}if(event.key==='ArrowRight'&&document.activeElement===$('file-more-toggle')){event.preventDefault();openMoreMenu();}if(id==='file-more-menu'&&['Escape','ArrowLeft'].includes(event.key)){event.preventDefault();event.stopPropagation();$('file-more-menu').hidden=true;$('file-more-toggle').setAttribute('aria-expanded','false');$('file-more-toggle').focus();}else if(event.key==='Escape'||event.key==='Tab')closeFileMenus();});
+    }
+    document.addEventListener('pointerdown',event=>{if(!$('file-menu').contains(event.target)&&!$('file-more-menu').contains(event.target)&&!event.target.closest('.more-button'))closeFileMenus();});
+    document.addEventListener('scroll',closeFileMenus,true);
     document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$ (button.dataset.close).close()));
     $('bulk-folder-delete-contents').addEventListener('change',event=>{$('delete-dialog').querySelector('.muted').textContent=event.target.checked?'Selected folders and everything inside them will be permanently deleted. Shared links will stop working.':'Selected files are permanently deleted. Removing a folder keeps its remaining files in All files.';});
     $('delete-form').addEventListener('submit',async event=>{
@@ -689,7 +700,7 @@
     $('folder-name-input').addEventListener('input',updateFolderPreview);
     $('folder-color-input').addEventListener('input',event=>setFolderColor(event.target.value));
     document.querySelectorAll('[data-folder-color]').forEach(button=>button.addEventListener('click',()=>setFolderColor(button.dataset.folderColor)));
-    $('dismiss-transfer').addEventListener('click',()=>$('transfer-toast').hidden=true);
+    $('dismiss-transfer').addEventListener('click',()=>showBubble('transfer-toast',false));
     $('open-preferences').addEventListener('click',()=>{$('admin-toggle').click();$('preferences-dialog').showModal();});
     const widths={}; try{Object.assign(widths,JSON.parse(localStorage.getItem('files-columns')||'{}'));}catch{}
     const saveWidths=()=>{try{localStorage.setItem('files-columns',JSON.stringify(widths));}catch{}};
@@ -718,9 +729,9 @@
     return api('/api/folders/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder_id:folderId,items})});
   }
   function setTransferProgress(percent) {
-    const value=Math.max(0,Math.min(100,Math.round(percent)));
+    const value=Math.max(0,Math.min(100,percent));
     $('upload-progress').value=value;
-    $('transfer-percent').textContent=value+'%';
+    $('transfer-percent').textContent=value.toFixed(1)+'%';
   }
   async function uploadFiles(files,options={}) {
     if(state.uploading||!files.length)return;
@@ -732,16 +743,22 @@
       if(files.length>1000)throw new Error('Upload up to 1000 files at a time.');
       for(const file of files){
         const extension=file.name.split('.').pop().toLowerCase(),video=['mp4','mov','webm'].includes(extension);
-        if(!video&&!['jpg','jpeg','png','webp'].includes(extension))throw new Error('Unsupported file type: '+file.name);
-        if(file.size>(video?500:25)*1024*1024)throw new Error(file.name+' exceeds the upload size limit.');
+        if(!file.size)throw new Error(file.name+' is empty.');
+        if(file.size>(['jpg','jpeg','png','webp'].includes(extension)?25:500)*1024*1024)throw new Error(file.name+' exceeds the upload size limit.');
       }
       for(const [index,file] of files.entries()){
-        const body=new FormData();body.append('file',file);body.append('title',files.length===1&&options.title?options.title:file.name);body.append('description',options.description||'');
-        if(folderId!==null)body.append('folder_id',String(folderId));
+        const title=files.length===1&&options.title?options.title:file.name;
+        const params=new URLSearchParams({filename:file.name,title,description:options.description||''});if(folderId!==null)params.set('folder_id',String(folderId));
+        let path='/api/upload/raw?'+params,body=file;
+        if(path.length>7000){path='/api/upload';body=new FormData();body.append('file',file);body.append('title',title);body.append('description',options.description||'');if(folderId!==null)body.append('folder_id',String(folderId));}
+        const started=performance.now();
         $('upload-status').textContent=`${index+1} of ${files.length} · ${file.name}`;
-        const result=await window.adminAuth.uploadWithProgress('/api/upload',body,percent=>{
-          setTransferProgress(Math.min(99,(uploadedBytes+file.size*percent/100)/totalBytes*100));
-          if(percent===100)$('upload-status').textContent='Finishing '+file.name+'…';
+        const result=await window.adminAuth.uploadWithProgress(path,body,(percent,loaded,total)=>{
+          const sent=Math.min(file.size,loaded||file.size*percent/100),seconds=(performance.now()-started)/1000;
+          setTransferProgress((uploadedBytes+sent)/totalBytes*100);
+          $('upload-status').textContent=`${index+1} of ${files.length} · ${size(sent)} / ${size(file.size)}${seconds>.3?' · '+size(sent/seconds)+'/s':''}`;
+          if(percent>=100){$('transfer-title').textContent='Processing';$('upload-status').textContent=`${index+1} of ${files.length} · Uploaded. Checking and saving ${file.name}…`;}
+          else $('transfer-title').textContent='Uploading';
         });
         if(!result.ok)throw new Error(typeof result.error==='string'?result.error:result.data?.message||'Upload failed.');
         completed++;uploadedBytes+=file.size;
@@ -1005,23 +1022,23 @@
   async function openDetails(item){detailItem=item;renderDetails(item);$('details-status').textContent='';$('details-dialog').showModal();try{let latest;if(kind(item)==='folder'){const result=await api('/api/folders');latest=result.folders.find(value=>value.id===item.id);if(latest)latest={...latest,title:latest.name,media_type:'folder'};}else latest=await api(`/api/${kind(item)==='poem'?'poems':'media'}/${item.id}`);if(latest&&detailItem===item){Object.assign(item,latest);renderDetails(item);if(kind(item)==='video'&&!item.duration_seconds)refreshTechnical(item);}}catch(error){$('details-status').textContent=error.message;}}
   function setCategories(open){const menu=$('category-menu');menu.inert=!open;menu.setAttribute('aria-hidden',String(!open));menu.closest('.category-control').classList.toggle('expanded',open);$('category-toggle').setAttribute('aria-expanded',String(open));}
   function closeCategories(){setCategories(false);}
-  const shareEndpoint=item=>`/api/${kind(item)==='poem'?'poems':'media'}/${item.id}/share`;
+  const shareEndpoint=item=>`/api/${kind(item)==='folder'?'folders':'media'}/${item.id}/share`;
   let sharingActive=false;
   async function openSharing(item){
-    shareItem=item;sharingActive=false;$('share-title').textContent=item.title;$('share-link-row').hidden=true;$('share-link').value='';$('share-error').hidden=true;$('share-enabled').checked=false;$('share-details').checked=false;$('share-clean').checked=false;$('share-clean-row').hidden=true;$('share-expiry').value='604800';$('share-create').textContent='Create link';$('share-create').disabled=true;$('share-enabled').disabled=true;$('share-status').textContent='Loading sharing settings…';$('share-dialog').showModal();
-    try{const result=await api(shareEndpoint(item));if(shareItem!==item)return;sharingActive=result.shared;$('share-enabled').checked=result.shared;$('share-details').checked=!!result.share?.allow_details;$('share-clean').checked=!!result.share?.strip_metadata;$('share-clean-row').hidden=!$('share-details').checked;$('share-create').textContent=result.shared?'Create new link':'Create link';$('share-create').disabled=!result.shared;$('share-status').textContent=result.shared?'Shared view is enabled. Creating a new link replaces the previous one.':'Turn on Shared view, choose your options, then create a link.';}
+    shareItem=item;sharingActive=false;$('share-folder-options').hidden=kind(item)!=='folder';document.querySelector('#share-dialog h2').textContent=kind(item)==='folder'?'Share folder':'Share file';$('share-title').textContent=item.title;$('share-link-row').hidden=true;$('share-link').value='';$('share-error').hidden=true;$('share-enabled').checked=false;$('share-details').checked=false;$('share-clean').checked=false;$('share-clean-row').hidden=true;$('share-expiry').value='604800';$('share-create').textContent='Create link';$('share-create').disabled=true;$('share-enabled').disabled=true;$('share-status').textContent='Loading sharing settings…';$('share-dialog').showModal();
+    try{const result=await api(shareEndpoint(item));if(shareItem!==item)return;if(kind(item)==='folder')renderFolderShare(result);sharingActive=result.shared;$('share-enabled').checked=result.shared;$('share-details').checked=result.shared?!!result.share?.allow_details:kind(item)==='document';$('share-clean').checked=!!result.share?.strip_metadata;$('share-clean-row').hidden=!$('share-details').checked||kind(item)==='document';$('share-create').textContent=result.shared?'Create new link':'Create link';$('share-create').disabled=!result.shared;$('share-status').textContent=result.shared?'Shared view is enabled. Creating a new link replaces the previous one.':'Turn on Shared view, choose your options, then create a link.';}
     catch(error){$('share-status').textContent=error.message;}
     finally{if(shareItem===item)$('share-enabled').disabled=false;}
   }
   async function createShareLink(){
     if(!shareItem||!$('share-enabled').checked)return;const item=shareItem;$('share-create').disabled=true;$('share-enabled').disabled=true;$('share-error').hidden=true;
-    try{const result=await api(shareEndpoint(item),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expires_in:Number($('share-expiry').value),allow_details:$('share-details').checked,strip_metadata:$('share-details').checked&&$('share-clean').checked})});if(shareItem!==item)return;sharingActive=true;$('share-create').textContent='Create new link';$('share-link').value=new URL(result.path,location.origin).href;$('share-link-row').hidden=false;$('share-status').textContent=result.expires_at?'Anyone with the link can view until '+new Date(result.expires_at*1000).toLocaleString()+'.':'Anyone with the link can view. Revoke access whenever you want.';}
+    try{const result=await api(shareEndpoint(item),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expires_in:Number($('share-expiry').value),allow_details:$('share-details').checked,strip_metadata:$('share-details').checked&&$('share-clean').checked,...(kind(item)==='folder'?folderSharePayload():{})})});if(shareItem!==item)return;sharingActive=true;$('share-create').textContent='Create new link';$('share-link').value=new URL(result.path,location.origin).href;$('share-link-row').hidden=false;$('share-status').textContent=result.expires_at?'Anyone with the link can view until '+new Date(result.expires_at*1000).toLocaleString()+'.':'Anyone with the link can view. Revoke access whenever you want.';}
     catch(error){if(shareItem===item){$('share-error').textContent=error.message;$('share-error').hidden=false;}}
     finally{if(shareItem===item){$('share-create').disabled=!$('share-enabled').checked;$('share-enabled').disabled=false;}}
   }
   async function loadSharedLinks(){
     const list=$('shared-links-list');list.replaceChildren(node('p','muted','Loading…'));
-    try{const result=await api('/api/shares');list.replaceChildren();for(const share of result.shares){const row=node('div','shared-link-entry'),info=node('div','shared-link-info');info.append(node('strong','',share.title));const expired=share.expires_at&&share.expires_at*1000<Date.now();info.append(node('small','muted',expired?'Expired':share.expires_at?'Expires '+new Date(share.expires_at*1000).toLocaleDateString():'No expiry'));const revoke=node('button','icon-button danger');revoke.type='button';revoke.setAttribute('aria-label','Revoke link for '+share.title);revoke.title='Revoke link';revoke.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg>';revoke.addEventListener('click',async()=>{revoke.disabled=true;try{await api(`/api/${share.item_kind==='poem'?'poems':'media'}/${share.media_id}/share`,{method:'DELETE'});row.remove();if(!list.children.length)list.append(node('p','muted','No shared links.'));}catch(error){revoke.disabled=false;const message=node('p','error-text',error.message);row.append(message);}});row.append(info,revoke);list.append(row);}if(!result.shares.length)list.append(node('p','muted','No shared links.'));}
+    try{const result=await api('/api/shares');list.replaceChildren();for(const share of result.shares){const row=node('div','shared-link-entry'),info=node('div','shared-link-info');info.append(node('strong','',share.title));const expired=share.expires_at&&share.expires_at*1000<Date.now();info.append(node('small','muted',expired?'Expired':share.expires_at?'Expires '+new Date(share.expires_at*1000).toLocaleDateString():'No expiry'));const revoke=node('button','icon-button danger');revoke.type='button';revoke.setAttribute('aria-label','Revoke link for '+share.title);revoke.title='Revoke link';revoke.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg>';revoke.addEventListener('click',async()=>{revoke.disabled=true;try{await api(`/api/${share.item_kind==='folder'?'folders':'media'}/${share.media_id}/share`,{method:'DELETE'});row.remove();if(!list.children.length)list.append(node('p','muted','No shared links.'));}catch(error){revoke.disabled=false;const message=node('p','error-text',error.message);row.append(message);}});row.append(info,revoke);list.append(row);}if(!result.shares.length)list.append(node('p','muted','No shared links.'));}
     catch(error){list.replaceChildren(node('p','error-text',error.message));}
   }
   function initializeStorageTooltip(){
@@ -1042,7 +1059,27 @@
     button.addEventListener('keydown',event=>{if(event.key==='Escape')hide();});window.addEventListener('resize',hide);window.addEventListener('scroll',hide,true);
   }
 
+  function folderSharePayload(){return {scope:$('folder-share-scope').value,item_ids:Array.from($('folder-share-files').querySelectorAll('input:checked')).map(input=>Number(input.value))};}
+  function folderShareSummary(){const all=$('folder-share-scope').value==='all';$('folder-share-files').hidden=all;const count=$('folder-share-files').querySelectorAll('input:checked').length;$('folder-share-summary').textContent=all?'All files inherit these options. Files added later will also be shared.':count?`${count} selected ${count===1?'file':'files'} will inherit these options.`:'No files selected. The shared folder will be empty.';}
+  function renderFolderShare(result){
+    $('folder-share-scope').value=result.share?.scope||'selected';const selected=new Set(result.item_ids||[]),list=$('folder-share-files');list.replaceChildren();
+    for(const item of result.files||[]){const label=node('label','folder-share-file'),input=node('input');input.type='checkbox';input.value=String(item.id);input.checked=selected.has(item.id);input.addEventListener('change',folderShareSummary);label.append(input,node('span','',item.title));list.append(label);}
+    if(!list.children.length)list.append(node('p','muted','This folder has no files.'));folderShareSummary();
+  }
+  function closeFileMenus(){ $('file-menu').hidden=true;$('file-more-menu').hidden=true;$('file-more-toggle').setAttribute('aria-expanded','false'); }
+  function openMoreMenu(){
+    const submenu=$('file-more-menu'),button=$('file-more-toggle');submenu.hidden=false;button.setAttribute('aria-expanded','true');
+    const anchor=button.getBoundingClientRect(),parent=$('file-menu').getBoundingClientRect(),width=submenu.offsetWidth;
+    const preferred=parent.right+5+width<=innerWidth-8?parent.right+5:parent.left-width-5;
+    submenu.style.left=Math.max(8,Math.min(innerWidth-width-8,preferred))+'px';submenu.style.top=Math.max(8,Math.min(innerHeight-submenu.offsetHeight-8,anchor.top))+'px';submenu.querySelector('button:not([hidden])').focus();
+  }
+  function handleFileAction(event){
+    const button=event.target.closest('[data-action]');if(!button||!menuItem)return;if(button.dataset.action==='more'){openMoreMenu();return;}
+    closeFileMenus();({open:()=>preview(menuItem),edit:()=>openEdit(menuItem),move:()=>openMoveDialog([key(menuItem)]),details:()=>openDetails(menuItem),share:()=>openSharing(menuItem),select:()=>selectItem(menuItem,{toggle:true}),delete:()=>kind(menuItem)==='folder'?openDeleteFolderDialog(state.folders.find(folder=>folder.id===menuItem.id)):requestDelete([menuItem])})[button.dataset.action]();
+  }
+
   function initializeStorageFeatures(){
+    $('folder-share-scope').addEventListener('change',folderShareSummary);
     initializeStorageTooltip();
     $('category-toggle').addEventListener('click',()=>setCategories($('category-toggle').getAttribute('aria-expanded')!=='true'));
     $('category-menu').addEventListener('keydown',event=>{if(event.key==='Escape'){closeCategories();$('category-toggle').focus();}});
@@ -1054,12 +1091,12 @@
       const item=shareItem;if(!item)return;$('share-error').hidden=true;
       if(event.target.checked){$('share-create').disabled=false;$('share-status').textContent='Ready. Click Create link to enable shared access.';return;}
       $('share-create').disabled=true;
-      if(!sharingActive){$('share-status').textContent='Only you can access this video.';return;}
+      if(!sharingActive){$('share-status').textContent='Only you can access this item.';return;}
       event.target.disabled=true;try{await api(shareEndpoint(item),{method:'DELETE'});if(shareItem!==item)return;sharingActive=false;$('share-link-row').hidden=true;$('share-link').value='';$('share-create').textContent='Create link';$('share-status').textContent='Access revoked. Previous links no longer work.';}
       catch(error){if(shareItem===item){$('share-enabled').checked=true;$('share-create').disabled=false;$('share-error').textContent=error.message;$('share-error').hidden=false;}}
       finally{if(shareItem===item)$('share-enabled').disabled=false;}
     });
-    $('share-details').addEventListener('change',()=>{$('share-clean-row').hidden=!$('share-details').checked;if(!$('share-details').checked)$('share-clean').checked=false;});
+    $('share-details').addEventListener('change',()=>{$('share-clean-row').hidden=!$('share-details').checked||kind(shareItem)==='document';if(!$('share-details').checked||kind(shareItem)==='document')$('share-clean').checked=false;});
     ['share-expiry','share-details','share-clean'].forEach(id=>$(id).addEventListener('change',()=>{if(sharingActive)$('share-status').textContent='Create a new link to apply these options and replace the previous link.';}));
     $('share-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('share-link').value);$('share-copy').textContent='Copied';setTimeout(()=>$('share-copy').textContent='Copy link',1600);}catch{$('share-link').select();}});
     setInterval(()=>{if(document.visibilityState==='visible'&&window.adminAuth.authenticated)loadStorage();},60000);

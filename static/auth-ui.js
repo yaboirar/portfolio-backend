@@ -167,7 +167,7 @@
       if (xhr.upload && typeof onProgress === 'function') {
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
+            const pct = (e.loaded / e.total) * 100;
             onProgress(pct, e.loaded, e.total);
           }
         });

@@ -5,6 +5,9 @@ import re
 import threading
 import database
 import clean_downloads
+import folder_sharing
+import video_thumbnails
+import urllib.parse
 ROOT=Path(__file__).resolve().parent
 STREAMS=threading.BoundedSemaphore(4)
 DAILY_BYTES=max(1024**2,int(os.environ.get('SHARE_DAILY_LIMIT_BYTES',10*1024**3)))
@@ -21,9 +24,11 @@ class Budget:
 
 def _source(handler,item):
     if item['media_type']=='poem':return True
-    filename=item['filename'];base=(ROOT/'uploads'/('videos' if item['media_type']=='video' else 'images')).resolve();original=(base/filename).resolve()
+    filename=item['filename'];base=(ROOT/'uploads'/('videos' if item['media_type']=='video' else 'images' if item['media_type']=='image' else 'documents')).resolve();original=(base/filename).resolve()
     if Path(filename).name!=filename or not original.is_relative_to(base) or not original.is_file():
         handler.send_error_json(404,'This shared link is unavailable');return None
+    if item['strip_metadata'] and item['media_type']=='other':
+        handler.send_error_json(503,'Metadata removal is unavailable for this document.');return None
     if item['strip_metadata']:
         state,clean=clean_downloads.request(item,original)
         if state!='ready':
@@ -37,26 +42,53 @@ def handle_get(handler,path,head_only=False):
     assets={'/shared-assets/shared.js':'shared.js','/shared-assets/shared.css':'shared.css','/shared-assets/video-player.js':'video-player.js'}
     if path in assets:
         handler.serve_file_with_range(ROOT/'static'/assets[path],head_only=head_only);return True
-    match=re.fullmatch(r'/share/([A-Za-z0-9_-]{32})(?:/(metadata|file|download))?',path)
+    match=re.fullmatch(r'/share/([A-Za-z0-9_-]{32})(?:/item/([A-Za-z0-9_-]{16}))?(?:/(metadata|file|download|thumbnail))?',path)
     if not match:return False
-    item=database.resolve_media_share(match.group(1))
+    token,child_key,action=match.group(1),match.group(2),match.group(3)
+    grant=folder_sharing.resolve(token)
+    item=database.resolve_media_share(token) if not child_key else None
+    if grant and not child_key:
+        if action is None:handler.serve_file_with_range(ROOT/'static/shared.html',head_only=head_only)
+        elif action=='metadata':
+            query=urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
+            try:page_number=int(query.get('page',['1'])[0])
+            except ValueError:page_number=1
+            items,more=folder_sharing.page(grant,page_number)
+            result={'kind':'folder','title':grant['title'],'description':grant['description'],'details_enabled':bool(grant['allow_details']),'items':items,'more':more,'page':page_number}
+            if grant['allow_details']:result['details']={'title':grant['title'],'type':'Folder'}
+            handler.send_json(200,result)
+        else:handler.send_error_json(404,'This shared link is unavailable')
+        return True
+    if grant and child_key:item=folder_sharing.child(grant,child_key)
     if not item:handler.send_error_json(404,'This shared link is unavailable');return True
-    action=match.group(2)
     if action=='download' and not item['allow_details']:
         handler.send_error_json(404,'Download is unavailable');return True
     if action is None:
         handler.serve_file_with_range(ROOT/'static/shared.html',head_only=head_only);return True
+    if action=='thumbnail':
+        if item['media_type'] not in ('image','video'):handler.send_error_json(404,'Preview unavailable');return True
+        # The derived JPEG contains no source tags; originals are never returned here.
+        original=_source(handler,{**item,'strip_metadata':False})
+        if original is None:return True
+        preview=video_thumbnails.request_thumbnail(item['id'],original)
+        if not preview:handler.send_json(202,{'preparing':True},{'Retry-After':'2'});return True
+        if not STREAMS.acquire(blocking=False):handler.send_json(429,{'message':'Preview busy'},{'Retry-After':'2'});return True
+        try:handler.serve_file_with_range(preview,head_only=head_only,budget=Budget(handler))
+        finally:STREAMS.release()
+        return True
     source=_source(handler,item)
     if source is None:return True
-    kind=item['media_type']
+    kind='document' if item['media_type']=='other' else item['media_type']
     if action=='metadata':
         result={'title':item['title'],'description':item.get('description',''),'kind':kind,'details_enabled':bool(item['allow_details'])}
+        if grant:result.update(folder_path='/share/'+token,folder_title=grant['title'])
+        if kind=='document':result['text_preview']=Path(item['filename']).suffix.lower() in {'.txt','.md','.csv','.json','.log','.yaml','.yml','.xml'}
         if item['allow_details']:
             details={'title':item['title'],'type':item.get('mime_type') or 'text/plain'}
             if kind=='video':
                 total=max(0,int(item.get('duration_seconds') or 0));hours,remainder=divmod(total,3600);minutes,seconds=divmod(remainder,60)
                 details['duration']=f'{hours}:{minutes:02}:{seconds:02}' if hours else f'{minutes}:{seconds:02}'
-            if kind!='poem':details['dimensions']=f"{item['width']} × {item['height']}" if item.get('width') and item.get('height') else 'Unavailable'
+            if kind in ('video','image'):details['dimensions']=f"{item['width']} × {item['height']}" if item.get('width') and item.get('height') else 'Unavailable'
             result['details']=details
         handler.send_json(200,result);return True
     if not STREAMS.acquire(blocking=False):
@@ -77,6 +109,20 @@ def handle_get(handler,path,head_only=False):
     return True
 
 def handle_owner(handler,path):
+    folder_match=re.fullmatch(r'/api/folders/(\d+)/share',path)
+    if folder_match:
+        if not handler.require_auth():return True
+        folder_id=int(folder_match.group(1))
+        try:
+            if handler.command=='GET':handler.send_json(200,folder_sharing.owner_status(folder_id))
+            elif handler.command=='POST':
+                body=handler.parse_json_body()
+                if not isinstance(body,dict):raise ValueError('Invalid sharing options')
+                handler.send_json(201,folder_sharing.create(folder_id,body))
+            elif handler.command=='DELETE':folder_sharing.revoke(folder_id);handler.send_json(200,{'shared':False})
+            else:handler.send_error_json(405,'Method not allowed')
+        except (ValueError,TypeError) as error:handler.send_error_json(400,str(error))
+        return True
     match=re.fullmatch(r'/api/(media|poems)/(\d+)/share',path)
     if not match:return False
     if not handler.require_auth():return True
@@ -91,6 +137,8 @@ def handle_owner(handler,path):
         try:
             body=handler.parse_json_body()
             if not isinstance(body,dict):raise ValueError('Invalid share settings')
+            if item.get('media_type')=='other' and body.get('strip_metadata'):
+                raise ValueError('Embedded metadata removal is available for images and videos only')
             result=database.create_media_share(item_id,body.get('expires_in',604800),body.get('allow_details',False),kind,body.get('strip_metadata',False))
             result['path']='/share/'+result.pop('token');handler.send_json(201,result)
         except (ValueError,TypeError) as error:handler.send_error_json(400,str(error))

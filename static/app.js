@@ -368,7 +368,7 @@
 
   function animateNavIcon(slot, visible, exitDirection) {
     animateNavElement(slot, {
-      transform: visible ? 'scale(1) translateY(0%)' : `scale(0.7) translateY(${exitDirection * 40}%)`,
+      transform: 'none',
       opacity: visible ? '1' : '0'
     }, 0);
   }

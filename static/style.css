@@ -2272,3 +2272,7 @@ html { font-size: calc(16 * var(--ui-unit)); }
 .panel-expand-btn { flex-shrink: 0; }
 .media-title, .media-desc, .poem-card { overflow-wrap: anywhere; }
 .upload-scroll { min-height: 0; }
+
+/* Category symbols stay still while the drawer expands. */
+.nav-item .nav-svg, .nav-item:hover .nav-svg { transform:none; transition:color 140ms ease; }
+.nav-current-icons > .nav-icon-slot { will-change:opacity; }
